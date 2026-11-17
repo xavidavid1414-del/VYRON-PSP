@@ -1,6 +1,7 @@
 #include <3ds.h>
 #include "psp_core.h"
 #include "loader/psp_iso_file.h"
+#include "audio/psp_audio.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -187,6 +188,8 @@ int main(void)
         return 1;
     }
 
+    bool audio_ready = psp_audio_init();
+
     scan_iso_directory();
     print_file_list();
 
@@ -225,6 +228,9 @@ int main(void)
         draw_interface(&core.video);
         psp_video_present(&core.video);
     }
+
+    if (audio_ready)
+        psp_audio_shutdown();
 
     psp_core_destroy(&core);
     gfxExit();
