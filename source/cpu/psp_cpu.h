@@ -12,6 +12,8 @@ typedef struct {
 
     uint32_t cop0[32];
 
+    uint32_t branch_target;
+    bool branch_pending;
     bool halted;
 } PSP_CPU;
 
