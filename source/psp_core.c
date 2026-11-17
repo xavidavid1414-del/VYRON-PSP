@@ -1,3 +1,4 @@
+
 #include "psp_core.h"
 #include "cpu/psp_interpreter.h"
 
@@ -193,6 +194,12 @@ bool psp_core_init(PSP_Core *core)
     if (!psp_memory_init(&core->memory))
         return false;
 
+    if (!psp_video_init(&core->video))
+    {
+        psp_memory_destroy(&core->memory);
+        return false;
+    }
+
     psp_cpu_init(&core->cpu);
 
     core->initialized = true;
@@ -206,6 +213,7 @@ void psp_core_reset(PSP_Core *core)
         return;
 
     psp_cpu_reset(&core->cpu);
+    psp_video_clear(&core->video, 0xFF000000u);
 }
 
 void psp_core_unmount_iso(PSP_Core *core)
@@ -239,6 +247,7 @@ void psp_core_destroy(PSP_Core *core)
     psp_core_unload_executable(core);
     psp_core_unmount_iso(core);
 
+    psp_video_destroy(&core->video);
     psp_memory_destroy(&core->memory);
 
     memset(core, 0, sizeof(*core));
