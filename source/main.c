@@ -1,6 +1,6 @@
-
 #include <3ds.h>
 #include "psp_core.h"
+#include "loader/psp_iso_file.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -24,6 +24,7 @@ static char status_message[96];
 static bool has_iso_extension(const char *name)
 {
     const char *dot = strrchr(name, '.');
+
     return dot &&
         (strcasecmp(dot, ".iso") == 0 ||
          strcasecmp(dot, ".cso") == 0);
@@ -32,6 +33,7 @@ static bool has_iso_extension(const char *name)
 static void scan_iso_directory(void)
 {
     DIR *directory = opendir(ISO_DIRECTORY);
+
     iso_count = 0;
     selected = 0;
     scan_ok = directory != NULL;
@@ -46,6 +48,7 @@ static void scan_iso_directory(void)
 
     while ((entry = readdir(directory)) != NULL &&
            iso_count < MAX_ISO_FILES) {
+
         if (entry->d_name[0] == '.' ||
             !has_iso_extension(entry->d_name))
             continue;
@@ -53,6 +56,7 @@ static void scan_iso_directory(void)
         snprintf(iso_files[iso_count].name,
                  sizeof(iso_files[iso_count].name),
                  "%s", entry->d_name);
+
         iso_count++;
     }
 
@@ -60,6 +64,43 @@ static void scan_iso_directory(void)
 
     snprintf(status_message, sizeof(status_message),
              "%u PSP image(s) detected", iso_count);
+}
+
+static void probe_selected_iso(void)
+{
+    char path[256];
+    PSP_ISO_File iso;
+    PSP_ISO_FileEntry game_entry;
+
+    snprintf(path, sizeof(path), "%s/%s",
+             ISO_DIRECTORY, iso_files[selected].name);
+
+    if (!psp_iso_file_open(&iso, path)) {
+        snprintf(status_message, sizeof(status_message),
+                 "Cannot open ISO (CSO unsupported)");
+        return;
+    }
+
+    if (!psp_iso_file_find_root_entry(
+            &iso, "PSP_GAME", &game_entry)) {
+
+        snprintf(status_message, sizeof(status_message),
+                 "Invalid ISO: PSP_GAME not found");
+
+        psp_iso_file_close(&iso);
+        return;
+    }
+
+    if (!game_entry.directory) {
+        snprintf(status_message, sizeof(status_message),
+                 "PSP_GAME is not a directory");
+    } else {
+        snprintf(status_message, sizeof(status_message),
+                 "ISO OK | PSP_GAME found: %lu bytes",
+                 (unsigned long)game_entry.size);
+    }
+
+    psp_iso_file_close(&iso);
 }
 
 static void draw_interface(PSP_Video *video)
@@ -77,8 +118,10 @@ static void draw_interface(PSP_Video *video)
 
     if (iso_count > 0) {
         int row_y = 88 + (int)(selected % 6) * 25;
+
         psp_video_fill_rect(video, 30, row_y, 420, 21,
                             PSP_VIDEO_COLOR(30, 70, 112, 255));
+
         psp_video_fill_rect(video, 30, row_y, 4, 21,
                             PSP_VIDEO_COLOR(55, 190, 255, 255));
     }
@@ -90,31 +133,33 @@ static void draw_interface(PSP_Video *video)
 static void print_file_list(void)
 {
     consoleClear();
+
     printf("\x1b[1;1HVYRON PSP | ISO BROWSER");
     printf("\x1b[3;1HFolder: %s", ISO_DIRECTORY);
     printf("\x1b[5;1H");
 
     if (!scan_ok) {
-        printf("Folder not found. Create /PSP/ISO.\\n");
+        printf("Folder not found. Create /PSP/ISO.\n");
     } else if (iso_count == 0) {
-        printf("No ISO or CSO files found.\\n");
-        printf("Copy your PSP images into this folder.\\n");
+        printf("No ISO or CSO files found.\n");
+        printf("Copy your PSP images into this folder.\n");
     } else {
         unsigned int first = selected > 5 ? selected - 5 : 0;
         unsigned int last = first + 6;
+
         if (last > iso_count)
             last = iso_count;
 
         for (unsigned int i = first; i < last; i++) {
-            printf("%c %s\\n",
+            printf("%c %s\n",
                    i == selected ? '>' : ' ',
                    iso_files[i].name);
         }
     }
 
-    printf("\\n%s\\n", status_message);
-    printf("\\nUP/DOWN: Select  A: Open  X: Rescan");
-    printf("\\nSTART: Exit");
+    printf("\n%s\n", status_message);
+    printf("\nUP/DOWN: Select  A: Check ISO  X: Rescan");
+    printf("\nSTART: Exit");
 }
 
 int main(void)
@@ -125,12 +170,15 @@ int main(void)
     PSP_Core core;
 
     if (!psp_core_init(&core)) {
-        printf("VYRON PSP: initialization failed.\\n");
+        printf("VYRON PSP: initialization failed.\n");
+
         while (aptMainLoop()) {
             hidScanInput();
+
             if (hidKeysDown() & KEY_START)
                 break;
         }
+
         gfxExit();
         return 1;
     }
@@ -140,6 +188,7 @@ int main(void)
 
     while (aptMainLoop()) {
         hidScanInput();
+
         u32 down = hidKeysDown();
 
         if (down & KEY_START)
@@ -148,12 +197,14 @@ int main(void)
         if (down & KEY_UP) {
             if (iso_count > 0 && selected > 0)
                 selected--;
+
             print_file_list();
         }
 
         if (down & KEY_DOWN) {
             if (iso_count > 0 && selected + 1 < iso_count)
                 selected++;
+
             print_file_list();
         }
 
@@ -163,9 +214,7 @@ int main(void)
         }
 
         if ((down & KEY_A) && iso_count > 0) {
-            snprintf(status_message, sizeof(status_message),
-                     "Selected: %.60s (loading not implemented)",
-                     iso_files[selected].name);
+            probe_selected_iso();
             print_file_list();
         }
 
@@ -175,5 +224,6 @@ int main(void)
 
     psp_core_destroy(&core);
     gfxExit();
+
     return 0;
 }
