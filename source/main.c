@@ -1,10 +1,14 @@
+
 #include <3ds.h>
+
 #include "psp_core.h"
 #include "loader/psp_iso_file.h"
+#include "loader/psp_iso_extract.h"
 #include "audio/psp_audio.h"
 
 #include <dirent.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
@@ -16,10 +20,13 @@ typedef struct {
     char name[ISO_NAME_LENGTH];
 } ISO_File;
 
+static PSP_Core core;
+
 static ISO_File iso_files[MAX_ISO_FILES];
 static unsigned int iso_count;
 static unsigned int selected;
 static bool scan_ok;
+static bool audio_ready;
 static char status_message[96];
 
 static bool has_iso_extension(const char *name)
@@ -74,6 +81,9 @@ static void probe_selected_iso(void)
     PSP_ISO_FileEntry game_entry;
     PSP_ISO_FileEntry eboot_entry;
 
+    if (selected >= iso_count)
+        return;
+
     snprintf(path, sizeof(path), "%s/%s",
              ISO_DIRECTORY, iso_files[selected].name);
 
@@ -94,18 +104,53 @@ static void probe_selected_iso(void)
 
     if (!psp_iso_file_find_path(
             &iso, "PSP_GAME/SYSDIR/EBOOT.BIN", &eboot_entry) ||
-        eboot_entry.directory) {
+        eboot_entry.directory || eboot_entry.size == 0) {
         snprintf(status_message, sizeof(status_message),
-                 "PSP_GAME found; EBOOT.BIN missing");
+                 "EBOOT.BIN missing or invalid");
         psp_iso_file_close(&iso);
         return;
     }
 
-    snprintf(status_message, sizeof(status_message),
-             "ISO OK | EBOOT.BIN: %lu bytes",
-             (unsigned long)eboot_entry.size);
+    uint8_t *buffer = malloc(eboot_entry.size);
+
+    if (buffer == NULL) {
+        snprintf(status_message, sizeof(status_message),
+                 "Not enough memory for EBOOT.BIN");
+        psp_iso_file_close(&iso);
+        return;
+    }
+
+    bool extracted = psp_iso_extract_entry(
+        &iso,
+        &eboot_entry,
+        buffer,
+        eboot_entry.size
+    );
 
     psp_iso_file_close(&iso);
+
+    if (!extracted) {
+        snprintf(status_message, sizeof(status_message),
+                 "EBOOT extraction failed");
+        free(buffer);
+        return;
+    }
+
+    bool loaded = psp_core_load_executable_data(
+        &core,
+        buffer,
+        eboot_entry.size
+    );
+
+    free(buffer);
+
+    if (loaded) {
+        snprintf(status_message, sizeof(status_message),
+                 "Executable loaded!");
+    } else {
+        snprintf(status_message, sizeof(status_message),
+                 "Extracted; encrypted/unsupported EBOOT");
+    }
 }
 
 static void draw_interface(PSP_Video *video)
@@ -163,7 +208,7 @@ static void print_file_list(void)
     }
 
     printf("\n%s\n", status_message);
-    printf("\nUP/DOWN: Select  A: Check ISO  X: Rescan");
+    printf("\nUP/DOWN: Select  A: Load  X: Rescan");
     printf("\nSTART: Exit");
 }
 
@@ -171,8 +216,6 @@ int main(void)
 {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
-
-    PSP_Core core;
 
     if (!psp_core_init(&core)) {
         printf("VYRON PSP: initialization failed.\n");
@@ -188,7 +231,7 @@ int main(void)
         return 1;
     }
 
-    bool audio_ready = psp_audio_init();
+    audio_ready = psp_audio_init();
 
     scan_iso_directory();
     print_file_list();
