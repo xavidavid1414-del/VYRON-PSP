@@ -10,10 +10,12 @@
 #include "loader/psp_iso.h"
 #include "loader/psp_iso_fs.h"
 #include "loader/psp_loader.h"
+#include "video/psp_video.h"
 
 typedef struct {
     PSP_CPU cpu;
     PSP_Memory memory;
+    PSP_Video video;
 
     PSP_ISO_Info iso_info;
     PSP_ISO_FS iso_fs;
