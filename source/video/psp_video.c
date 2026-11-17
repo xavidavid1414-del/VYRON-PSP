@@ -18,17 +18,12 @@ bool psp_video_init(PSP_Video *video)
     size_t pixels =
         (size_t)PSP_VIDEO_STRIDE * PSP_VIDEO_HEIGHT;
 
-    video->framebuffer = calloc(
-        pixels,
-        sizeof(uint32_t)
-    );
+    video->framebuffer = calloc(pixels, sizeof(uint32_t));
 
     if (video->framebuffer == NULL)
         return false;
 
-    video->frame_count = 0;
     video->initialized = true;
-
     return true;
 }
 
@@ -43,8 +38,7 @@ void psp_video_destroy(PSP_Video *video)
 
 void psp_video_clear(PSP_Video *video, uint32_t color)
 {
-    if (video == NULL ||
-        !video->initialized ||
+    if (video == NULL || !video->initialized ||
         video->framebuffer == NULL)
         return;
 
@@ -62,8 +56,7 @@ bool psp_video_put_pixel(
     uint32_t color
 )
 {
-    if (video == NULL ||
-        !video->initialized ||
+    if (video == NULL || !video->initialized ||
         video->framebuffer == NULL)
         return false;
 
@@ -75,7 +68,6 @@ bool psp_video_put_pixel(
         (size_t)y * PSP_VIDEO_STRIDE + (size_t)x;
 
     video->framebuffer[index] = color;
-
     return true;
 }
 
@@ -88,8 +80,7 @@ void psp_video_fill_rect(
     uint32_t color
 )
 {
-    if (video == NULL ||
-        !video->initialized ||
+    if (video == NULL || !video->initialized ||
         video->framebuffer == NULL ||
         width <= 0 || height <= 0)
         return;
@@ -99,17 +90,10 @@ void psp_video_fill_rect(
     int64_t right = (int64_t)x + width;
     int64_t bottom = (int64_t)y + height;
 
-    if (left < 0)
-        left = 0;
-
-    if (top < 0)
-        top = 0;
-
-    if (right > PSP_VIDEO_WIDTH)
-        right = PSP_VIDEO_WIDTH;
-
-    if (bottom > PSP_VIDEO_HEIGHT)
-        bottom = PSP_VIDEO_HEIGHT;
+    if (left < 0) left = 0;
+    if (top < 0) top = 0;
+    if (right > PSP_VIDEO_WIDTH) right = PSP_VIDEO_WIDTH;
+    if (bottom > PSP_VIDEO_HEIGHT) bottom = PSP_VIDEO_HEIGHT;
 
     if (left >= right || top >= bottom)
         return;
@@ -117,15 +101,10 @@ void psp_video_fill_rect(
     for (int64_t row = top; row < bottom; row++)
     {
         size_t index =
-            (size_t)row * PSP_VIDEO_STRIDE +
-            (size_t)left;
+            (size_t)row * PSP_VIDEO_STRIDE + (size_t)left;
 
-        for (int64_t column = left;
-             column < right;
-             column++)
-        {
+        for (int64_t column = left; column < right; column++)
             video->framebuffer[index++] = color;
-        }
     }
 }
 
@@ -135,8 +114,7 @@ uint32_t psp_video_get_pixel(
     int y
 )
 {
-    if (video == NULL ||
-        !video->initialized ||
+    if (video == NULL || !video->initialized ||
         video->framebuffer == NULL)
         return 0;
 
@@ -152,8 +130,7 @@ uint32_t psp_video_get_pixel(
 
 void psp_video_present(PSP_Video *video)
 {
-    if (video == NULL ||
-        !video->initialized ||
+    if (video == NULL || !video->initialized ||
         video->framebuffer == NULL)
         return;
 
@@ -171,37 +148,50 @@ void psp_video_present(PSP_Video *video)
     if (screen == NULL)
         return;
 
+    int source_y = 0;
+    int y_remainder = 0;
+
     for (int y = 0; y < 240; y++)
     {
-        int source_y =
-            (y * PSP_VIDEO_HEIGHT) / 240;
+        const uint32_t *source_row =
+            video->framebuffer +
+            (size_t)source_y * PSP_VIDEO_STRIDE;
+
+        size_t destination = (size_t)(239 - y) * 3;
+
+        int source_x = 0;
+        int x_remainder = 0;
 
         for (int x = 0; x < 400; x++)
         {
-            int source_x =
-                (x * PSP_VIDEO_WIDTH) / 400;
+            uint32_t color = source_row[source_x];
 
-            uint32_t color = psp_video_get_pixel(
-                video,
-                source_x,
-                source_y
-            );
+            screen[destination] =
+                (uint8_t)(color & 0xFF);
 
-            uint8_t red =
-                (color >> 16) & 0xFF;
+            screen[destination + 1] =
+                (uint8_t)((color >> 8) & 0xFF);
 
-            uint8_t green =
-                (color >> 8) & 0xFF;
+            screen[destination + 2] =
+                (uint8_t)((color >> 16) & 0xFF);
 
-            uint8_t blue =
-                color & 0xFF;
+            destination += 240 * 3;
 
-            size_t destination =
-                ((size_t)x * 240 + (239 - y)) * 3;
+            x_remainder += PSP_VIDEO_WIDTH;
 
-            screen[destination] = blue;
-            screen[destination + 1] = green;
-            screen[destination + 2] = red;
+            while (x_remainder >= 400)
+            {
+                x_remainder -= 400;
+                source_x++;
+            }
+        }
+
+        y_remainder += PSP_VIDEO_HEIGHT;
+
+        while (y_remainder >= 240)
+        {
+            y_remainder -= 240;
+            source_y++;
         }
     }
 
