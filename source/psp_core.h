@@ -9,6 +9,7 @@
 #include "memory/psp_memory.h"
 #include "loader/psp_iso.h"
 #include "loader/psp_iso_fs.h"
+#include "loader/psp_loader.h"
 
 typedef struct {
     PSP_CPU cpu;
@@ -16,10 +17,14 @@ typedef struct {
 
     PSP_ISO_Info iso_info;
     PSP_ISO_FS iso_fs;
+
     const uint8_t *iso_data;
     size_t iso_size;
 
+    PSP_Image image;
+
     bool iso_mounted;
+    bool image_loaded;
     bool initialized;
 } PSP_Core;
 
@@ -41,5 +46,12 @@ bool psp_core_find_iso_entry(
 );
 
 void psp_core_unmount_iso(PSP_Core *core);
+
+bool psp_core_load_executable(
+    PSP_Core *core,
+    const char *path
+);
+
+void psp_core_unload_executable(PSP_Core *core);
 
 #endif
