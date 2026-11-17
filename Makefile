@@ -1,16 +1,25 @@
+.SUFFIXES:
+
 TARGET := vyron_psp
 BUILD := build
-SOURCES := source
+
+SOURCES := source \
+           source/cpu \
+           source/memory \
+           source/loader
+
 DATA := data
 INCLUDES := include
 
 ARCH := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS := -g -Wall -Wextra -O2 $(ARCH)
-CXXFLAGS := $(CFLAGS)
+CFLAGS := -g -Wall -Wextra -O2 -mword-relocations \
+          -ffunction-sections -fdata-sections $(ARCH)
 
-LDFLAGS :=
+CXXFLAGS := $(CFLAGS)
+LDFLAGS := -specs=3dsx.specs
 
 LIBS := -lctru
+LIBDIRS := $(DEVKITPRO)/libctru
 
-include $(DEVKITPRO)/libctru/3ds_rules
+include $(DEVKITARM)/3ds_rules
