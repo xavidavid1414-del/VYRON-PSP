@@ -161,6 +161,58 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
 
     switch (opcode)
     {
+                case 0x22: { /* LWL */
+            uint32_t address = a + sign_extend_16(immediate);
+            uint32_t shift = (address & 3u) * 8u;
+            uint32_t word = psp_memory_read32(
+                memory, address & ~3u);
+
+            value = (b & (0x00FFFFFFu >> shift))
+                  | (word << (24u - shift));
+
+            set_register(cpu, rt, value);
+            break;
+        }
+
+        case 0x26: { /* LWR */
+            uint32_t address = a + sign_extend_16(immediate);
+            uint32_t shift = (address & 3u) * 8u;
+            uint32_t word = psp_memory_read32(
+                memory, address & ~3u);
+
+            value = (b & (0xFFFFFF00u << (24u - shift)))
+                  | (word >> shift);
+
+            set_register(cpu, rt, value);
+            break;
+        }
+
+        case 0x2A: { /* SWL */
+            uint32_t address = a + sign_extend_16(immediate);
+            uint32_t shift = (address & 3u) * 8u;
+            uint32_t mask = 0xFFFFFFFFu >> (24u - shift);
+            uint32_t aligned = address & ~3u;
+            uint32_t old = psp_memory_read32(memory, aligned);
+
+            value = (old & ~mask) |
+                    ((b >> (24u - shift)) & mask);
+
+            psp_memory_write32(memory, aligned, value);
+            break;
+        }
+
+        case 0x2E: { /* SWR */
+            uint32_t address = a + sign_extend_16(immediate);
+            uint32_t shift = (address & 3u) * 8u;
+            uint32_t mask = 0xFFFFFFFFu << shift;
+            uint32_t aligned = address & ~3u;
+            uint32_t old = psp_memory_read32(memory, aligned);
+
+            value = (old & ~mask) | ((b << shift) & mask);
+
+            psp_memory_write32(memory, aligned, value);
+            break;
+        }
         case 0x00:
             switch (funct)
             {
