@@ -1,6 +1,7 @@
 
 #include "psp_core.h"
 #include "cpu/psp_interpreter.h"
+#include "cpu/psp_syscall.h"
 
 #include <string.h>
 
@@ -81,7 +82,6 @@ static bool load_elf_segments(
     bool has_loadable_segment = false;
     bool entry_is_executable = false;
 
-    /* Validate all loadable segments first. */
     for (uint16_t i = 0; i < phnum; i++)
     {
         const uint8_t *ph =
@@ -129,10 +129,8 @@ static bool load_elf_segments(
     if (!has_loadable_segment || !entry_is_executable)
         return false;
 
-    /* Clear RAM before loading the new executable. */
     memset(core->memory.ram, 0, core->memory.size);
 
-    /* Copy segments and initialize their BSS areas. */
     for (uint16_t i = 0; i < phnum; i++)
     {
         const uint8_t *ph =
@@ -191,6 +189,8 @@ bool psp_core_init(PSP_Core *core)
 
     memset(core, 0, sizeof(*core));
 
+    psp_syscall_reset();
+
     if (!psp_memory_init(&core->memory))
         return false;
 
@@ -243,6 +243,8 @@ void psp_core_destroy(PSP_Core *core)
 {
     if (core == NULL)
         return;
+
+    psp_syscall_reset();
 
     psp_core_unload_executable(core);
     psp_core_unmount_iso(core);
