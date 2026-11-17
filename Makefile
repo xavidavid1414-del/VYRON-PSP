@@ -11,7 +11,7 @@ include $(DEVKITARM)/3ds_rules
 TARGET := vyron_psp
 BUILD := build
 
-SOURCES := source source/cpu source/memory source/loader source/video
+SOURCES := source source/audio source/cpu source/memory source/loader source/video
 DATA :=
 INCLUDES := include
 
