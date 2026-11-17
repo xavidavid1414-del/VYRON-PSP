@@ -71,6 +71,7 @@ static void probe_selected_iso(void)
     char path[256];
     PSP_ISO_File iso;
     PSP_ISO_FileEntry game_entry;
+    PSP_ISO_FileEntry eboot_entry;
 
     snprintf(path, sizeof(path), "%s/%s",
              ISO_DIRECTORY, iso_files[selected].name);
@@ -81,24 +82,27 @@ static void probe_selected_iso(void)
         return;
     }
 
-    if (!psp_iso_file_find_root_entry(
-            &iso, "PSP_GAME", &game_entry)) {
-
+    if (!psp_iso_file_find_path(
+            &iso, "PSP_GAME", &game_entry) ||
+        !game_entry.directory) {
         snprintf(status_message, sizeof(status_message),
                  "Invalid ISO: PSP_GAME not found");
-
         psp_iso_file_close(&iso);
         return;
     }
 
-    if (!game_entry.directory) {
+    if (!psp_iso_file_find_path(
+            &iso, "PSP_GAME/SYSDIR/EBOOT.BIN", &eboot_entry) ||
+        eboot_entry.directory) {
         snprintf(status_message, sizeof(status_message),
-                 "PSP_GAME is not a directory");
-    } else {
-        snprintf(status_message, sizeof(status_message),
-                 "ISO OK | PSP_GAME found: %lu bytes",
-                 (unsigned long)game_entry.size);
+                 "PSP_GAME found; EBOOT.BIN missing");
+        psp_iso_file_close(&iso);
+        return;
     }
+
+    snprintf(status_message, sizeof(status_message),
+             "ISO OK | EBOOT.BIN: %lu bytes",
+             (unsigned long)eboot_entry.size);
 
     psp_iso_file_close(&iso);
 }
