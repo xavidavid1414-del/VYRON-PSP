@@ -2,7 +2,11 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
+#include <stdint.h>
+
+#ifdef __3DS__
+#include <3ds.h>
+#endif
 
 bool psp_video_init(PSP_Video *video)
 {
@@ -34,7 +38,6 @@ void psp_video_destroy(PSP_Video *video)
         return;
 
     free(video->framebuffer);
-
     memset(video, 0, sizeof(*video));
 }
 
@@ -150,8 +153,61 @@ uint32_t psp_video_get_pixel(
 void psp_video_present(PSP_Video *video)
 {
     if (video == NULL ||
-        !video->initialized)
+        !video->initialized ||
+        video->framebuffer == NULL)
         return;
 
     video->frame_count++;
+
+#ifdef __3DS__
+
+    uint8_t *screen = gfxGetFramebuffer(
+        GFX_TOP,
+        GFX_LEFT,
+        NULL,
+        NULL
+    );
+
+    if (screen == NULL)
+        return;
+
+    for (int y = 0; y < 240; y++)
+    {
+        int source_y =
+            (y * PSP_VIDEO_HEIGHT) / 240;
+
+        for (int x = 0; x < 400; x++)
+        {
+            int source_x =
+                (x * PSP_VIDEO_WIDTH) / 400;
+
+            uint32_t color = psp_video_get_pixel(
+                video,
+                source_x,
+                source_y
+            );
+
+            uint8_t red =
+                (color >> 16) & 0xFF;
+
+            uint8_t green =
+                (color >> 8) & 0xFF;
+
+            uint8_t blue =
+                color & 0xFF;
+
+            size_t destination =
+                ((size_t)x * 240 + (239 - y)) * 3;
+
+            screen[destination] = blue;
+            screen[destination + 1] = green;
+            screen[destination + 2] = red;
+        }
+    }
+
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
+
+#endif
 }
