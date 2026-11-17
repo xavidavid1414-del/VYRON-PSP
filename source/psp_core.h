@@ -55,5 +55,9 @@ bool psp_core_load_executable(
 );
 
 void psp_core_unload_executable(PSP_Core *core);
-
+bool psp_core_load_executable_data(
+    PSP_Core *core,
+    const uint8_t *data,
+    size_t size
+);
 #endif
