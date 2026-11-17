@@ -1,4 +1,5 @@
 #include "psp_interpreter.h"
+#include "psp_syscall.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -16,7 +17,6 @@
 #define EXC_RI   10u
 #define EXC_OV   12u
 
-/* Vector provisional dentro de la RAM emulada. */
 #define EXCEPTION_VECTOR (PSP_RAM_BASE + 0x180u)
 #define STATUS_EXL 0x00000002u
 #define CAUSE_BD   0x80000000u
@@ -201,11 +201,19 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                     scheduled_target = a;
                     break;
 
-                case 0x0C:
-                    enter_exception(
-                        cpu, pc, had_pending_branch,
-                        EXC_SYS, 0, false);
+                case 0x0C: {
+                    uint32_t syscall_code =
+                        (instruction >> 6) & 0xFFFFFu;
+
+                    if (!psp_syscall_dispatch(
+                            cpu, memory, syscall_code)) {
+                        enter_exception(
+                            cpu, pc, had_pending_branch,
+                            EXC_SYS, 0, false);
+                    }
+
                     return true;
+                }
 
                 case 0x0D:
                     enter_exception(
@@ -329,6 +337,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                     return true;
             }
             break;
+
         case 0x01:
             if ((rt == 0u && (int32_t)a < 0) ||
                 (rt == 1u && (int32_t)a >= 0) ||
