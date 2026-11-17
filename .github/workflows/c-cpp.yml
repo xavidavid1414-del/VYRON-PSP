@@ -20,3 +20,13 @@ jobs:
 
       - name: Build VYRON PSP
         run: make
+
+      - name: Upload Nintendo 3DS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: VYRON-PSP-3DSX
+          path: |
+            vyron_psp.3dsx
+            vyron_psp.smdh
+          if-no-files-found: error
+          retention-days: 14
