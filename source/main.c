@@ -19,6 +19,13 @@ static void draw_video_test(PSP_Video *video)
 
     psp_video_fill_rect(video, 320, 68, 120, 150,
         PSP_VIDEO_COLOR(230, 180, 60, 255));
+
+    int travel = 360;
+    int marker_x = 60 +
+        (int)(video->frame_count % (uint32_t)travel);
+
+    psp_video_fill_rect(video, marker_x, 232, 24, 12,
+        PSP_VIDEO_COLOR(245, 245, 245, 255));
 }
 
 int main(void)
@@ -33,8 +40,6 @@ int main(void)
         return 1;
     }
 
-    draw_video_test(&core.video);
-
     while (aptMainLoop())
     {
         hidScanInput();
@@ -42,6 +47,7 @@ int main(void)
         if (hidKeysDown() & KEY_START)
             break;
 
+        draw_video_test(&core.video);
         psp_video_present(&core.video);
     }
 
