@@ -1,7 +1,7 @@
 
 #ifndef PSP_ISO_FILE_H
 #define PSP_ISO_FILE_H
-
+#define PSP_ISO_FILE_SECTOR_SIZE 2048
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
