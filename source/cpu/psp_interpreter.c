@@ -1,4 +1,5 @@
 #include "psp_interpreter.h"
+#include <stddef.h>
 
 static uint32_t get_register(PSP_CPU *cpu, uint32_t index)
 {
