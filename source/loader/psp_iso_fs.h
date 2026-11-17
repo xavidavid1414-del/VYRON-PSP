@@ -8,6 +8,9 @@
 typedef struct {
     const uint8_t *data;
     size_t size;
+
+    uint32_t root_extent;
+    uint32_t root_size;
 } PSP_ISO_FS;
 
 typedef struct {
