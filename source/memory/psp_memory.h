@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #define PSP_RAM_SIZE (32 * 1024 * 1024)
+#define PSP_RAM_BASE 0x08000000u
 
 typedef struct {
     uint8_t *ram;
