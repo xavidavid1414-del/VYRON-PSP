@@ -1,4 +1,4 @@
-
+#include <stdlib.h>
 #include "psp_core.h"
 #include "cpu/psp_interpreter.h"
 #include "cpu/psp_syscall.h"
@@ -354,5 +354,50 @@ bool psp_core_load_executable(
 
     core->image_loaded = true;
 
+    return true;
+}
+bool psp_core_load_executable_data(
+    PSP_Core *core,
+    const uint8_t *data,
+    size_t size
+)
+{
+    if (core == NULL || !core->initialized ||
+        data == NULL || size == 0)
+        return false;
+
+    psp_core_unload_executable(core);
+
+    uint8_t *copy = malloc(size);
+
+    if (copy == NULL)
+        return false;
+
+    memcpy(copy, data, size);
+
+    core->image.data = copy;
+    core->image.size = size;
+    core->image.loaded = true;
+
+    if (!psp_loader_parse(&core->image) ||
+        !core->image.executable_valid)
+    {
+        psp_core_unload_executable(core);
+        return false;
+    }
+
+    const uint8_t *elf =
+        core->image.data + core->image.executable_offset;
+
+    if (!load_elf_segments(
+            core,
+            elf,
+            core->image.executable_size))
+    {
+        psp_core_unload_executable(core);
+        return false;
+    }
+
+    core->image_loaded = true;
     return true;
 }
