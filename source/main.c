@@ -15,6 +15,7 @@
 #define ISO_DIRECTORY "sdmc:/PSP/ISO"
 #define MAX_ISO_FILES 32
 #define ISO_NAME_LENGTH 128
+#define CPU_CYCLES_PER_FRAME 250
 
 typedef struct {
     char name[ISO_NAME_LENGTH];
@@ -25,8 +26,11 @@ static PSP_Core core;
 static ISO_File iso_files[MAX_ISO_FILES];
 static unsigned int iso_count;
 static unsigned int selected;
+
 static bool scan_ok;
 static bool audio_ready;
+static bool execution_active;
+
 static char status_message[96];
 
 static bool has_iso_extension(const char *name)
@@ -84,6 +88,8 @@ static void probe_selected_iso(void)
     if (selected >= iso_count)
         return;
 
+    execution_active = false;
+
     snprintf(path, sizeof(path), "%s/%s",
              ISO_DIRECTORY, iso_files[selected].name);
 
@@ -136,6 +142,8 @@ static void probe_selected_iso(void)
         return;
     }
 
+    psp_core_reset(&core);
+
     bool loaded = psp_core_load_executable_data(
         &core,
         buffer,
@@ -145,11 +153,28 @@ static void probe_selected_iso(void)
     free(buffer);
 
     if (loaded) {
+        execution_active = true;
+
         snprintf(status_message, sizeof(status_message),
-                 "Executable loaded!");
+                 "ELF loaded: CPU running");
     } else {
+        execution_active = false;
+
         snprintf(status_message, sizeof(status_message),
-                 "Extracted; encrypted/unsupported EBOOT");
+                 "Encrypted/unsupported EBOOT");
+    }
+}
+
+static void execute_cpu_frame(void)
+{
+    if (!execution_active || !core.image_loaded)
+        return;
+
+    if (!psp_core_run(&core, CPU_CYCLES_PER_FRAME)) {
+        execution_active = false;
+
+        snprintf(status_message, sizeof(status_message),
+                 "CPU stopped: execution error");
     }
 }
 
@@ -184,7 +209,7 @@ static void print_file_list(void)
 {
     consoleClear();
 
-    printf("\x1b[1;1HVYRON PSP | ISO BROWSER");
+    printf("\x1b[1;1HVYRON PSP | CPU EXECUTION");
     printf("\x1b[3;1HFolder: %s", ISO_DIRECTORY);
     printf("\x1b[5;1H");
 
@@ -208,7 +233,9 @@ static void print_file_list(void)
     }
 
     printf("\n%s\n", status_message);
-    printf("\nUP/DOWN: Select  A: Load  X: Rescan");
+
+    printf("\nUP/DOWN: Select  A: Load");
+    printf("\nB: Pause/Resume  X: Rescan");
     printf("\nSTART: Exit");
 }
 
@@ -268,9 +295,25 @@ int main(void)
             print_file_list();
         }
 
+        if (down & KEY_B) {
+            if (core.image_loaded) {
+                execution_active = !execution_active;
+
+                snprintf(status_message, sizeof(status_message),
+                         execution_active ?
+                         "CPU resumed" : "CPU paused");
+
+                print_file_list();
+            }
+        }
+
+        execute_cpu_frame();
+
         draw_interface(&core.video);
         psp_video_present(&core.video);
     }
+
+    execution_active = false;
 
     if (audio_ready)
         psp_audio_shutdown();
