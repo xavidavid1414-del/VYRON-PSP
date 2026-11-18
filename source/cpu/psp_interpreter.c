@@ -1,3 +1,4 @@
+
 #include "psp_interpreter.h"
 #include "psp_syscall.h"
 
@@ -161,7 +162,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
 
     switch (opcode)
     {
-                case 0x22: { /* LWL */
+        case 0x22: { /* LWL */
             uint32_t address = a + sign_extend_16(immediate);
             uint32_t shift = (address & 3u) * 8u;
             uint32_t word = psp_memory_read32(
@@ -213,6 +214,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
             psp_memory_write32(memory, aligned, value);
             break;
         }
+
         case 0x00:
             switch (funct)
             {
@@ -251,6 +253,16 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                     set_register(cpu, rd == 0 ? 31u : rd, pc + 8u);
                     schedule_branch = true;
                     scheduled_target = a;
+                    break;
+
+                case 0x0A: /* MOVZ */
+                    if (b == 0)
+                        set_register(cpu, rd, a);
+                    break;
+
+                case 0x0B: /* MOVN */
+                    if (b != 0)
+                        set_register(cpu, rd, a);
                     break;
 
                 case 0x0C: {
@@ -525,6 +537,74 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
             }
             break;
 
+        case 0x1C: /* SPECIAL2 */
+            switch (funct)
+            {
+                case 0x00: /* MADD */
+                case 0x04: { /* MSUB */
+                    int64_t product =
+                        (int64_t)(int32_t)a *
+                        (int64_t)(int32_t)b;
+
+                    uint64_t accumulator =
+                        ((uint64_t)cpu->hi << 32) | cpu->lo;
+
+                    if (funct == 0x00)
+                        accumulator += (uint64_t)product;
+                    else
+                        accumulator -= (uint64_t)product;
+
+                    cpu->lo = (uint32_t)accumulator;
+                    cpu->hi = (uint32_t)(accumulator >> 32);
+                    break;
+                }
+
+                case 0x01: /* MADDU */
+                case 0x05: { /* MSUBU */
+                    uint64_t product = (uint64_t)a * b;
+                    uint64_t accumulator =
+                        ((uint64_t)cpu->hi << 32) | cpu->lo;
+
+                    if (funct == 0x01)
+                        accumulator += product;
+                    else
+                        accumulator -= product;
+
+                    cpu->lo = (uint32_t)accumulator;
+                    cpu->hi = (uint32_t)(accumulator >> 32);
+                    break;
+                }
+
+                case 0x02: /* MUL */
+                    set_register(cpu, rd,
+                        (uint32_t)((int64_t)(int32_t)a *
+                                   (int64_t)(int32_t)b));
+                    break;
+
+                case 0x20: /* CLZ */
+                case 0x21: { /* CLO */
+                    uint32_t count = 0;
+                    uint32_t bit = 0x80000000u;
+                    bool count_ones = (funct == 0x21);
+
+                    while (bit != 0 &&
+                           (((a & bit) != 0) == count_ones)) {
+                        count++;
+                        bit >>= 1;
+                    }
+
+                    set_register(cpu, rd, count);
+                    break;
+                }
+
+                default:
+                    enter_exception(
+                        cpu, pc, had_pending_branch,
+                        EXC_RI, 0, false);
+                    return true;
+            }
+            break;
+
         case 0x20: {
             uint32_t address = a + sign_extend_16(immediate);
 
@@ -623,15 +703,4 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
             return true;
     }
 
-    if (had_pending_branch) {
-        next_pc = old_branch_target;
-    } else if (schedule_branch) {
-        cpu->branch_pending = true;
-        cpu->branch_target = scheduled_target;
-    }
-
-    cpu->pc = next_pc;
-    cpu->gpr[0] = 0;
-
-    return true;
-}
+    if (had_pendin
