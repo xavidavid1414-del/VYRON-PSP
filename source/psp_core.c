@@ -38,7 +38,19 @@ static uint32_t read_le32(const uint8_t *p)
            ((uint32_t)p[2] << 16) |
            ((uint32_t)p[3] << 24);
 }
+#define ELF_TYPE_PRX 0xFFA0
+#define ELF_PT_PSPREL1 0x700000A0
+#define ELF_PT_PSPREL2 0x700000A1
 
+#define ELF_MAX_PROGRAM_HEADERS 32
+
+#define MIPS_R_NONE 0
+#define MIPS_R_16 1
+#define MIPS_R_32 2
+#define MIPS_R_26 4
+#define MIPS_R_HI16 5
+#define MIPS_R_LO16 6
+#define MIPS_R_GPREL16 7
 static bool elf_memory_range(
     PSP_Memory *memory,
     uint32_t address,
