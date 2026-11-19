@@ -78,6 +78,10 @@ static bool load_elf_segments(
     size_t elf_size
 )
 {
+    uint32_t segment_base[ELF_MAX_PROGRAM_HEADERS] = {0};
+    int64_t segment_delta[ELF_MAX_PROGRAM_HEADERS] = {0};
+    bool segment_loaded[ELF_MAX_PROGRAM_HEADERS] = {false};
+
     if (core == NULL || elf == NULL ||
         elf_size < ELF_HEADER_SIZE)
         return false;
@@ -85,10 +89,15 @@ static bool load_elf_segments(
     if (!psp_loader_is_elf(elf, elf_size))
         return false;
 
-    if (read_le16(elf + 16) != ELF_TYPE_EXEC ||
+    uint16_t elf_type = read_le16(elf + 16);
+
+    if ((elf_type != ELF_TYPE_EXEC &&
+         elf_type != ELF_TYPE_PRX) ||
         read_le16(elf + 18) != ELF_MACHINE_MIPS ||
         read_le32(elf + 20) != 1)
         return false;
+
+    bool is_prx = (elf_type == ELF_TYPE_PRX);
 
     uint32_t entry = read_le32(elf + 24);
     uint32_t phoff = read_le32(elf + 28);
@@ -97,16 +106,45 @@ static bool load_elf_segments(
     uint16_t phnum = read_le16(elf + 44);
 
     if (phentsize < ELF_PROGRAM_HEADER_SIZE ||
-        phnum == 0 || phoff > elf_size)
+        phnum == 0 ||
+        phnum > ELF_MAX_PROGRAM_HEADERS ||
+        phoff > elf_size)
         return false;
 
     if ((size_t)phnum >
         (elf_size - phoff) / phentsize)
         return false;
 
+    uint32_t lowest_vaddr = UINT32_MAX;
     bool has_loadable_segment = false;
+
+    /* Find the lowest virtual address for PRX mapping. */
+    for (uint16_t i = 0; i < phnum; i++)
+    {
+        const uint8_t *ph =
+            elf + phoff + ((size_t)i * phentsize);
+
+        if (read_le32(ph) != ELF_PT_LOAD)
+            continue;
+
+        uint32_t vaddr = read_le32(ph + 8);
+        uint32_t memsz = read_le32(ph + 20);
+
+        if (memsz == 0)
+            continue;
+
+        if (vaddr < lowest_vaddr)
+            lowest_vaddr = vaddr;
+
+        has_loadable_segment = true;
+    }
+
+    if (!has_loadable_segment)
+        return false;
+
     bool entry_is_executable = false;
 
+    /* Validate and calculate every loadable segment. */
     for (uint16_t i = 0; i < phnum; i++)
     {
         const uint8_t *ph =
@@ -116,44 +154,83 @@ static bool load_elf_segments(
             continue;
 
         uint32_t file_offset = read_le32(ph + 4);
-        uint32_t virtual_address = read_le32(ph + 8);
-        uint32_t file_size = read_le32(ph + 16);
-        uint32_t memory_size = read_le32(ph + 20);
+        uint32_t vaddr = read_le32(ph + 8);
+        uint32_t filesz = read_le32(ph + 16);
+        uint32_t memsz = read_le32(ph + 20);
         uint32_t flags = read_le32(ph + 24);
 
-        if (file_size > memory_size ||
+        if (filesz > memsz ||
             file_offset > elf_size ||
-            file_size > elf_size - file_offset)
+            filesz > elf_size - file_offset)
             return false;
 
+        if (memsz == 0)
+            continue;
+
+        uint64_t mapped_address;
+
+        if (is_prx)
+        {
+            if (vaddr < lowest_vaddr)
+                return false;
+
+            mapped_address =
+                (uint64_t)PSP_RAM_BASE +
+                ((uint64_t)vaddr - lowest_vaddr);
+        }
+        else
+        {
+            mapped_address = vaddr;
+        }
+
+        if (mapped_address > UINT32_MAX)
+            return false;
+
+        uint32_t mapped = (uint32_t)mapped_address;
         uint32_t memory_offset;
 
         if (!elf_memory_range(
                 &core->memory,
-                virtual_address,
-                memory_size,
+                mapped,
+                memsz,
                 &memory_offset))
             return false;
 
-        (void)memory_offset;
-
-        if (memory_size == 0)
-            continue;
-
-        has_loadable_segment = true;
+        segment_base[i] = mapped;
+        segment_delta[i] =
+            (int64_t)mapped - (int64_t)vaddr;
+        segment_loaded[i] = true;
 
         if ((flags & ELF_FLAG_EXECUTE) &&
-            entry >= virtual_address &&
+            entry >= vaddr &&
             (uint64_t)entry <
-                (uint64_t)virtual_address + memory_size)
+                (uint64_t)vaddr + memsz)
         {
             entry_is_executable = true;
         }
+
+        (void)memory_offset;
     }
 
-    if (!has_loadable_segment || !entry_is_executable)
+    if (!entry_is_executable)
         return false;
 
+    uint64_t mapped_entry = entry;
+
+    if (is_prx)
+    {
+        if (entry < lowest_vaddr)
+            return false;
+
+        mapped_entry =
+            (uint64_t)PSP_RAM_BASE +
+            ((uint64_t)entry - lowest_vaddr);
+    }
+
+    if (mapped_entry > UINT32_MAX)
+        return false;
+
+    /* Clear RAM and copy PT_LOAD segments. */
     memset(core->memory.ram, 0, core->memory.size);
 
     for (uint16_t i = 0; i < phnum; i++)
@@ -161,69 +238,268 @@ static bool load_elf_segments(
         const uint8_t *ph =
             elf + phoff + ((size_t)i * phentsize);
 
-        if (read_le32(ph) != ELF_PT_LOAD)
+        if (read_le32(ph) != ELF_PT_LOAD ||
+            !segment_loaded[i])
             continue;
 
         uint32_t file_offset = read_le32(ph + 4);
-        uint32_t virtual_address = read_le32(ph + 8);
-        uint32_t file_size = read_le32(ph + 16);
-        uint32_t memory_size = read_le32(ph + 20);
-
-        if (memory_size == 0)
-            continue;
+        uint32_t filesz = read_le32(ph + 16);
+        uint32_t memsz = read_le32(ph + 20);
 
         uint32_t memory_offset;
 
         if (!elf_memory_range(
                 &core->memory,
-                virtual_address,
-                memory_size,
+                segment_base[i],
+                memsz,
                 &memory_offset))
             return false;
 
-        if (file_size > 0)
+        if (filesz > 0)
         {
             memcpy(
                 core->memory.ram + memory_offset,
                 elf + file_offset,
-                file_size
+                filesz
             );
         }
 
-        if (memory_size > file_size)
+        if (memsz > filesz)
         {
             memset(
-                core->memory.ram + memory_offset + file_size,
+                core->memory.ram + memory_offset + filesz,
                 0,
-                memory_size - file_size
+                memsz - filesz
             );
         }
     }
 
-    core->cpu.pc = entry;
+    /*
+     * Apply PSP PT_PSPREL1 relocations.
+     * PT_PSPREL2 is intentionally rejected for now.
+     */
+    if (is_prx)
+    {
+        for (uint16_t i = 0; i < phnum; i++)
+        {
+            const uint8_t *ph =
+                elf + phoff + ((size_t)i * phentsize);
+
+            uint32_t type = read_le32(ph);
+
+            if (type == ELF_PT_PSPREL2)
+                return false;
+
+            if (type != ELF_PT_PSPREL1)
+                continue;
+
+            uint32_t reloc_offset = read_le32(ph + 4);
+            uint32_t reloc_size = read_le32(ph + 16);
+
+            if (reloc_offset > elf_size ||
+                reloc_size > elf_size - reloc_offset ||
+                (reloc_size % 8) != 0)
+                return false;
+
+            uint32_t reloc_count = reloc_size / 8;
+
+            for (uint32_t r = 0; r < reloc_count; r++)
+            {
+                const uint8_t *rel =
+                    elf + reloc_offset + (r * 8);
+
+                uint32_t r_offset = read_le32(rel);
+                uint32_t r_info = read_le32(rel + 4);
+
+                uint32_t reloc_type = r_info & 0xFF;
+                uint32_t write_index =
+                    (r_info >> 8) & 0xFF;
+                uint32_t relative_index =
+                    (r_info >> 16) & 0xFF;
+
+                if (reloc_type == MIPS_R_NONE ||
+                    reloc_type == MIPS_R_GPREL16)
+                    continue;
+
+                if (write_index >= phnum ||
+                    relative_index >= phnum ||
+                    !segment_loaded[write_index] ||
+                    !segment_loaded[relative_index])
+                    return false;
+
+                uint64_t patch_address =
+                    (uint64_t)segment_base[write_index] +
+                    r_offset;
+
+                if (patch_address > UINT32_MAX)
+                    return false;
+
+                uint32_t patch_offset;
+
+                if (!elf_memory_range(
+                        &core->memory,
+                        (uint32_t)patch_address,
+                        4,
+                        &patch_offset))
+                    return false;
+
+                uint8_t *patch =
+                    core->memory.ram + patch_offset;
+
+                uint32_t instruction = read_le32(patch);
+
+                int64_t delta =
+                    segment_delta[relative_index];
+
+                switch (reloc_type)
+                {
+                    case MIPS_R_32:
+                    {
+                        write_le32(
+                            patch,
+                            (uint32_t)(
+                                (int64_t)instruction + delta
+                            )
+                        );
+                        break;
+                    }
+
+                    case MIPS_R_26:
+                    {
+                        uint32_t target =
+                            (instruction & 0x03FFFFFF) << 2;
+
+                        target = (uint32_t)(
+                            (int64_t)target + delta
+                        );
+
+                        instruction =
+                            (instruction & 0xFC000000) |
+                            ((target >> 2) & 0x03FFFFFF);
+
+                        write_le32(patch, instruction);
+                        break;
+                    }
+
+                    case MIPS_R_HI16:
+                    {
+                        bool found_pair = false;
+
+                        for (uint32_t next = r + 1;
+                             next < reloc_count;
+                             next++)
+                        {
+                            const uint8_t *lo_rel =
+                                elf + reloc_offset + (next * 8);
+
+                            uint32_t lo_info =
+                                read_le32(lo_rel + 4);
+
+                            uint32_t lo_type =
+                                lo_info & 0xFF;
+
+                            uint32_t lo_write =
+                                (lo_info >> 8) & 0xFF;
+
+                            uint32_t lo_relative =
+                                (lo_info >> 16) & 0xFF;
+
+                            if (lo_type == MIPS_R_HI16)
+                                continue;
+
+                            if (lo_write != write_index ||
+                                lo_relative != relative_index)
+                                continue;
+
+                            if (lo_type != MIPS_R_LO16 &&
+                                lo_type != MIPS_R_16)
+                                continue;
+
+                            uint32_t lo_offset =
+                                read_le32(lo_rel);
+
+                            uint64_t lo_address =
+                                (uint64_t)segment_base[lo_write] +
+                                lo_offset;
+
+                            if (lo_address > UINT32_MAX)
+                                return false;
+
+                            uint32_t lo_memory_offset;
+
+                            if (!elf_memory_range(
+                                    &core->memory,
+                                    (uint32_t)lo_address,
+                                    4,
+                                    &lo_memory_offset))
+                                return false;
+
+                            uint32_t lo_instruction =
+                                read_le32(
+                                    core->memory.ram +
+                                    lo_memory_offset
+                                );
+
+                            int64_t combined =
+                                ((int64_t)(
+                                    instruction & 0xFFFF
+                                ) << 16) +
+                                (int16_t)(
+                                    lo_instruction & 0xFFFF
+                                );
+
+                            combined += delta;
+
+                            uint32_t high =
+                                (uint32_t)(
+                                    (combined + 0x8000) >> 16
+                                );
+
+                            instruction =
+                                (instruction & 0xFFFF0000) |
+                                (high & 0xFFFF);
+
+                            write_le32(patch, instruction);
+
+                            found_pair = true;
+                            break;
+                        }
+
+                        if (!found_pair)
+                            return false;
+
+                        break;
+                    }
+
+                    case MIPS_R_LO16:
+                    case MIPS_R_16:
+                    {
+                        uint32_t low = (uint32_t)(
+                            (int64_t)(instruction & 0xFFFF) +
+                            delta
+                        );
+
+                        instruction =
+                            (instruction & 0xFFFF0000) |
+                            (low & 0xFFFF);
+
+                        write_le32(patch, instruction);
+                        break;
+                    }
+
+                    default:
+                        return false;
+                }
+            }
+        }
+    }
+
+    core->cpu.pc = (uint32_t)mapped_entry;
     core->cpu.halted = false;
     core->cpu.gpr[0] = 0;
 
     return true;
 }
-
-bool psp_core_init(PSP_Core *core)
-{
-    if (core == NULL)
-        return false;
-
-    memset(core, 0, sizeof(*core));
-
-    psp_syscall_reset();
-
-    if (!psp_memory_init(&core->memory))
-        return false;
-
-    if (!psp_video_init(&core->video))
-    {
-        psp_memory_destroy(&core->memory);
-        return false;
-    }
 
     psp_cpu_init(&core->cpu);
 
