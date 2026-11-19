@@ -703,4 +703,17 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
             return true;
     }
 
-    if (had_pendin
+        if (had_pending_branch)
+        next_pc = old_branch_target;
+
+    cpu->pc = next_pc;
+
+    if (schedule_branch) {
+        cpu->branch_pending = true;
+        cpu->branch_target = scheduled_target;
+    }
+
+    cpu->gpr[0] = 0;
+
+    return true;
+}
