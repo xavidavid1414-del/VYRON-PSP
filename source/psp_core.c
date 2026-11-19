@@ -495,6 +495,24 @@ static bool load_elf_segments(
     return true;
 }
 
+    bool psp_core_init(PSP_Core *core)
+{
+    if (core == NULL)
+        return false;
+
+    memset(core, 0, sizeof(*core));
+
+    psp_syscall_reset();
+
+    if (!psp_memory_init(&core->memory))
+        return false;
+
+    if (!psp_video_init(&core->video))
+    {
+        psp_memory_destroy(&core->memory);
+        return false;
+    }
+
     psp_cpu_init(&core->cpu);
 
     core->initialized = true;
