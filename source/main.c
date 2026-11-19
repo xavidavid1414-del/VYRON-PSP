@@ -141,7 +141,14 @@ static void probe_selected_iso(void)
         free(buffer);
         return;
     }
-
+if (eboot_entry.size >= 4 &&
+    memcmp(buffer, "~PSP", 4) == 0)
+{
+    snprintf(status_message, sizeof(status_message),
+             "Encrypted PRX detected: decryptor missing");
+    free(buffer);
+    return;
+}
     psp_core_reset(&core);
 
     bool loaded = psp_core_load_executable_data(
