@@ -74,6 +74,7 @@ static bool load_elf_segments(
 {
     uint32_t segment_base[ELF_MAX_PROGRAM_HEADERS] = {0};
     int64_t segment_delta[ELF_MAX_PROGRAM_HEADERS] = {0};
+    uint32_t segment_size[ELF_MAX_PROGRAM_HEADERS] = {0};
     bool segment_loaded[ELF_MAX_PROGRAM_HEADERS] = {false};
 
     if (core == NULL || elf == NULL ||
@@ -193,6 +194,7 @@ static bool load_elf_segments(
         segment_base[i] = mapped;
         segment_delta[i] =
             (int64_t)mapped - (int64_t)vaddr;
+        segment_size[i] = memsz;
         segment_loaded[i] = true;
 
         if ((flags & ELF_FLAG_EXECUTE) &&
@@ -319,6 +321,10 @@ static bool load_elf_segments(
                     relative_index >= phnum ||
                     !segment_loaded[write_index] ||
                     !segment_loaded[relative_index])
+                    return false;
+
+                if (segment_size[write_index] < 4 ||
+                    r_offset > segment_size[write_index] - 4)
                     return false;
 
                 uint64_t patch_address =
