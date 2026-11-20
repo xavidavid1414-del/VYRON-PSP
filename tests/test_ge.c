@@ -1083,8 +1083,8 @@ int main(void)
     /* GE raster output writes to the draw framebuffer, independently
        from the display framebuffer selected for presentation. */
     psp_ge_reset(&ge);
-    const uint32_t ge_draw_target = PSP_VRAM_BASE + 0xA000u;
-    const uint32_t ge_display_target = PSP_VRAM_BASE + 0xB000u;
+    const uint32_t ge_draw_target = PSP_VRAM_BASE + 0x10000u;
+    const uint32_t ge_display_target = PSP_VRAM_BASE + 0xA0000u;
     const uint32_t ge_draw_list = PSP_RAM_BASE + 0xA100u;
     const uint32_t ge_draw_vertices = PSP_RAM_BASE + 0xA200u;
     psp_memory_write32(&memory, ge_draw_vertices, 0xFFFF0000u);
