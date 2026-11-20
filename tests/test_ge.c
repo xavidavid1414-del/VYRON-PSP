@@ -1075,6 +1075,22 @@ int main(void)
     psp_ge_reset(&ge);
     const uint32_t ge_draw_target = PSP_VRAM_BASE + 0xA000u;
     const uint32_t ge_display_target = PSP_VRAM_BASE + 0xB000u;
+    const uint32_t ge_draw_list = PSP_RAM_BASE + 0xA100u;
+    const uint32_t ge_draw_vertices = PSP_RAM_BASE + 0xA200u;
+    psp_memory_write32(&memory, ge_draw_vertices, 0xFFFF0000u);
+    put16(&memory, ge_draw_vertices + 4u, 10u);
+    put16(&memory, ge_draw_vertices + 6u, 10u);
+    psp_memory_write32(&memory, ge_draw_vertices + 8u, 0xFF00FF00u);
+    put16(&memory, ge_draw_vertices + 12u, 40u);
+    put16(&memory, ge_draw_vertices + 14u, 10u);
+    psp_memory_write32(&memory, ge_draw_vertices + 16u, 0xFF0000FFu);
+    put16(&memory, ge_draw_vertices + 20u, 10u);
+    put16(&memory, ge_draw_vertices + 22u, 40u);
+    command(&memory, ge_draw_list, 0x10u, 0x00080000u);
+    command(&memory, ge_draw_list + 4u, 0x01u, 0xA200u);
+    command(&memory, ge_draw_list + 8u, 0x12u, vtype);
+    command(&memory, ge_draw_list + 12u, 0x04u, (3u << 16) | 3u);
+    command(&memory, ge_draw_list + 16u, 0x0Cu, 0u);
     ge.framebuffer_address = ge_draw_target;
     ge.framebuffer_stride = PSP_VIDEO_STRIDE;
     ge.framebuffer_format = 3u;
@@ -1085,7 +1101,7 @@ int main(void)
         ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u, 0u);
     psp_memory_write32(&memory, ge_display_target +
         ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u, 0xFF123456u);
-    assert(psp_ge_execute_list(&ge, list, 8u));
+    assert(psp_ge_execute_list(&ge, ge_draw_list, 8u));
     assert(psp_memory_read32(&memory, ge_draw_target +
         ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u) != 0u);
     assert(psp_memory_read32(&memory, ge_display_target +
