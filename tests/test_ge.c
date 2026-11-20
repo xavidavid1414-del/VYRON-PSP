@@ -1016,6 +1016,22 @@ int main(void)
     assert(!psp_ge_execute_list(&ge, transfer_list,
         (uint32_t)(sizeof(invalid_transfer) / sizeof(invalid_transfer[0]))));
 
+    /* Framebuffer VRAM is decoded into the host video buffer. */
+    psp_ge_reset(&ge);
+    const uint32_t display_fb = PSP_VRAM_BASE + 0x100u;
+    ge.framebuffer_address = display_fb;
+    ge.framebuffer_stride = PSP_VIDEO_STRIDE;
+    ge.framebuffer_format = 3u;
+    psp_memory_write32(&memory, display_fb + (7u * 4u),
+                       0xFF123456u);
+    psp_ge_present_framebuffer(&ge);
+    assert(psp_video_get_pixel(&video, 7, 0) == 0xFF123456u);
+
+    ge.framebuffer_format = 0u;
+    put16(&memory, display_fb + 2u, 0xF800u);
+    psp_ge_present_framebuffer(&ge);
+    assert(psp_video_get_pixel(&video, 1, 0) == 0xFFFF0000u);
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
