@@ -43,8 +43,12 @@ GitHub Actions also builds the application and runs the host-side unit/integrati
 ## Install and use
 
 1. Copy `vyron_psp.3dsx` to the 3DS SD card and launch it with Homebrew Launcher or an equivalent homebrew method.
-2. Create the directory `/PSP/ISO` on the SD card.
-3. Place an uncompressed PSP `.iso` image in that directory.
+2. Launch VYRON-PSP once; it creates the storage folders automatically:
+   - `/PSP/GAMES` for uncompressed PSP `.iso` images.
+   - `/PSP/SAVES` for future save data.
+   - `/PSP/CONFIG` for future settings files.
+   - `/PSP/SYSTEM` for internal emulator data.
+3. Place an uncompressed PSP `.iso` image in `/PSP/GAMES`.
 4. Select the image in VYRON-PSP and press **A** to inspect and attempt to load its executable.
 
 At this stage, loading an ISO or ELF does **not** guarantee that the game can boot or run.
