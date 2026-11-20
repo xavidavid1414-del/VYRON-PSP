@@ -219,15 +219,15 @@ static void print_settings_menu(void)
     static const char *map_names[4] = {
         "CROSS", "CIRCLE", "TRIANGLE", "SQUARE"
     };
-    printf("\\x1b[14;1H%s 3DS A -> PSP %s",
+    printf("\x1b[14;1H%s 3DS A -> PSP %s",
            settings_selected == 4 ? ">" : " ", map_names[settings.map_a]);
-    printf("\\x1b[16;1H%s 3DS B -> PSP %s",
+    printf("\x1b[16;1H%s 3DS B -> PSP %s",
            settings_selected == 5 ? ">" : " ", map_names[settings.map_b]);
-    printf("\\x1b[18;1H%s 3DS X -> PSP %s",
+    printf("\x1b[18;1H%s 3DS X -> PSP %s",
            settings_selected == 6 ? ">" : " ", map_names[settings.map_x]);
-    printf("\\x1b[20;1H%s 3DS Y -> PSP %s",
+    printf("\x1b[20;1H%s 3DS Y -> PSP %s",
            settings_selected == 7 ? ">" : " ", map_names[settings.map_y]);
-    printf("\\x1b[23;1HSaved in /PSP/CONFIG/settings.ini");
+    printf("\x1b[23;1HSaved in /PSP/CONFIG/settings.ini");
 }
 
 static void change_selected_setting(void)
