@@ -519,6 +519,57 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 980, 4));
     assert(psp_video_get_pixel(&video, 26, 26) == 0xFFFF0000u);
 
+    /* Indexed T8 and packed T4 textures use the loaded PSP CLUT. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const uint32_t indexed_texture = PSP_RAM_BASE + 0x2500u;
+    const uint32_t clut = PSP_RAM_BASE + 0x2600u;
+    const uint32_t indexed_vertex = PSP_RAM_BASE + 0x2700u;
+    psp_memory_write32(&memory, clut, 0xFFFF0000u);
+    psp_memory_write32(&memory, clut + 4u, 0xFF00FF00u);
+    psp_memory_write8(&memory, indexed_texture, 0u);
+    psp_memory_write8(&memory, indexed_texture + 1u, 1u);
+    put_float(&memory, indexed_vertex, 0.0f);
+    put_float(&memory, indexed_vertex + 4u, 0.0f);
+    psp_memory_write32(&memory, indexed_vertex + 8u, 0xFFFFFFFFu);
+    put16(&memory, indexed_vertex + 12u, 50u);
+    put16(&memory, indexed_vertex + 14u, 50u);
+    command(&memory, list + 1000u, 0x10, 0x00080000u);
+    command(&memory, list + 1004u, 0xB0, 0x2600u);
+    command(&memory, list + 1008u, 0xC5, 3u | (0xFFu << 8));
+    command(&memory, list + 1012u, 0xC4, 32u);
+    command(&memory, list + 1016u, 0xA0, 0x2500u);
+    command(&memory, list + 1020u, 0xA8, 0x00080002u);
+    command(&memory, list + 1024u, 0xB8, 0x00000101u);
+    command(&memory, list + 1028u, 0xC3, 5u);
+    command(&memory, list + 1032u, 0x1E, 1u);
+    command(&memory, list + 1036u, 0x01, 0x2700u);
+    command(&memory, list + 1040u, 0x12, textured_vtype);
+    command(&memory, list + 1044u, 0x04, 1u);
+    command(&memory, list + 1048u, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 1000u, 16u));
+    assert(psp_video_get_pixel(&video, 50, 50) == 0xFFFF0000u);
+
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_memory_write8(&memory, indexed_texture, 0x10u);
+    put_float(&memory, indexed_vertex, 1.0f);
+    command(&memory, list + 1052u, 0x10, 0x00080000u);
+    command(&memory, list + 1056u, 0xB0, 0x2600u);
+    command(&memory, list + 1060u, 0xC5, 3u | (0xFFu << 8));
+    command(&memory, list + 1064u, 0xC4, 32u);
+    command(&memory, list + 1068u, 0xA0, 0x2500u);
+    command(&memory, list + 1072u, 0xA8, 0x00080002u);
+    command(&memory, list + 1076u, 0xB8, 0x00000101u);
+    command(&memory, list + 1080u, 0xC3, 4u);
+    command(&memory, list + 1084u, 0x1E, 1u);
+    command(&memory, list + 1088u, 0x01, 0x2700u);
+    command(&memory, list + 1092u, 0x12, textured_vtype);
+    command(&memory, list + 1096u, 0x04, 1u);
+    command(&memory, list + 1100u, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 1052u, 16u));
+    assert(psp_video_get_pixel(&video, 50, 50) == 0xFF00FF00u);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
