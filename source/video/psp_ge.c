@@ -200,18 +200,35 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
         return;
 
     float diffuse_amount[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    for (unsigned int light = 0; light < 4u; light++) {
-        bool enabled = light == 0u ? ge->light0_enabled :
-            ge->light_enabled[light];
-        uint32_t type = light == 0u ? ge->light0_type :
-            ge->light_type[light];
-        const float *direction = light == 0u ? ge->light0_direction :
-            ge->light_direction[light];
-        if (enabled && type == 0u) {
-            diffuse_amount[light] = -(vertex->nx * direction[0] +
-                vertex->ny * direction[1] + vertex->nz * direction[2]);
-            if (diffuse_amount[light] < 0.0f) diffuse_amount[light] = 0.0f;
-            if (diffuse_amount[light] > 1.0f) diffuse_amount[light] = 1.0f;
+    float normal_length = sqrtf(vertex->nx * vertex->nx +
+        vertex->ny * vertex->ny + vertex->nz * vertex->nz);
+    if (normal_length > 0.000001f && isfinite(normal_length)) {
+        float normal[3] = {
+            vertex->nx / normal_length,
+            vertex->ny / normal_length,
+            vertex->nz / normal_length
+        };
+        for (unsigned int light = 0; light < 4u; light++) {
+            bool enabled = light == 0u ? ge->light0_enabled :
+                ge->light_enabled[light];
+            uint32_t type = light == 0u ? ge->light0_type :
+                ge->light_type[light];
+            const float *direction = light == 0u ? ge->light0_direction :
+                ge->light_direction[light];
+            if (enabled && type == 0u) {
+                float direction_length = sqrtf(direction[0] * direction[0] +
+                    direction[1] * direction[1] +
+                    direction[2] * direction[2]);
+                if (direction_length > 0.000001f &&
+                    isfinite(direction_length)) {
+                    float dot = -(normal[0] * direction[0] +
+                        normal[1] * direction[1] +
+                        normal[2] * direction[2]) / direction_length;
+                    diffuse_amount[light] = dot > 0.0f ? dot : 0.0f;
+                    if (diffuse_amount[light] > 1.0f)
+                        diffuse_amount[light] = 1.0f;
+                }
+            }
         }
     }
 
