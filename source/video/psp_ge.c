@@ -423,6 +423,16 @@ void psp_ge_reset(PSP_GE *ge)
     ge->vertex_address = 0;
     ge->vertex_type = (2u << 7) | (1u << 23);
     ge->draw_color = 0xFFFFFFFFu;
+    ge->texture_address = 0;
+    ge->texture_address_low = 0;
+    ge->texture_buffer_width_register = 0;
+    ge->texture_buffer_width = 0;
+    ge->texture_width = 0;
+    ge->texture_height = 0;
+    ge->texture_format = 3;
+    ge->texture_wrap_u = 1;
+    ge->texture_wrap_v = 1;
+    ge->texture_enabled = false;
     ge->scissor_left = 0;
     ge->scissor_top = 0;
     ge->scissor_right = PSP_VIDEO_WIDTH - 1;
@@ -459,6 +469,40 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_VTYPE:
                 ge->vertex_type = value;
+                break;
+            case GE_CMD_TEXTUREMAPENABLE:
+                ge->texture_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_TEXADDR0:
+                ge->texture_address_low = value & 0x00FFFFFFu;
+                ge->texture_address =
+                    ((ge->texture_buffer_width_register & 0x000F0000u) << 8) |
+                    ge->texture_address_low;
+                break;
+            case GE_CMD_TEXBUFWIDTH0:
+                ge->texture_buffer_width_register = value;
+                ge->texture_buffer_width = value & 0x3FFu;
+                ge->texture_address =
+                    ((value & 0x000F0000u) << 8) |
+                    ge->texture_address_low;
+                break;
+            case GE_CMD_TEXSIZE0: {
+                uint32_t width_exp = value & 0xFu;
+                uint32_t height_exp = (value >> 8) & 0xFu;
+                if (width_exp > 9u || height_exp > 9u)
+                    return false;
+                ge->texture_width = 1u << width_exp;
+                ge->texture_height = 1u << height_exp;
+                break;
+            }
+            case GE_CMD_TEXFORMAT:
+                ge->texture_format = value & 0xFu;
+                break;
+            case GE_CMD_TEXWRAP:
+                ge->texture_wrap_u = value & 3u;
+                ge->texture_wrap_v = (value >> 8) & 3u;
+                if (ge->texture_wrap_u > 1u || ge->texture_wrap_v > 1u)
+                    return false;
                 break;
             case GE_CMD_OFFSET:
                 /* Offset is used by transformed 3D vertices; unsupported here. */
