@@ -835,7 +835,7 @@ int main(void)
     command(&memory, list + 1904u, 0x71, encode_float24(-1.0f));
     command(&memory, list + 1908u, 0x90, 0u);
     command(&memory, list + 1912u, 0x98, 0x00FFFFFFu);
-    command(&memory, list + 1916u, 0x57, 0x00FFFFFFu);
+    command(&memory, list + 1916u, 0x55, 0x00FFFFFFu);
     command(&memory, list + 1920u, 0x58, encode_float24(16.0f));
     command(&memory, list + 1924u, 0x01, 0x3900u);
     command(&memory, list + 1928u, 0x12, (7u << 2) | (3u << 7));
