@@ -61,6 +61,7 @@ int main(void)
     psp_ge_hle_unregister();
     psp_syscall_reset();
     psp_nid_reset();
+    psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
     puts("PSP GE HLE tests passed");
