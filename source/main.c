@@ -456,8 +456,8 @@ static void print_file_list(void)
     if (!scan_ok) {
         printf("Folder not found. Check /PSP/GAMES.\n");
     } else if (iso_count == 0) {
-        printf("No ISO files found.\n");
-        printf("Copy your PSP images into this folder.\n");
+        printf("No supported PSP files found.\n");
+        printf("Add ISO, PBP, PRX or ELF files.\n");
     } else {
         unsigned int first = selected > 5 ? selected - 5 : 0;
         unsigned int last = first + 6;
