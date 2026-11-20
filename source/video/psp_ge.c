@@ -1029,6 +1029,7 @@ static GE_Vertex ge_lerp_vertex(const GE_Vertex *a,
 #define GE_LERP_FIELD(field) out.field = a->field + (b->field - a->field) * t
     GE_LERP_FIELD(x); GE_LERP_FIELD(y); GE_LERP_FIELD(z);
     GE_LERP_FIELD(nx); GE_LERP_FIELD(ny); GE_LERP_FIELD(nz);
+    GE_LERP_FIELD(view_x); GE_LERP_FIELD(view_y); GE_LERP_FIELD(view_z);
     GE_LERP_FIELD(reciprocal_w);
     GE_LERP_FIELD(clip_x); GE_LERP_FIELD(clip_y);
     GE_LERP_FIELD(clip_z); GE_LERP_FIELD(clip_w);
