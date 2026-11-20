@@ -34,6 +34,22 @@ if ! command -v makerom >/dev/null 2>&1; then
   if [[ ! -d build/cia-tools/Project_CTR ]]; then
     git clone --depth 1 --recurse-submodules https://github.com/3DSGuy/Project_CTR.git build/cia-tools/Project_CTR
   fi
+  MBEDTLS_CONFIG="build/cia-tools/Project_CTR/makerom/deps/libmbedtls/include/mbedtls/config.h"
+  if [[ -f "$MBEDTLS_CONFIG" ]] && ! grep -q '^#define MBEDTLS_NO_PLATFORM_ENTROPY' "$MBEDTLS_CONFIG"; then
+    python3 - "$MBEDTLS_CONFIG" <<'PY'
+import sys
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as handle:
+    content = handle.read()
+guard = "#define MBEDTLS_CONFIG_H"
+if guard in content:
+    content = content.replace(guard, guard + "\\n#define MBEDTLS_NO_PLATFORM_ENTROPY", 1)
+else:
+    content = "#define MBEDTLS_NO_PLATFORM_ENTROPY\\n" + content
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(content)
+PY
+  fi
   make -C build/cia-tools/Project_CTR/makerom deps
   make -C build/cia-tools/Project_CTR/makerom
   MAKEROM_BIN="$(find build/cia-tools/Project_CTR/makerom -type f -name makerom -perm -111 -print -quit)"
