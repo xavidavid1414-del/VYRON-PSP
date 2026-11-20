@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define TEST_ELF_SIZE 0xA4u
+#define TEST_ELF_SIZE 0xA8u
 #define TEST_ENTRY PSP_RAM_BASE
 #define TEST_DATA_ENTRY (PSP_RAM_BASE + 0x100u)
 
@@ -61,7 +61,7 @@ static void make_test_elf(uint8_t *elf)
     write_le32(elf + 104, 8); /* memsz */
     write_le32(elf + 108, 6); /* PF_R | PF_W */
     write_le32(elf + 112, 4);
-    write_le32(elf + 0xA4 - 4, 0x12345678);
+    write_le32(elf + 0xA4, 0x12345678);
 }
 
 int main(void)
