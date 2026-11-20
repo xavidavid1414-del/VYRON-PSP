@@ -51,6 +51,16 @@ typedef struct {
     float fog_end;
     float fog_slope;
     uint32_t fog_color;
+    uint32_t transfer_source_address;
+    uint32_t transfer_source_buffer_width;
+    uint32_t transfer_destination_address;
+    uint32_t transfer_destination_buffer_width;
+    uint32_t transfer_source_x;
+    uint32_t transfer_source_y;
+    uint32_t transfer_destination_x;
+    uint32_t transfer_destination_y;
+    uint32_t transfer_width;
+    uint32_t transfer_height;
     uint32_t texture_address;
     uint32_t texture_level_address[8];
     uint32_t texture_level_buffer_width[8];
