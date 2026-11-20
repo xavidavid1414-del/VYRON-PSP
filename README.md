@@ -15,7 +15,7 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - PBP executable-region extraction.
 - ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading, including PSPREL1 and compressed PSPREL2 relocation streams.
 - A partial MIPS interpreter with delay-slot handling and exception basics.
-- Experimental PSP GE software-renderer subset: display-list decoding with bounded jump/call/return flow, 2D points/lines/line strips/triangles/triangle strips/triangle fans/sprites, 8-bit/16-bit/32-bit indexed vertices, interpolated vertex colors, world/view/projection transforms, viewport mapping, depth testing, configurable basic alpha blending and alpha testing, nearest-neighbor 5650/5551/4444/8888 texture sampling with MODULATE/DECAL/BLEND/REPLACE/ADD texture functions, and scissor clipping, rendered into the PSP framebuffer.
+- Experimental PSP GE software-renderer subset: display-list decoding with bounded jump/call/return flow, 2D points/lines/line strips/triangles/triangle strips/triangle fans/sprites, 8-bit/16-bit/32-bit indexed vertices, interpolated vertex colors, world/view/projection transforms, viewport mapping, depth testing, configurable basic alpha blending and alpha testing, nearest-neighbor and bilinear 5650/5551/4444/8888 texture sampling with MODULATE/DECAL/BLEND/REPLACE/ADD texture functions, and scissor clipping, rendered into the PSP framebuffer.
 - Experimental framebuffer output and Nintendo 3DS audio output plumbing.
 - HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.
 - Experimental PSP user-partition memory blocks with allocation, release, and block-head lookup HLE calls.
