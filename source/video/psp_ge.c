@@ -43,14 +43,47 @@
 #define GE_CMD_LDX3 0x78u
 #define GE_CMD_LDY3 0x79u
 #define GE_CMD_LDZ3 0x7Au
-#define GE_CMD_LDC1 0x91u
-#define GE_CMD_LDC2 0x92u
-#define GE_CMD_LDC3 0x93u
-#define GE_CMD_LSC0 0x98u
-#define GE_CMD_LSC1 0x99u
-#define GE_CMD_LSC2 0x9Au
+#define GE_CMD_LSC0 0x91u
+#define GE_CMD_LDC1 0x93u
+#define GE_CMD_LSC1 0x94u
+#define GE_CMD_LDC2 0x96u
+#define GE_CMD_LSC2 0x97u
+#define GE_CMD_LDC3 0x99u
+#define GE_CMD_LSC3 0x9Au
 #define GE_CMD_AMBIENTCOLOR 0x5Cu
 #define GE_CMD_LIGHTTYPE0 0x5Fu
+#define GE_CMD_LX0 0x63u
+#define GE_CMD_LY0 0x64u
+#define GE_CMD_LZ0 0x65u
+#define GE_CMD_LX1 0x66u
+#define GE_CMD_LY1 0x67u
+#define GE_CMD_LZ1 0x68u
+#define GE_CMD_LX2 0x69u
+#define GE_CMD_LY2 0x6Au
+#define GE_CMD_LZ2 0x6Bu
+#define GE_CMD_LX3 0x6Cu
+#define GE_CMD_LY3 0x6Du
+#define GE_CMD_LZ3 0x6Eu
+#define GE_CMD_LKA0 0x7Bu
+#define GE_CMD_LKB0 0x7Cu
+#define GE_CMD_LKC0 0x7Du
+#define GE_CMD_LKA1 0x7Eu
+#define GE_CMD_LKB1 0x7Fu
+#define GE_CMD_LKC1 0x80u
+#define GE_CMD_LKA2 0x81u
+#define GE_CMD_LKB2 0x82u
+#define GE_CMD_LKC2 0x83u
+#define GE_CMD_LKA3 0x84u
+#define GE_CMD_LKB3 0x85u
+#define GE_CMD_LKC3 0x86u
+#define GE_CMD_LKS0 0x87u
+#define GE_CMD_LKS1 0x88u
+#define GE_CMD_LKS2 0x89u
+#define GE_CMD_LKS3 0x8Au
+#define GE_CMD_LKO0 0x8Bu
+#define GE_CMD_LKO1 0x8Cu
+#define GE_CMD_LKO2 0x8Du
+#define GE_CMD_LKO3 0x8Eu
 #define GE_CMD_LDX0 0x6Fu
 #define GE_CMD_LDY0 0x70u
 #define GE_CMD_LDZ0 0x71u
@@ -237,6 +270,16 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
             vertex->ny / normal_length,
             vertex->nz / normal_length
         };
+        float view_length = sqrtf(vertex->view_x * vertex->view_x +
+            vertex->view_y * vertex->view_y +
+            vertex->view_z * vertex->view_z);
+        float vx = view_length > 0.000001f ?
+            -vertex->view_x / view_length : 0.0f;
+        float vy = view_length > 0.000001f ?
+            -vertex->view_y / view_length : 0.0f;
+        float vz = view_length > 0.000001f ?
+            -vertex->view_z / view_length : 1.0f;
+
         for (unsigned int light = 0; light < 4u; light++) {
             bool enabled = light == 0u ? ge->light0_enabled :
                 ge->light_enabled[light];
@@ -244,44 +287,89 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
                 ge->light_type[light];
             const float *direction = light == 0u ? ge->light0_direction :
                 ge->light_direction[light];
-            if (enabled && type == 0u) {
+            if (!enabled || type > 2u)
+                continue;
+
+            float lx, ly, lz, distance = 0.0f;
+            float attenuation = 1.0f;
+            if (type == 0u) {
                 float direction_length = sqrtf(direction[0] * direction[0] +
                     direction[1] * direction[1] +
                     direction[2] * direction[2]);
-                if (direction_length > 0.000001f &&
-                    isfinite(direction_length)) {
-                    float dot = -(normal[0] * direction[0] +
-                        normal[1] * direction[1] +
-                        normal[2] * direction[2]) / direction_length;
-                    diffuse_amount[light] = dot > 0.0f ? dot : 0.0f;
-                    if (diffuse_amount[light] > 1.0f)
-                        diffuse_amount[light] = 1.0f;
-                    float view_length = sqrtf(vertex->view_x * vertex->view_x +
-                        vertex->view_y * vertex->view_y +
-                        vertex->view_z * vertex->view_z);
-                    if (view_length > 0.000001f &&
-                        isfinite(view_length) &&
-                        ge->material_specular_coefficient > 0.0f &&
-                        (ge->material_specular & 0x00FFFFFFu) != 0u &&
-                        (ge->light_specular[light] & 0x00FFFFFFu) != 0u) {
-                        float lx = -direction[0] / direction_length;
-                        float ly = -direction[1] / direction_length;
-                        float lz = -direction[2] / direction_length;
-                        float vx = -vertex->view_x / view_length;
-                        float vy = -vertex->view_y / view_length;
-                        float vz = -vertex->view_z / view_length;
-                        float hx = lx + vx, hy = ly + vy, hz = lz + vz;
-                        float half_length = sqrtf(hx * hx + hy * hy + hz * hz);
-                        if (half_length > 0.000001f && isfinite(half_length)) {
-                            float ndoth = (normal[0] * hx + normal[1] * hy +
-                                normal[2] * hz) / half_length;
-                            if (ndoth > 0.0f) {
-                                float power = powf(ndoth,
-                                    ge->material_specular_coefficient);
-                                if (isfinite(power))
-                                    specular_amount[light] = power;
-                            }
-                        }
+                if (direction_length <= 0.000001f ||
+                    !isfinite(direction_length))
+                    continue;
+                lx = -direction[0] / direction_length;
+                ly = -direction[1] / direction_length;
+                lz = -direction[2] / direction_length;
+            } else {
+                const float *position = ge->light_position[light];
+                float px = ge->view_matrix[0] * position[0] +
+                    ge->view_matrix[1] * position[1] +
+                    ge->view_matrix[2] * position[2] + ge->view_matrix[3];
+                float py = ge->view_matrix[4] * position[0] +
+                    ge->view_matrix[5] * position[1] +
+                    ge->view_matrix[6] * position[2] + ge->view_matrix[7];
+                float pz = ge->view_matrix[8] * position[0] +
+                    ge->view_matrix[9] * position[1] +
+                    ge->view_matrix[10] * position[2] + ge->view_matrix[11];
+                float dx = px - vertex->view_x;
+                float dy = py - vertex->view_y;
+                float dz = pz - vertex->view_z;
+                distance = sqrtf(dx * dx + dy * dy + dz * dz);
+                if (distance <= 0.000001f || !isfinite(distance))
+                    continue;
+                lx = dx / distance;
+                ly = dy / distance;
+                lz = dz / distance;
+
+                const float *coeff = ge->light_attenuation[light];
+                float denominator = coeff[0] + coeff[1] * distance +
+                    coeff[2] * distance * distance;
+                if (!isfinite(denominator) || denominator <= 0.000001f)
+                    continue;
+                attenuation = 1.0f / denominator;
+                if (type == 2u) {
+                    float spot_length = sqrtf(direction[0] * direction[0] +
+                        direction[1] * direction[1] +
+                        direction[2] * direction[2]);
+                    if (spot_length <= 0.000001f ||
+                        !isfinite(spot_length))
+                        continue;
+                    float spot = (direction[0] * -lx +
+                        direction[1] * -ly + direction[2] * -lz) /
+                        spot_length;
+                    float cutoff = ge->light_spot_cutoff[light];
+                    if (spot < cutoff)
+                        continue;
+                    float exponent = ge->light_spot_exponent[light];
+                    if (spot <= 0.0f)
+                        continue;
+                    attenuation *= powf(spot, exponent);
+                }
+            }
+
+            float ndotl = normal[0] * lx + normal[1] * ly +
+                normal[2] * lz;
+            diffuse_amount[light] = ndotl > 0.0f ? ndotl : 0.0f;
+            diffuse_amount[light] *= attenuation;
+            if (diffuse_amount[light] > 1.0f)
+                diffuse_amount[light] = 1.0f;
+
+            if (view_length > 0.000001f && isfinite(view_length) &&
+                ge->material_specular_coefficient > 0.0f &&
+                (ge->material_specular & 0x00FFFFFFu) != 0u &&
+                (ge->light_specular[light] & 0x00FFFFFFu) != 0u) {
+                float hx = lx + vx, hy = ly + vy, hz = lz + vz;
+                float half_length = sqrtf(hx * hx + hy * hy + hz * hz);
+                if (half_length > 0.000001f && isfinite(half_length)) {
+                    float ndoth = (normal[0] * hx + normal[1] * hy +
+                        normal[2] * hz) / half_length;
+                    if (ndoth > 0.0f) {
+                        float power = powf(ndoth,
+                            ge->material_specular_coefficient);
+                        if (isfinite(power))
+                            specular_amount[light] = power * attenuation;
                     }
                 }
             }
@@ -1492,7 +1580,15 @@ void psp_ge_reset(PSP_GE *ge)
     memset(ge->light_enabled, 0, sizeof(ge->light_enabled));
     memset(ge->light_type, 0, sizeof(ge->light_type));
     memset(ge->light_direction, 0, sizeof(ge->light_direction));
+    memset(ge->light_position, 0, sizeof(ge->light_position));
     memset(ge->light_diffuse, 0, sizeof(ge->light_diffuse));
+    memset(ge->light_spot_exponent, 0, sizeof(ge->light_spot_exponent));
+    memset(ge->light_spot_cutoff, 0, sizeof(ge->light_spot_cutoff));
+    for (unsigned int light = 0; light < 4u; light++) {
+        ge->light_attenuation[light][0] = 1.0f;
+        ge->light_attenuation[light][1] = 0.0f;
+        ge->light_attenuation[light][2] = 0.0f;
+    }
     ge->material_specular = 0u;
     ge->material_specular_coefficient = 1.0f;
     for (unsigned int light = 0; light < 4u; light++) {
@@ -1706,6 +1802,23 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_LIGHTTYPE3:
                 ge->light_type[3] = value & 3u;
                 break;
+            case GE_CMD_LX0:
+            case GE_CMD_LY0:
+            case GE_CMD_LZ0:
+            case GE_CMD_LX1:
+            case GE_CMD_LY1:
+            case GE_CMD_LZ1:
+            case GE_CMD_LX2:
+            case GE_CMD_LY2:
+            case GE_CMD_LZ2:
+            case GE_CMD_LX3:
+            case GE_CMD_LY3:
+            case GE_CMD_LZ3: {
+                unsigned int light = (command - GE_CMD_LX0) / 3u;
+                unsigned int axis = (command - GE_CMD_LX0) % 3u;
+                ge->light_position[light][axis] = ge_decode_float24(value);
+                break;
+            }
             case GE_CMD_LDX0:
                 ge->light0_direction[0] = ge_decode_float24(value);
                 break;
@@ -1743,6 +1856,37 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_LDZ3:
                 ge->light_direction[3][2] = ge_decode_float24(value);
                 break;
+            case GE_CMD_LKA0: case GE_CMD_LKA1:
+            case GE_CMD_LKA2: case GE_CMD_LKA3:
+            case GE_CMD_LKB0: case GE_CMD_LKB1:
+            case GE_CMD_LKB2: case GE_CMD_LKB3:
+            case GE_CMD_LKC0: case GE_CMD_LKC1:
+            case GE_CMD_LKC2: case GE_CMD_LKC3: {
+                unsigned int light, component;
+                if (command <= GE_CMD_LKA3) {
+                    light = command - GE_CMD_LKA0;
+                    component = 0u;
+                } else if (command <= GE_CMD_LKB3) {
+                    light = command - GE_CMD_LKB0;
+                    component = 1u;
+                } else {
+                    light = command - GE_CMD_LKC0;
+                    component = 2u;
+                }
+                ge->light_attenuation[light][component] =
+                    ge_decode_float24(value);
+                break;
+            }
+            case GE_CMD_LKS0: case GE_CMD_LKS1:
+            case GE_CMD_LKS2: case GE_CMD_LKS3:
+                ge->light_spot_exponent[command - GE_CMD_LKS0] =
+                    ge_decode_float24(value);
+                break;
+            case GE_CMD_LKO0: case GE_CMD_LKO1:
+            case GE_CMD_LKO2: case GE_CMD_LKO3:
+                ge->light_spot_cutoff[command - GE_CMD_LKO0] =
+                    ge_decode_float24(value);
+                break;
             case GE_CMD_LDC0:
                 ge->light0_diffuse = value & 0x00FFFFFFu;
                 ge->light_diffuse[0] = ge->light0_diffuse;
@@ -1764,6 +1908,9 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_LSC2:
                 ge->light_specular[2] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LSC3:
+                ge->light_specular[3] = value & 0x00FFFFFFu;
                 break;
             case GE_CMD_MATERIALSPECULAR:
                 ge->material_specular = value & 0x00FFFFFFu;
