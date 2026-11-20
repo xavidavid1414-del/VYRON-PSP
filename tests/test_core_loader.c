@@ -90,43 +90,49 @@ static void make_test_prx(uint8_t *elf, size_t size)
     write_le32(elf + 52, 1);
     write_le32(elf + 56, 0x100);
     write_le32(elf + 60, 0x1000);
-    write_le32(elf + 68, 16);
-    write_le32(elf + 72, 16);
+    write_le32(elf + 68, 24);
+    write_le32(elf + 72, 24);
     write_le32(elf + 76, 5);
     write_le32(elf + 80, 4);
     write_le32(elf + 0x100, 0x2408002A);
     write_le32(elf + 0x104, 0x00002004); /* R_MIPS_32 */
     write_le32(elf + 0x108, 0x00002004); /* R_MIPS_16 */
     write_le32(elf + 0x10C, 0x08000800); /* J, R_MIPS_26 */
+    write_le32(elf + 0x110, 0x3C080000); /* LUI, R_MIPS_HI16 */
+    write_le32(elf + 0x114, 0x25082000); /* ADDIU, R_MIPS_LO16 */
 
     /* Data PRX segment, virtual address 0x2000. */
     write_le32(elf + 84, 1);
-    write_le32(elf + 88, 0x110);
+    write_le32(elf + 88, 0x118);
     write_le32(elf + 92, 0x2000);
     write_le32(elf + 100, 8);
     write_le32(elf + 104, 8);
     write_le32(elf + 108, 6);
     write_le32(elf + 112, 4);
-    write_le32(elf + 0x110, 0xAABBCCDD);
-    write_le32(elf + 0x114, 0);
+    write_le32(elf + 0x118, 0xAABBCCDD);
+    write_le32(elf + 0x11C, 0);
 
     /* PSP relocation table: R_MIPS_32, R_MIPS_16 and R_MIPS_26. */
     write_le32(elf + 116, 0x700000A0);
-    write_le32(elf + 120, 0x120);
-    write_le32(elf + 132, 24);
-    write_le32(elf + 0x120, 4);
-    write_le32(elf + 0x124, (1u << 16) | 2u);
-    write_le32(elf + 0x128, 8);
-    write_le32(elf + 0x12C, (1u << 16) | 1u);
-    write_le32(elf + 0x130, 12);
-    write_le32(elf + 0x134, (1u << 16) | 4u);
+    write_le32(elf + 120, 0x128);
+    write_le32(elf + 132, 40);
+    write_le32(elf + 0x128, 4);
+    write_le32(elf + 0x12C, (1u << 16) | 2u);
+    write_le32(elf + 0x130, 8);
+    write_le32(elf + 0x134, (1u << 16) | 1u);
+    write_le32(elf + 0x138, 12);
+    write_le32(elf + 0x13C, (1u << 16) | 4u);
+    write_le32(elf + 0x140, 16);
+    write_le32(elf + 0x144, (1u << 16) | 5u);
+    write_le32(elf + 0x148, 20);
+    write_le32(elf + 0x14C, (1u << 16) | 6u);
 }
 
 int main(void)
 {
     PSP_Core core;
     uint8_t elf[TEST_ELF_SIZE];
-    uint8_t prx[0x138];
+    uint8_t prx[0x150];
 
     memset(&core, 0, sizeof(core));
     assert(psp_memory_init(&core.memory));
@@ -167,6 +173,10 @@ int main(void)
            0x0A000400);
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x1000) ==
            0xAABBCCDD);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 16) ==
+           0x3C080800);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 20) ==
+           0x25081000);
 
     /* An entry point outside executable memory must be rejected. */
     write_le32(elf + 24, TEST_DATA_ENTRY);
