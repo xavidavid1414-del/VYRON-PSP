@@ -44,6 +44,8 @@
 #define GE_CMD_TEXBUFWIDTH0 0xA8u
 #define GE_CMD_TEXSIZE0 0xB8u
 #define GE_CMD_TEXFORMAT 0xC3u
+#define GE_CMD_TEXFUNC 0xC9u
+#define GE_CMD_TEXENV 0xCAu
 #define GE_CMD_TEXWRAP 0xC7u
 
 typedef struct {
@@ -484,6 +486,55 @@ static bool ge_texture_sample(PSP_GE *ge, float u, float v,
     return true;
 }
 
+static uint32_t ge_add_color(uint32_t a, uint32_t b)
+{
+    uint32_t result = 0;
+    for (unsigned int shift = 0; shift <= 24; shift += 8) {
+        uint32_t value = ((a >> shift) & 0xFFu) +
+            ((b >> shift) & 0xFFu);
+        if (value > 255u) value = 255u;
+        result |= value << shift;
+    }
+    return result;
+}
+
+static uint32_t ge_decal_color(uint32_t primary, uint32_t texel,
+                               bool texture_alpha)
+{
+    if (!texture_alpha)
+        return (primary & 0xFF000000u) | (texel & 0x00FFFFFFu);
+    uint32_t alpha = (texel >> 24) & 0xFFu;
+    uint32_t result = primary & 0xFF000000u;
+    for (unsigned int shift = 0; shift <= 16; shift += 8) {
+        uint32_t src = (texel >> shift) & 0xFFu;
+        uint32_t dst = (primary >> shift) & 0xFFu;
+        uint32_t value = (src * alpha + dst * (255u - alpha) + 127u) /
+            255u;
+        result |= value << shift;
+    }
+    return result;
+}
+
+static uint32_t ge_blend_texture_color(const PSP_GE *ge, uint32_t primary,
+                                       uint32_t texel)
+{
+    uint32_t result = primary & 0xFF000000u;
+    for (unsigned int shift = 0; shift <= 16; shift += 8) {
+        uint32_t factor = (texel >> shift) & 0xFFu;
+        uint32_t src = (primary >> shift) & 0xFFu;
+        uint32_t env = (ge->texture_environment_color >> shift) & 0xFFu;
+        uint32_t value = (src * factor + env * (255u - factor) + 127u) /
+            255u;
+        result |= value << shift;
+    }
+    if (ge->texture_color_component) {
+        uint32_t alpha = ((primary >> 24) & 0xFFu) *
+            ((texel >> 24) & 0xFFu) / 255u;
+        result = (result & 0x00FFFFFFu) | (alpha << 24);
+    }
+    return result;
+}
+
 static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
                                   float u, float v)
 {
@@ -492,7 +543,28 @@ static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
         return color;
     if (!ge_texture_sample(ge, u, v, &texel))
         return 0;
-    return ge_modulate_color(color, texel);
+
+    switch (ge->texture_function) {
+        case 0:
+            return ge_modulate_color(color, texel);
+        case 1:
+            return ge_decal_color(color, texel,
+                                  ge->texture_color_component);
+        case 2:
+            return ge_blend_texture_color(ge, color, texel);
+        case 3:
+            if (ge->texture_color_component)
+                return texel;
+            return (color & 0xFF000000u) | (texel & 0x00FFFFFFu);
+        case 4: {
+            uint32_t added = ge_add_color(color, texel);
+            if (!ge->texture_color_component)
+                added = (added & 0x00FFFFFFu) | (color & 0xFF000000u);
+            return added;
+        }
+        default:
+            return ge_modulate_color(color, texel);
+    }
 }
 
 static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
@@ -696,6 +768,9 @@ void psp_ge_reset(PSP_GE *ge)
     ge->texture_width = 0;
     ge->texture_height = 0;
     ge->texture_format = 3;
+    ge->texture_function = 0;
+    ge->texture_environment_color = 0xFFFFFFFFu;
+    ge->texture_color_component = true;
     ge->texture_wrap_u = 1;
     ge->texture_wrap_v = 1;
     ge->texture_enabled = false;
@@ -887,6 +962,18 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             }
             case GE_CMD_TEXFORMAT:
                 ge->texture_format = value & 0xFu;
+                break;
+            case GE_CMD_TEXFUNC:
+                ge->texture_function = value & 7u;
+                ge->texture_color_component = ((value >> 8) & 1u) != 0;
+                if (ge->texture_function > 4u)
+                    return false;
+                break;
+            case GE_CMD_TEXENV:
+                ge->texture_environment_color = PSP_VIDEO_COLOR(
+                    (value >> 16) & 0xFFu,
+                    (value >> 8) & 0xFFu,
+                    value & 0xFFu, 255u);
                 break;
             case GE_CMD_TEXWRAP:
                 ge->texture_wrap_u = value & 3u;
