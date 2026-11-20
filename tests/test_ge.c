@@ -118,6 +118,45 @@ int main(void)
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
     assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
 
+    /* 5551 and 4444 texture formats retain alpha and channel decoding. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    put16(&memory, PSP_RAM_BASE + 0x2200, 0xFC00u);
+    put16(&memory, PSP_RAM_BASE + 0x2202, 0x83E0u);
+    command(&memory, list + 224, 0x10, 0x00080000u);
+    command(&memory, list + 228, 0xA0, 0x2200u);
+    command(&memory, list + 232, 0xA8, 0x00080002u);
+    command(&memory, list + 236, 0xB8, 0x00000101u);
+    command(&memory, list + 240, 0xC3, 1u);
+    command(&memory, list + 244, 0xC7, 0x00000101u);
+    command(&memory, list + 248, 0x1E, 1u);
+    command(&memory, list + 252, 0x01, 0x1400u);
+    command(&memory, list + 256, 0x12, textured_vtype);
+    command(&memory, list + 260, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 264, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 224, 12));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
+    assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
+
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    put16(&memory, PSP_RAM_BASE + 0x2300, 0xFF00u);
+    put16(&memory, PSP_RAM_BASE + 0x2302, 0xF0F0u);
+    command(&memory, list + 272, 0x10, 0x00080000u);
+    command(&memory, list + 276, 0xA0, 0x2300u);
+    command(&memory, list + 280, 0xA8, 0x00080002u);
+    command(&memory, list + 284, 0xB8, 0x00000101u);
+    command(&memory, list + 288, 0xC3, 2u);
+    command(&memory, list + 292, 0xC7, 0x00000101u);
+    command(&memory, list + 296, 0x1E, 1u);
+    command(&memory, list + 300, 0x01, 0x1400u);
+    command(&memory, list + 304, 0x12, textured_vtype);
+    command(&memory, list + 308, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 312, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 272, 12));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
+    assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
+
     /* Sprite primitives obey the configured scissor rectangle. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
