@@ -1677,6 +1677,141 @@ static void ge_draw_patch_point(PSP_GE *ge, const GE_Vertex *vertex)
         ge_apply_fog(ge, color, vertex->fog_factor), vertex->z);
 }
 
+
+static int ge_spline_knot(int index, uint32_t points, uint32_t type)
+{
+    int segments = (int)points - 3;
+    int knot = index - 3;
+    if ((type & 1u) != 0u && knot < 0) knot = 0;
+    if ((type & 2u) != 0u && knot > segments) knot = segments;
+    return knot;
+}
+
+static GE_Vertex ge_evaluate_spline_curve(const GE_Vertex input[4],
+                                          uint32_t segment,
+                                          uint32_t parameter,
+                                          uint32_t points,
+                                          uint32_t type)
+{
+    GE_Vertex d[4];
+    for (unsigned int i = 0u; i < 4u; i++) d[i] = input[i];
+    for (unsigned int r = 1u; r <= 3u; r++) {
+        for (int j = 3; j >= (int)r; j--) {
+            int knot_index = (int)segment + j;
+            int left = ge_spline_knot(knot_index, points, type);
+            int right = ge_spline_knot(knot_index + 4 - (int)r,
+                                       points, type);
+            int span = right - left;
+            if (span <= 0) return d[j];
+            int dl = (int)(segment * 256u + parameter) - left * 256;
+            int total = span * 256;
+            if (dl < 0) dl = 0;
+            if (dl > total) dl = total;
+            int dr = total - dl;
+            int factor = dl <= dr ? dl / span :
+                256 - dr / span;
+            d[j] = ge_lerp_vertex(&d[j - 1], &d[j],
+                                   (float)factor / 256.0f);
+        }
+    }
+    return d[3];
+}
+
+static GE_Vertex ge_evaluate_spline_patch(const GE_Vertex control[4][4],
+                                          uint32_t segment_u,
+                                          uint32_t segment_v,
+                                          uint32_t u, uint32_t v,
+                                          uint32_t points_u,
+                                          uint32_t points_v,
+                                          uint32_t type_u,
+                                          uint32_t type_v)
+{
+    GE_Vertex rows[4];
+    for (unsigned int row = 0u; row < 4u; row++)
+        rows[row] = ge_evaluate_spline_curve(control[row], segment_u,
+            u, points_u, type_u);
+    return ge_evaluate_spline_curve(rows, segment_v, v,
+                                    points_v, type_v);
+}
+
+static bool ge_draw_spline_surface(PSP_GE *ge, uint32_t value)
+{
+    uint32_t points_u = value & 0xFFu;
+    uint32_t points_v = (value >> 8) & 0xFFu;
+    uint32_t type_u = (value >> 16) & 3u;
+    uint32_t type_v = (value >> 18) & 3u;
+    if (points_u < 4u || points_v < 4u ||
+        points_u > 64u || points_v > 64u ||
+        (uint64_t)points_u * points_v > 4096u ||
+        ge->patch_division_u == 0u || ge->patch_division_v == 0u ||
+        ge->patch_division_u > 64u || ge->patch_division_v > 64u ||
+        (ge->patch_primitive != 0u && ge->patch_primitive != 1u &&
+         ge->patch_primitive != 3u))
+        return false;
+
+    uint32_t emitted = 0u;
+    for (uint32_t sy = 0u; sy < points_v - 3u; sy++) {
+        for (uint32_t sx = 0u; sx < points_u - 3u; sx++) {
+            GE_Vertex control[4][4];
+            for (uint32_t y = 0u; y < 4u; y++) {
+                for (uint32_t x = 0u; x < 4u; x++) {
+                    uint32_t index = (sy + y) * points_u + sx + x;
+                    if (!ge_read_primitive_vertex(ge, index,
+                                                   &control[y][x]))
+                        return false;
+                }
+            }
+            uint32_t du = ge->patch_division_u;
+            uint32_t dv = ge->patch_division_v;
+            if (ge->patch_primitive == 0u) {
+                for (uint32_t y = 0u; y <= dv; y++) {
+                    uint32_t tv = ge_patch_parameter(y, dv);
+                    for (uint32_t x = 0u; x <= du; x++) {
+                        uint32_t tu = ge_patch_parameter(x, du);
+                        GE_Vertex p = ge_evaluate_spline_patch(control,
+                            sx, sy, tu, tv, points_u, points_v,
+                            type_u, type_v);
+                        ge_draw_patch_point(ge, &p);
+                        emitted++;
+                    }
+                }
+            } else {
+                for (uint32_t y = 0u; y < dv; y++) {
+                    uint32_t v0 = ge_patch_parameter(y, dv);
+                    uint32_t v1 = ge_patch_parameter(y + 1u, dv);
+                    for (uint32_t x = 0u; x < du; x++) {
+                        uint32_t u0 = ge_patch_parameter(x, du);
+                        uint32_t u1 = ge_patch_parameter(x + 1u, du);
+                        GE_Vertex a = ge_evaluate_spline_patch(control,sx,sy,
+                            u0,v0,points_u,points_v,type_u,type_v);
+                        GE_Vertex b = ge_evaluate_spline_patch(control,sx,sy,
+                            u1,v0,points_u,points_v,type_u,type_v);
+                        GE_Vertex c = ge_evaluate_spline_patch(control,sx,sy,
+                            u0,v1,points_u,points_v,type_u,type_v);
+                        GE_Vertex d = ge_evaluate_spline_patch(control,sx,sy,
+                            u1,v1,points_u,points_v,type_u,type_v);
+                        if (ge->patch_facing) {
+                            GE_Vertex swap = b; b = c; c = swap;
+                        }
+                        if (ge->patch_primitive == 1u) {
+                            ge_draw_line(ge, &a, &c);
+                            ge_draw_line(ge, &c, &b);
+                            ge_draw_line(ge, &b, &d);
+                            emitted += 3u;
+                        } else {
+                            ge_draw_triangle(ge, &a, &b, &c);
+                            ge_draw_triangle(ge, &b, &d, &c);
+                            emitted += 2u;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ge->primitives_drawn += emitted;
+    return true;
+}
+
 static bool ge_draw_bezier_surface(PSP_GE *ge, uint32_t value)
 {
     uint32_t points_u = value & 0xFFu;
@@ -2033,6 +2168,8 @@ void psp_ge_reset(PSP_GE *ge)
     ge->patch_division_v = 1u;
     ge->patch_primitive = 3u;
     ge->patch_facing = false;
+    ge->patch_type_u = 0u;
+    ge->patch_type_v = 0u;
     ge->draw_color = 0xFFFFFFFFu;
     ge->lighting_enabled = false;
     ge->light0_enabled = false;
@@ -2226,7 +2363,9 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                     return false;
                 break;
             case GE_CMD_SPLINE:
-                return false;
+                if (!ge_draw_spline_surface(ge, value))
+                    return false;
+                break;
             case GE_CMD_WORLDMATRIXNUMBER:
                 ge->world_matrix_index = value & 0xFu;
                 break;
