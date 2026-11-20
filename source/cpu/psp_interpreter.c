@@ -257,6 +257,11 @@ bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
             switch (funct)
             {
                 case 0x00:
+                    if (rs != 0u) {
+                        enter_exception(cpu, pc, had_pending_branch,
+                            EXC_RI, 0, false);
+                        return true;
+                    }
                     set_register(cpu, rd, b << shamt);
                     break;
 
@@ -273,6 +278,11 @@ bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
                     break;
 
                 case 0x03:
+                    if (rs != 0u) {
+                        enter_exception(cpu, pc, had_pending_branch,
+                            EXC_RI, 0, false);
+                        return true;
+                    }
                     set_register(cpu, rd,
                         arithmetic_shift_right(b, shamt));
                     break;
