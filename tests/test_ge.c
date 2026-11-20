@@ -856,6 +856,56 @@ int main(void)
     assert((specular_pixel & 0xFF000000u) == 0xFF000000u);
     assert((specular_pixel & 0x00FFFFFFu) >= 0x00E0E0E0u);
 
+    /* Point lights use view-space position and distance attenuation. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    const uint32_t point_list = list + 1940u;
+    const uint32_t point_commands[][2] = {
+        {0x10u, 0x00080000u}, {0x17u, 1u}, {0x18u, 1u},
+        {0x5Fu, 1u}, {0x63u, encode_float24(0.0f)},
+        {0x64u, encode_float24(0.0f)}, {0x65u, encode_float24(0.0f)},
+        {0x7Bu, encode_float24(1.0f)}, {0x7Cu, encode_float24(0.0f)},
+        {0x7Du, encode_float24(0.0f)}, {0x90u, 0x00FFFFFFu},
+        {0x91u, 0u}, {0x01u, 0x3900u},
+        {0x12u, (7u << 2) | (3u << 5) | (3u << 7)},
+        {0x04u, (3u << 16) | 3u}, {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(point_commands) / sizeof(point_commands[0]); i++)
+        command(&memory, point_list + i * 4u,
+            point_commands[i][0], point_commands[i][1]);
+    assert(psp_ge_execute_list(&ge, point_list,
+        (uint32_t)(sizeof(point_commands) / sizeof(point_commands[0]))));
+    assert(ge.light0_type == 1u);
+    assert(ge.light_position[0][2] == 0.0f);
+    assert(psp_video_get_pixel(&video, 240, 136) == 0xFFFFFFFFu);
+
+    /* Spot lights additionally apply direction, cutoff and exponent. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    const uint32_t spot_list = list + 2004u;
+    const uint32_t spot_commands[][2] = {
+        {0x10u, 0x00080000u}, {0x17u, 1u}, {0x18u, 1u},
+        {0x5Fu, 2u}, {0x63u, encode_float24(0.0f)},
+        {0x64u, encode_float24(0.0f)}, {0x65u, encode_float24(0.0f)},
+        {0x6Fu, encode_float24(0.0f)}, {0x70u, encode_float24(0.0f)},
+        {0x71u, encode_float24(-1.0f)},
+        {0x7Bu, encode_float24(1.0f)}, {0x7Cu, encode_float24(0.0f)},
+        {0x7Du, encode_float24(0.0f)}, {0x87u, encode_float24(2.0f)},
+        {0x8Bu, encode_float24(0.5f)}, {0x90u, 0x00FFFFFFu},
+        {0x91u, 0u}, {0x01u, 0x3900u},
+        {0x12u, (7u << 2) | (3u << 5) | (3u << 7)},
+        {0x04u, (3u << 16) | 3u}, {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(spot_commands) / sizeof(spot_commands[0]); i++)
+        command(&memory, spot_list + i * 4u,
+            spot_commands[i][0], spot_commands[i][1]);
+    assert(psp_ge_execute_list(&ge, spot_list,
+        (uint32_t)(sizeof(spot_commands) / sizeof(spot_commands[0]))));
+    assert(ge.light0_type == 2u);
+    assert(ge.light_spot_exponent[0] == 2.0f);
+    assert(ge.light_spot_cutoff[0] == 0.5f);
+    assert(psp_video_get_pixel(&video, 240, 136) == 0xFFFFFFFFu);
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
