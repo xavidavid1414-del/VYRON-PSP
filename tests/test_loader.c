@@ -59,7 +59,7 @@ int main(void)
 
     uint8_t pbp[40 + sizeof(elf)];
     memset(pbp, 0, sizeof(pbp));
-    memcpy(pbp, "\\0PBP", 4);
+    memcpy(pbp, "\0PBP", 4);
 
     for (uint32_t i = 0; i < 8; i++)
         write_le32(pbp + 8 + i * 4, 40);
