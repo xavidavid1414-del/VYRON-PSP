@@ -630,5 +630,36 @@ int main(void)
     assert(psp_interpreter_step(&cpu, &memory));
     assert(cpu.gpr[3] == 0x7FFFFFFFu);
 
+    /* Allegrex ROTR rotates right by the encoded immediate amount. */
+    const uint32_t rotr = (1u << 21) | (2u << 16) |
+                          (3u << 11) | (8u << 6) | 0x02u;
+    memcpy(ram, &rotr, sizeof(rotr));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[2] = 0x12345678u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 0x78123456u);
+
+    /* ROTR by zero leaves the value unchanged. */
+    const uint32_t rotr_zero = (1u << 21) | (2u << 16) |
+                               (3u << 11) | 0x02u;
+    memcpy(ram, &rotr_zero, sizeof(rotr_zero));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[2] = 0x89ABCDEFu;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 0x89ABCDEFu);
+
+    /* ROTRV uses rs[4:0] as its variable rotate amount. */
+    const uint32_t rotrv = (1u << 21) | (2u << 16) |
+                           (3u << 11) | (1u << 6) | 0x06u;
+    memcpy(ram, &rotrv, sizeof(rotrv));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 12u;
+    cpu.gpr[2] = 0x12345678u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 0x67812345u);
+
     return 0;
 }
