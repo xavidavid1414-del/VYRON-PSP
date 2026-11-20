@@ -17,6 +17,8 @@
 #define GE_CMD_SCISSOR2 0xD5u
 #define GE_CMD_TEXTUREMAPENABLE 0x1Eu
 #define GE_CMD_ALPHABLENDENABLE 0x21u
+#define GE_CMD_ALPHATESTENABLE 0x22u
+#define GE_CMD_ALPHATEST 0xDBu
 #define GE_CMD_BLENDMODE 0xDFu
 #define GE_CMD_BLENDFIXEDA 0xE0u
 #define GE_CMD_BLENDFIXEDB 0xE1u
@@ -224,11 +226,33 @@ static uint32_t ge_blend_color(const PSP_GE *ge, uint32_t source,
     return result;
 }
 
+static bool ge_compare_value(uint32_t function, uint32_t source,
+                              uint32_t reference)
+{
+    switch (function) {
+        case 0: return false;
+        case 1: return true;
+        case 2: return source == reference;
+        case 3: return source != reference;
+        case 4: return source < reference;
+        case 5: return source <= reference;
+        case 6: return source > reference;
+        case 7: return source >= reference;
+        default: return false;
+    }
+}
+
 static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color)
 {
     if (x < ge->scissor_left || x > ge->scissor_right ||
         y < ge->scissor_top || y > ge->scissor_bottom)
         return;
+    if (ge->alpha_test_enabled) {
+        uint32_t alpha = (color >> 24) & ge->alpha_test_mask;
+        uint32_t reference = ge->alpha_test_reference & ge->alpha_test_mask;
+        if (!ge_compare_value(ge->alpha_test_function, alpha, reference))
+            return;
+    }
     if (ge->alpha_blend_enabled) {
         uint32_t destination = psp_video_get_pixel(ge->video, x, y);
         color = ge_blend_color(ge, color, destination);
@@ -564,6 +588,10 @@ void psp_ge_reset(PSP_GE *ge)
     ge->texture_wrap_v = 1;
     ge->texture_enabled = false;
     ge->alpha_blend_enabled = false;
+    ge->alpha_test_enabled = false;
+    ge->alpha_test_function = 1u;
+    ge->alpha_test_reference = 0;
+    ge->alpha_test_mask = 0xFFu;
     ge->blend_operation = 0;
     ge->blend_source_factor = 2;
     ge->blend_destination_factor = 3;
@@ -614,6 +642,14 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_ALPHABLENDENABLE:
                 ge->alpha_blend_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_ALPHATESTENABLE:
+                ge->alpha_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_ALPHATEST:
+                ge->alpha_test_function = value & 7u;
+                ge->alpha_test_reference = (value >> 8) & 0xFFu;
+                ge->alpha_test_mask = (value >> 16) & 0xFFu;
                 break;
             case GE_CMD_BLENDMODE:
                 ge->blend_operation = value & 7u;
