@@ -41,6 +41,26 @@ int main(void)
     assert(out.count == 3);
     assert(code[1] == 0xE2413004u); /* SUB r3, r1, #4 */
 
+    /* ANDI r4, r3, 0x0F. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t andi = (12u << 26) | (3u << 21) | (4u << 16) | 0x000Fu;
+    assert(psp_armv6k_translate_allegrex(&out, andi) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 3);
+    assert(code[1] == 0xE201300Fu); /* AND r3, r1, #15 */
+
+    /* ORI r4, r3, 0x80. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t ori = (13u << 26) | (3u << 21) | (4u << 16) | 0x0080u;
+    assert(psp_armv6k_translate_allegrex(&out, ori) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[1] == 0xE3813080u); /* ORR r3, r1, #128 */
+
+    /* An immediate not representable in ARM's rotated imm8 falls back. */
+    uint32_t andi_wide = (12u << 26) | (3u << 21) | (4u << 16) | 0x1234u;
+    assert(psp_armv6k_translate_allegrex(&out, andi_wide) ==
+           PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+
     /* Unsupported branches must be handed to the interpreter. */
     assert(psp_armv6k_translate_allegrex(&out, 0x10000001u) ==
            PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
