@@ -3,6 +3,7 @@
 #include "cpu/psp_interpreter.h"
 #include "cpu/psp_syscall.h"
 #include "input/psp_controller_hle.h"
+#include "audio/psp_audio_hle.h"
 #include "loader/psp_nid.h"
 #include "loader/psp_prx_imports.h"
 #include "memory/psp_memory_hle.h"
@@ -787,6 +788,7 @@ static void set_memory_floor_from_elf(
 
     psp_cpu_init(&core->cpu);
     psp_controller_reset(&core->controller);
+    psp_audio_hle_init(&core->audio);
     psp_memory_blocks_init(&core->memory_blocks, &core->memory);
     psp_io_service_init(&core->io_service, &core->iso_fs);
 
@@ -799,6 +801,7 @@ static void set_memory_floor_from_elf(
         psp_ge_destroy(&core->ge);
         psp_io_hle_unregister();
         psp_memory_hle_unregister();
+        psp_audio_hle_unregister();
         psp_controller_hle_unregister();
         psp_video_destroy(&core->video);
         psp_memory_destroy(&core->memory);
@@ -819,6 +822,7 @@ void psp_core_reset(PSP_Core *core)
 
     psp_cpu_reset(&core->cpu);
     psp_controller_reset(&core->controller);
+    psp_audio_hle_reset(&core->audio);
     psp_ge_reset(&core->ge);
     psp_ge_hle_reset(&core->ge_hle);
     psp_memory_blocks_reset(&core->memory_blocks);
@@ -860,6 +864,7 @@ void psp_core_destroy(PSP_Core *core)
     psp_io_hle_unregister();
     psp_memory_hle_unregister();
     psp_controller_hle_unregister();
+    psp_audio_hle_unregister();
     psp_syscall_reset();
     psp_nid_reset();
 
