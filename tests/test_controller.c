@@ -19,6 +19,12 @@ int main(void)
          PSP_CTRL_UP | PSP_CTRL_LTRIGGER));
     assert(controller.pressed == controller.buttons);
     assert(controller.released == 0);
+    assert(controller.analog_x == 128u);
+    assert(controller.analog_y == 128u);
+
+    psp_controller_set_analog(&controller, 255u, 0u);
+    assert(controller.analog_x == 255u);
+    assert(controller.analog_y == 0u);
 
     psp_controller_update(
         &controller,
