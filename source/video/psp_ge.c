@@ -98,7 +98,8 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
         memcpy(&vertex->y, &yb, sizeof(yb));
     }
 
-    if (!isfinite(vertex->x) || !isfinite(vertex->y))
+    if (!isfinite(vertex->x) || !isfinite(vertex->y) ||
+        fabsf(vertex->x) > 32768.0f || fabsf(vertex->y) > 32768.0f)
         return false;
     if (!transform_2d) {
         vertex->x = (vertex->x + 1.0f) * (PSP_VIDEO_WIDTH / 2.0f);
@@ -207,6 +208,14 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             int top = (int)floorf(fminf(vertices[0].y, vertices[1].y));
             int right = (int)ceilf(fmaxf(vertices[0].x, vertices[1].x));
             int bottom = (int)ceilf(fmaxf(vertices[0].y, vertices[1].y));
+            if (left < ge->scissor_left) left = ge->scissor_left;
+            if (top < ge->scissor_top) top = ge->scissor_top;
+            if (right > ge->scissor_right) right = ge->scissor_right;
+            if (bottom > ge->scissor_bottom) bottom = ge->scissor_bottom;
+            if (left < 0) left = 0;
+            if (top < 0) top = 0;
+            if (right >= PSP_VIDEO_WIDTH) right = PSP_VIDEO_WIDTH - 1;
+            if (bottom >= PSP_VIDEO_HEIGHT) bottom = PSP_VIDEO_HEIGHT - 1;
             if (right >= left && bottom >= top) {
                 for (int y = top; y <= bottom; y++)
                     for (int x = left; x <= right; x++)
@@ -255,8 +264,10 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
         max_commands > 100000)
         return false;
 
-    uint32_t pc = list_address;
-    for (uint32_t i = 0; i < max_commands; i++, pc += 4) {
+    uint64_t pc64 = list_address;
+    for (uint32_t i = 0; i < max_commands; i++, pc64 += 4u) {
+        if (pc64 > UINT32_MAX) return false;
+        uint32_t pc = (uint32_t)pc64;
         if (!psp_memory_is_valid(ge->memory, pc, 4)) return false;
         uint32_t word = psp_memory_read32(ge->memory, pc);
         uint32_t command = word >> 24;
