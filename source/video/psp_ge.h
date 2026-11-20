@@ -39,6 +39,8 @@ typedef struct {
     uint32_t patch_division_v;
     uint32_t patch_primitive;
     bool patch_facing;
+    uint32_t patch_type_u;
+    uint32_t patch_type_v;
     uint32_t draw_color;
     bool lighting_enabled;
     bool light0_enabled;
