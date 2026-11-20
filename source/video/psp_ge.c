@@ -1787,29 +1787,44 @@ static bool ge_execute_transfer(PSP_GE *ge, bool transfer_32bit)
     if (row == NULL)
         return false;
 
-    bool success = true;
-    for (uint32_t y = 0u; y < height; y++) {
-        uint64_t src64 = (uint64_t)ge->transfer_source_address +
-            ((uint64_t)(ge->transfer_source_y + y) * src_width +
-             ge->transfer_source_x) * bytes_per_pixel;
-        uint64_t dst64 = (uint64_t)ge->transfer_destination_address +
-            ((uint64_t)(ge->transfer_destination_y + y) * dst_width +
-             ge->transfer_destination_x) * bytes_per_pixel;
+    /* Validate every row before writing anything: a bad final row must not
+       leave a partially transferred rectangle in emulated memory. */
+    uint64_t src_first = (uint64_t)ge->transfer_source_address +
+        (((uint64_t)ge->transfer_source_y * src_width) +
+         ge->transfer_source_x) * bytes_per_pixel;
+    uint64_t dst_first = (uint64_t)ge->transfer_destination_address +
+        (((uint64_t)ge->transfer_destination_y * dst_width) +
+         ge->transfer_destination_x) * bytes_per_pixel;
+    bool success = src_first <= UINT32_MAX && dst_first <= UINT32_MAX;
+    for (uint32_t y = 0u; success && y < height; y++) {
+        uint64_t src64 = src_first + (uint64_t)y * src_width *
+            bytes_per_pixel;
+        uint64_t dst64 = dst_first + (uint64_t)y * dst_width *
+            bytes_per_pixel;
         if (src64 > UINT32_MAX || dst64 > UINT32_MAX ||
             !psp_memory_is_valid(ge->memory, (uint32_t)src64,
-                (uint32_t)row_bytes) ||
+                                 (uint32_t)row_bytes) ||
             !psp_memory_is_valid(ge->memory, (uint32_t)dst64,
-                (uint32_t)row_bytes)) {
+                                 (uint32_t)row_bytes))
             success = false;
-            break;
-        }
-        for (size_t i = 0u; i < row_bytes; i++)
-            row[i] = psp_memory_read8(ge->memory,
-                (uint32_t)src64 + (uint32_t)i);
-        for (size_t i = 0u; i < row_bytes; i++)
-            psp_memory_write8(ge->memory,
-                (uint32_t)dst64 + (uint32_t)i, row[i]);
     }
+
+    if (success) {
+        /* Copy bottom-up when destination follows source so overlapping
+           rectangles behave like memmove rather than corrupting later rows. */
+        for (uint32_t n = 0u; n < height; n++) {
+            uint32_t y = dst_first > src_first ? height - 1u - n : n;
+            uint32_t src = (uint32_t)(src_first +
+                (uint64_t)y * src_width * bytes_per_pixel);
+            uint32_t dst = (uint32_t)(dst_first +
+                (uint64_t)y * dst_width * bytes_per_pixel);
+            for (size_t i = 0u; i < row_bytes; i++)
+                row[i] = psp_memory_read8(ge->memory, src + (uint32_t)i);
+            for (size_t i = 0u; i < row_bytes; i++)
+                psp_memory_write8(ge->memory, dst + (uint32_t)i, row[i]);
+        }
+    }
+
     free(row);
     return success;
 }
