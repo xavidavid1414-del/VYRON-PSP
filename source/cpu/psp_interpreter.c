@@ -409,26 +409,33 @@ bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
                 }
 
                 case 0x1A:
-                    if ((int32_t)b != 0) {
-                        if (a == 0x80000000u &&
-                            b == 0xFFFFFFFFu) {
-                            cpu->lo = 0x80000000u;
-                            cpu->hi = 0;
-                        } else {
-                            cpu->lo =
-                                (uint32_t)((int32_t)a / (int32_t)b);
-                            cpu->hi =
-                                (uint32_t)((int32_t)a % (int32_t)b);
-                        }
-                    }
-                    break;
-
                 case 0x1B:
-                    if (b != 0) {
+                    if (rd != 0u || shamt != 0u) {
+                        enter_exception(
+                            cpu, pc, had_pending_branch,
+                            EXC_RI, 0, false);
+                        return true;
+                    }
+                    if (funct == 0x1Au) {
+                        if ((int32_t)b != 0) {
+                            if (a == 0x80000000u &&
+                                b == 0xFFFFFFFFu) {
+                                cpu->lo = 0x80000000u;
+                                cpu->hi = 0;
+                            } else {
+                                cpu->lo =
+                                    (uint32_t)((int32_t)a / (int32_t)b);
+                                cpu->hi =
+                                    (uint32_t)((int32_t)a % (int32_t)b);
+                            }
+                        }
+                    } else if (b != 0u) {
                         cpu->lo = a / b;
                         cpu->hi = a % b;
                     }
                     break;
+
+                /* Legacy cases below intentionally removed. */
 
                 case 0x20:
                     if (signed_add_overflow(a, b, &value)) {
