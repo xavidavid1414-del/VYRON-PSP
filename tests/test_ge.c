@@ -244,6 +244,10 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 400, 4));
     assert(psp_video_get_pixel(&video, 24, 24) == 0x40FF0000u);
 
+    psp_memory_write32(&memory, vertices, 0xFFFF0000u);
+    put16(&memory, vertices + 4, 10);
+    put16(&memory, vertices + 6, 10);
+
     /* Indexed triangles fetch 8-bit indices from IADDR. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
