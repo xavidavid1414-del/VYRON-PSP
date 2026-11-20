@@ -465,6 +465,23 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 800, 18));
     assert(psp_video_get_pixel(&video, 40, 40) == 0xFFFF0000u);
 
+    /* GE clear mode bypasses fragment blending and honors color/depth masks. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, vertices, 0x80FF0000u);
+    put16(&memory, vertices + 4u, 25u);
+    put16(&memory, vertices + 6u, 25u);
+    command(&memory, list + 880, 0x10, 0x00080000u);
+    command(&memory, list + 884, 0x01, 0x1000u);
+    command(&memory, list + 888, 0x12, vtype);
+    command(&memory, list + 892, 0x21, 1u);
+    command(&memory, list + 896, 0xDF, (3u << 8) | (2u << 4));
+    command(&memory, list + 900, 0xD3, 1u);
+    command(&memory, list + 904, 0x04, 1u);
+    command(&memory, list + 908, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 880, 10));
+    assert(psp_video_get_pixel(&video, 25, 25) == 0x80FF0000u);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
