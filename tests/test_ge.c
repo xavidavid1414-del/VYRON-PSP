@@ -79,7 +79,7 @@ int main(void)
     psp_memory_write32(&memory, texture + 8, 0xFF0000FFu);
     psp_memory_write32(&memory, texture + 12, 0xFFFFFFFFu);
     const uint32_t textured_vtype =
-        3u | (4u << 2) | (2u << 7) | (1u << 23);
+        3u | (7u << 2) | (2u << 7) | (1u << 23);
     for (uint32_t i = 0; i < 3; i++) {
         uint32_t address = textured_vertices + i * 16u;
         put_float(&memory, address, i == 1 ? 2.0f : 0.0f);
@@ -386,7 +386,7 @@ int main(void)
     command(&memory, list + 460, 0x46, encode_float24(40.0f));
     command(&memory, list + 464, 0x47, encode_float24(100.0f));
     command(&memory, list + 468, 0x01, 0x3000u);
-    command(&memory, list + 472, 0x12, (4u << 2) | (3u << 7));
+    command(&memory, list + 472, 0x12, (7u << 2) | (3u << 7));
     command(&memory, list + 476, 0x23, 1u);
     command(&memory, list + 480, 0xDE, 4u);
     command(&memory, list + 484, 0x04, 3u);
