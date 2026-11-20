@@ -459,5 +459,13 @@ int main(void)
         assert(out.count == 0);
     }
 
+    /* Generated blocks must preserve AAPCS callee-saved registers and return. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    assert(psp_armv6k_emit_function_prologue(&out));
+    assert(code[0] == 0xE92D4070u); /* PUSH {r4-r6, lr}; keep r0 argument */
+    assert(psp_armv6k_translate_allegrex(&out, addu) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(psp_armv6k_emit_function_epilogue(&out));
+    assert(code[out.count - 1u] == 0xE8BD8070u); /* POP {r4-r6, pc} */
     return 0;
 }
