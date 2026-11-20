@@ -30,8 +30,8 @@ static int write_samples(
 
         psp_memory_write32(memory, address, controller_timestamp);
         psp_memory_write32(memory, address + 4u, controller->buttons);
-        psp_memory_write8(memory, address + 8u, 128u);
-        psp_memory_write8(memory, address + 9u, 128u);
+        psp_memory_write8(memory, address + 8u, controller->analog_x);
+        psp_memory_write8(memory, address + 9u, controller->analog_y);
 
         for (uint32_t reserved = 10u; reserved < PSP_CTRL_DATA_SIZE;
              reserved++) {
