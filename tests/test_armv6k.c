@@ -298,6 +298,25 @@ int main(void)
     assert(out.count == 4);
     assert(code[2] == 0xE0030291u); /* MUL r3, r1, r2 */
 
+    /* SPECIAL2 CLZ maps directly to the ARMv6 CLZ instruction. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t clz_inst = (0x1Cu << 26) | (1u << 21) |
+                        (3u << 11) | 0x20u;
+    assert(psp_armv6k_translate_allegrex(&out, clz_inst) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 3);
+    assert(code[1] == 0xE16F3F11u); /* CLZ r3, r1 */
+
+    /* CLO is CLZ of the bitwise inverse. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t clo_inst = (0x1Cu << 26) | (1u << 21) |
+                        (3u << 11) | 0x21u;
+    assert(psp_armv6k_translate_allegrex(&out, clo_inst) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 4);
+    assert(code[1] == 0xE1E02001u); /* MVN r2, r1 */
+    assert(code[2] == 0xE16F3F12u); /* CLZ r3, r2 */
+
     /* MULT emits signed SMULL and stores both HI and LO. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t mult_signed_check = (1u << 21) | (2u << 16) | 0x18u;
