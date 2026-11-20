@@ -21,7 +21,12 @@ if ! command -v bannertool >/dev/null 2>&1; then
     git clone --depth 1 --recurse-submodules https://github.com/diasurgical/bannertool.git build/cia-tools/bannertool
   fi
   make -C build/cia-tools/bannertool
-  install -m 755 build/cia-tools/bannertool/output/bannertool "$TOOLS_BIN/bannertool"
+  BANNERTOOL_BIN="$(find build/cia-tools/bannertool/output -type f -name bannertool -perm -111 -print -quit)"
+  if [[ -z "$BANNERTOOL_BIN" ]]; then
+    echo "bannertool build did not produce an executable." >&2
+    exit 1
+  fi
+  install -m 755 "$BANNERTOOL_BIN" "$TOOLS_BIN/bannertool"
 fi
 
 if ! command -v makerom >/dev/null 2>&1; then
@@ -31,7 +36,12 @@ if ! command -v makerom >/dev/null 2>&1; then
   fi
   make -C build/cia-tools/Project_CTR/makerom deps
   make -C build/cia-tools/Project_CTR/makerom
-  install -m 755 build/cia-tools/Project_CTR/makerom/makerom "$TOOLS_BIN/makerom"
+  MAKEROM_BIN="$(find build/cia-tools/Project_CTR/makerom -type f -name makerom -perm -111 -print -quit)"
+  if [[ -z "$MAKEROM_BIN" ]]; then
+    echo "makerom build did not produce an executable." >&2
+    exit 1
+  fi
+  install -m 755 "$MAKEROM_BIN" "$TOOLS_BIN/makerom"
 fi
 
 export PATH="$TOOLS_BIN:$PATH"
