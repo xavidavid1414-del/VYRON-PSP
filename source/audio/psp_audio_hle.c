@@ -3,7 +3,6 @@
 #include "../loader/psp_nid.h"
 #include <string.h>
 
-#define PSP_AUDIO_DEFAULT_FREQUENCY 44100u
 #define PSP_AUDIO_MAX_VOLUME 0x8000u
 
 static PSP_Audio_HLE *active_audio;
@@ -27,10 +26,10 @@ void psp_audio_hle_reset(PSP_Audio_HLE *audio)
 }
 
 int32_t psp_audio_hle_reserve(PSP_Audio_HLE *audio, int32_t channel,
-                               uint32_t sample_count, uint32_t frequency)
+                               uint32_t sample_count, uint32_t format)
 {
     if (!audio || sample_count == 0 || sample_count > PSP_AUDIO_MAX_SAMPLES ||
-        (frequency != 11025u && frequency != 22050u && frequency != 44100u))
+        (format != 0u && format != 0x10u))
         return -1;
 
     if (channel == -1) {
@@ -50,7 +49,7 @@ int32_t psp_audio_hle_reserve(PSP_Audio_HLE *audio, int32_t channel,
 
     entry->reserved = true;
     entry->sample_count = sample_count;
-    entry->frequency = frequency;
+    entry->format = format;
     entry->left_volume = PSP_AUDIO_MAX_VOLUME;
     entry->right_volume = PSP_AUDIO_MAX_VOLUME;
     return channel;
@@ -77,8 +76,9 @@ int32_t psp_audio_hle_output(PSP_Audio_HLE *audio, PSP_Memory *memory,
 
     PSP_Audio_Channel *entry = &audio->channels[channel];
     uint32_t frames = entry->sample_count;
+    uint32_t bytes_per_frame = entry->format == 0u ? 4u : 2u;
     if (frames == 0 || frames > PSP_AUDIO_MAX_SAMPLES ||
-        !psp_memory_is_valid(memory, address, frames * 2u))
+        !psp_memory_is_valid(memory, address, frames * bytes_per_frame))
         return -1;
 
     if (left_volume > PSP_AUDIO_MAX_VOLUME) left_volume = PSP_AUDIO_MAX_VOLUME;
@@ -86,8 +86,14 @@ int32_t psp_audio_hle_output(PSP_Audio_HLE *audio, PSP_Memory *memory,
 
     for (uint32_t i = 0; i < frames; ++i) {
         uint32_t offset = address + i * 2u;
-        int16_t sample = (int16_t)((uint16_t)psp_memory_read8(memory, offset) |
-                         ((uint16_t)psp_memory_read8(memory, offset + 1u) << 8));
+        int16_t sample_left = (int16_t)((uint16_t)psp_memory_read8(memory, offset) |
+                              ((uint16_t)psp_memory_read8(memory, offset + 1u) << 8));
+        int16_t sample_right = sample_left;
+        if (entry->format == 0u) {
+            uint32_t right_offset = offset + 2u;
+            sample_right = (int16_t)((uint16_t)psp_memory_read8(memory, right_offset) |
+                           ((uint16_t)psp_memory_read8(memory, right_offset + 1u) << 8));
+        }
         if (entry->queued_frames == PSP_AUDIO_MIX_BUFFER_FRAMES) {
             entry->read_frame = (entry->read_frame + 1u) % PSP_AUDIO_MIX_BUFFER_FRAMES;
             entry->queued_frames--;
@@ -95,9 +101,9 @@ int32_t psp_audio_hle_output(PSP_Audio_HLE *audio, PSP_Memory *memory,
         }
         uint32_t slot = entry->write_frame;
         entry->samples[slot * 2u] = clamp_sample(
-            ((int32_t)sample * (int32_t)left_volume) / (int32_t)PSP_AUDIO_MAX_VOLUME);
+            ((int32_t)sample_left * (int32_t)left_volume) / (int32_t)PSP_AUDIO_MAX_VOLUME);
         entry->samples[slot * 2u + 1u] = clamp_sample(
-            ((int32_t)sample * (int32_t)right_volume) / (int32_t)PSP_AUDIO_MAX_VOLUME);
+            ((int32_t)sample_right * (int32_t)right_volume) / (int32_t)PSP_AUDIO_MAX_VOLUME);
         entry->write_frame = (entry->write_frame + 1u) % PSP_AUDIO_MIX_BUFFER_FRAMES;
         entry->queued_frames++;
         audio->mixed_frames++;
@@ -126,7 +132,7 @@ uint32_t psp_audio_hle_read(PSP_Audio_HLE *audio, int16_t *stereo,
             right += entry->samples[slot * 2u + 1u];
             any = true;
 
-            entry->resample_phase += entry->frequency;
+            entry->resample_phase += 44100u;
             while (entry->resample_phase >= 44100u &&
                    entry->queued_frames > 0) {
                 entry->resample_phase -= 44100u;
