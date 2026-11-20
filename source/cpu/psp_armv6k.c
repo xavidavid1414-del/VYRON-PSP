@@ -364,7 +364,10 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
             return PSP_ARMV6K_TRANSLATE_OK;
         }
         if (function == 0x0Au || function == 0x0Bu) {
-            /* MOVZ/MOVN preserve rd unless rt is zero/nonzero. */
+            /* MOVZ/MOVN require the encoded shamt field to be zero. */
+            if (((instruction >> 6) & 31u) != 0u)
+                return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
+            /* Preserve rd unless rt is zero/nonzero. */
             uint8_t condition = function == 0x0Au ? 0u : 1u; /* EQ / NE */
             if (!emit_load_gpr(emitter, 3, rd) ||
                 !emit_load_gpr(emitter, 2, rt) ||
