@@ -46,6 +46,10 @@
 #define GE_CMD_TEXTUREMAPENABLE 0x1Eu
 #define GE_CMD_ALPHABLENDENABLE 0x21u
 #define GE_CMD_ALPHATESTENABLE 0x22u
+#define GE_CMD_COLORTESTENABLE 0x27u
+#define GE_CMD_COLORTEST 0xD8u
+#define GE_CMD_COLORREF 0xD9u
+#define GE_CMD_COLORTESTMASK 0xDAu
 #define GE_CMD_CLEARMODE 0xD3u
 #define GE_CMD_ALPHATEST 0xDBu
 #define GE_CMD_BLENDMODE 0xDFu
@@ -443,6 +447,15 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
             ge->depth_buffer[depth_index] = (uint16_t)depth_value;
         psp_video_put_pixel(ge->video, x, y, color);
         return;
+    }
+    if (ge->color_test_enabled) {
+        uint32_t source = color & 0x00FFFFFFu;
+        uint32_t reference = ge->color_test_reference & 0x00FFFFFFu;
+        uint32_t mask = ge->color_test_mask & 0x00FFFFFFu;
+        bool equal = (source & mask) == (reference & mask);
+        if ((ge->color_test_function == 0u && !equal) ||
+            (ge->color_test_function == 1u && equal))
+            return;
     }
     if (ge->alpha_test_enabled) {
         uint32_t alpha = (color >> 24) & ge->alpha_test_mask;
@@ -951,6 +964,10 @@ void psp_ge_reset(PSP_GE *ge)
     ge->clear_mode = false;
     ge->clear_mode_mask = 0;
     ge->alpha_test_enabled = false;
+    ge->color_test_enabled = false;
+    ge->color_test_function = 0;
+    ge->color_test_reference = 0;
+    ge->color_test_mask = 0x00FFFFFFu;
     ge->alpha_test_function = 1u;
     ge->alpha_test_reference = 0;
     ge->alpha_test_mask = 0xFFu;
@@ -1128,6 +1145,20 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_ALPHATESTENABLE:
                 ge->alpha_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_COLORTESTENABLE:
+                ge->color_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_COLORTEST:
+                ge->color_test_function = value & 3u;
+                if (ge->color_test_function > 1u)
+                    return false;
+                break;
+            case GE_CMD_COLORREF:
+                ge->color_test_reference = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_COLORTESTMASK:
+                ge->color_test_mask = value & 0x00FFFFFFu;
                 break;
             case GE_CMD_ALPHATEST:
                 ge->alpha_test_function = value & 7u;
