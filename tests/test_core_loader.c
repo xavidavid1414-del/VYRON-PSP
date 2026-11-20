@@ -7,7 +7,7 @@
 
 #define TEST_ELF_SIZE 0xA8u
 #define TEST_ENTRY PSP_RAM_BASE
-#define TEST_DATA_ENTRY (PSP_RAM_BASE + 0x100u)
+#define TEST_DATA_ENTRY (PSP_RAM_BASE + 0x00801000u)
 
 static void write_le16(uint8_t *p, uint16_t value)
 {
@@ -171,6 +171,7 @@ int main(void)
     assert(psp_core_load_executable_data(
         &core, elf, sizeof(elf)));
     assert(core.image_loaded);
+    assert(core.memory_blocks.arena_start > 0x00800000u);
     assert(core.cpu.pc == TEST_ENTRY);
     assert(psp_memory_read32(&core.memory, TEST_ENTRY) == 0x2408002A);
     assert(psp_memory_read32(&core.memory, TEST_DATA_ENTRY) == 0x12345678);
