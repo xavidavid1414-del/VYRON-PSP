@@ -13,7 +13,7 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - Nintendo 3DS homebrew application build.
 - PSP ISO9660 image inspection and extraction of `PSP_GAME/SYSDIR/EBOOT.BIN`.
 - PBP executable-region extraction.
-- ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading.
+- ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading, including PSPREL1 and compressed PSPREL2 relocation streams.
 - A partial MIPS interpreter with delay-slot handling and exception basics.
 - Experimental framebuffer output and Nintendo 3DS audio output plumbing.
 - HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.
@@ -25,7 +25,7 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 
 - Encrypted PSP `~PSP` executables are not decrypted.
 - CSO-compressed images are not supported; use an uncompressed `.iso` image.
-- PRX relocation support is partial; `PT_PSPREL2` is unsupported.
+- PRX relocation support includes bounded `PT_PSPREL1` and compressed `PT_PSPREL2` handling for the implemented MIPS relocation types; uncommon relocation variants and complete kernel-module loading remain unsupported.
 - HLE coverage is limited to the currently registered controller, user-memory block, and read-only ISO file NIDs; most PSP kernel/HLE modules and SDK services remain unimplemented.
 - Memory block allocation currently supports user partition ID 2 only; kernel partitions and broader heap APIs are not implemented.
 - ISO file writes and removable-memory-stick (`ms0:`) access are not implemented. File access is limited to the mounted ISO image.
