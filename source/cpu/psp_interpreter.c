@@ -287,6 +287,9 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                         EXC_BP, 0, false);
                     return true;
 
+                case 0x0F: /* SYNC: ordering is implicit in this single-threaded core. */
+                    break;
+
                 case 0x10:
                     set_register(cpu, rd, cpu->hi);
                     break;
