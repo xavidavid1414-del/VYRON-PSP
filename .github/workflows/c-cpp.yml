@@ -86,7 +86,7 @@ jobs:
 
       - name: Run PSP audio HLE tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/audio -Isource/memory -Isource/cpu -Isource/loader source/audio/psp_audio_hle.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_audio_hle.c -o /tmp/vyron-audio-hle-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/audio -Isource/memory -Isource/cpu -Isource/loader source/audio/psp_audio_hle.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_audio_hle.c -o /tmp/vyron-audio-hle-tests
           /tmp/vyron-audio-hle-tests
 
       - name: Run PSP GE graphics tests
