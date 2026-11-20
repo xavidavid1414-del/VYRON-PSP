@@ -30,6 +30,12 @@ typedef struct {
     uint32_t depth_function;
     uint32_t vertex_type;
     uint32_t draw_color;
+    bool lighting_enabled;
+    bool light0_enabled;
+    uint32_t light0_type;
+    float light0_direction[3];
+    uint32_t light0_diffuse;
+    uint32_t ambient_color;
     uint32_t texture_address;
     uint32_t texture_address_low;
     uint32_t texture_buffer_width_register;
