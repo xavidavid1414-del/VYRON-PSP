@@ -311,18 +311,25 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         return PSP_ARMV6K_TRANSLATE_OK;
     }
 
-    if (opcode == 9u) { /* ADDIU: immediate must fit ARM's rotated imm8. */
+    if (opcode == 9u) { /* ADDIU: sign-extend, then add/subtract modulo 2^32. */
         int32_t immediate = (int16_t)(instruction & 0xFFFFu);
         uint8_t arm_op = immediate < 0 ? 2u : 4u;
         uint32_t magnitude = (uint32_t)(immediate < 0 ? -immediate : immediate);
-        if (!encode_imm8(magnitude, &(uint32_t){0}))
-            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
-        if (!emit_load_gpr(emitter, 1, rs) ||
-            !psp_armv6k_emit_dp_imm(emitter, arm_op, false, 3, 1, magnitude) ||
-            !emit_store_gpr(emitter, rt, 3))
-            return PSP_ARMV6K_TRANSLATE_ERROR;
-        return PSP_ARMV6K_TRANSLATE_OK;
+        if (!emit_load_gpr(emitter, 1, rs))
+            return PSP_ARMv6K_TRANSLATE_ERROR;
+        if (encode_imm8(magnitude, &(uint32_t){0})) {
+            if (!psp_armv6k_emit_dp_imm(emitter, arm_op, false, 3, 1,
+                                        magnitude))
+                return PSP_ARMv6K_TRANSLATE_ERROR;
+        } else {
+            if (!emit_constant32(emitter, 2, magnitude) ||
+                !psp_armv6k_emit_dp_reg(emitter, arm_op, false, 3, 1, 2))
+                return PSP_ARMv6K_TRANSLATE_ERROR;
+        }
+        if (!emit_store_gpr(emitter, rt, 3))
+            return PSP_ARMv6K_TRANSLATE_ERROR;
+        return PSP_ARMv6K_TRANSLATE_OK;
     }
 
-    return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
+    return PSP_ARMv6K_TRANSLATE_UNSUPPORTED;
 }
