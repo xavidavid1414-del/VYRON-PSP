@@ -35,6 +35,22 @@ static bool execution_active;
 
 static char status_message[96];
 
+typedef struct {
+    unsigned int show_fps;
+    unsigned int stylus_menu;
+    unsigned int cstick_enabled;
+    unsigned int video_fit;
+    unsigned int swap_ab;
+    unsigned int swap_xy;
+} VYRON_Settings;
+
+static VYRON_Settings settings = {1, 1, 1, 0, 0, 0};
+static bool settings_open;
+static unsigned int settings_selected;
+
+#define SETTINGS_FILE PSP_ROOT_DIRECTORY "/CONFIG/settings.ini"
+#define SETTINGS_COUNT 6
+
 static bool ensure_storage_layout(void)
 {
     static const char *directories[] = {
@@ -61,6 +77,101 @@ static bool ensure_storage_layout(void)
     }
 
     return ready;
+}
+
+static void load_settings(void)
+{
+    FILE *file = fopen(SETTINGS_FILE, "r");
+
+    if (file == NULL)
+        return;
+
+    unsigned int values[SETTINGS_COUNT];
+    int count = fscanf(file, "%u %u %u %u %u %u",
+                       &values[0], &values[1], &values[2],
+                       &values[3], &values[4], &values[5]);
+    fclose(file);
+
+    if (count != SETTINGS_COUNT)
+        return;
+
+    for (unsigned int i = 0; i < SETTINGS_COUNT; i++) {
+        if (values[i] > 1)
+            return;
+    }
+
+    settings.show_fps = values[0];
+    settings.stylus_menu = values[1];
+    settings.cstick_enabled = values[2];
+    settings.video_fit = values[3];
+    settings.swap_ab = values[4];
+    settings.swap_xy = values[5];
+}
+
+static void save_settings(void)
+{
+    FILE *file = fopen(SETTINGS_FILE, "w");
+
+    if (file == NULL) {
+        snprintf(status_message, sizeof(status_message),
+                 "Cannot save settings.ini");
+        return;
+    }
+
+    fprintf(file, "%u %u %u %u %u %u\n",
+            settings.show_fps,
+            settings.stylus_menu,
+            settings.cstick_enabled,
+            settings.video_fit,
+            settings.swap_ab,
+            settings.swap_xy);
+    fclose(file);
+}
+
+static void print_settings_menu(void)
+{
+    consoleClear();
+    printf("\\x1b[1;1HVYRON PSP | SETTINGS");
+    printf("\\x1b[3;1HUP/DOWN: Select  A: Change");
+    printf("\\x1b[4;1HB: Back  START: Exit");
+    printf("\\x1b[6;1H%s FPS counter: %s",
+           settings_selected == 0 ? ">" : " ",
+           settings.show_fps ? "ON" : "OFF");
+    printf("\\x1b[8;1H%s Stylus menu: %s",
+           settings_selected == 1 ? ">" : " ",
+           settings.stylus_menu ? "ON" : "OFF");
+    printf("\\x1b[10;1H%s C-Stick: %s",
+           settings_selected == 2 ? ">" : " ",
+           settings.cstick_enabled ? "ON" : "OFF");
+    printf("\\x1b[12;1H%s Video fit: %s",
+           settings_selected == 3 ? ">" : " ",
+           settings.video_fit ? "STRETCH" : "FIT");
+    printf("\\x1b[14;1H%s Swap A/B: %s",
+           settings_selected == 4 ? ">" : " ",
+           settings.swap_ab ? "ON" : "OFF");
+    printf("\\x1b[16;1H%s Swap X/Y: %s",
+           settings_selected == 5 ? ">" : " ",
+           settings.swap_xy ? "ON" : "OFF");
+    printf("\\x1b[19;1HSaved in /PSP/CONFIG/settings.ini");
+    printf("\\x1b[21;1HNote: game input/video options");
+    printf("\\x1b[22;1Hare stored; runtime support is");
+    printf("\\x1b[23;1Hbeing implemented.");
+}
+
+static void change_selected_setting(void)
+{
+    switch (settings_selected) {
+        case 0: settings.show_fps = !settings.show_fps; break;
+        case 1: settings.stylus_menu = !settings.stylus_menu; break;
+        case 2: settings.cstick_enabled = !settings.cstick_enabled; break;
+        case 3: settings.video_fit = !settings.video_fit; break;
+        case 4: settings.swap_ab = !settings.swap_ab; break;
+        case 5: settings.swap_xy = !settings.swap_xy; break;
+        default: return;
+    }
+
+    save_settings();
+    print_settings_menu();
 }
 
 static bool has_iso_extension(const char *name)
@@ -299,6 +410,7 @@ int main(void)
                  "SD folder setup incomplete");
     }
 
+    load_settings();
     scan_iso_directory();
     print_file_list();
 
@@ -309,6 +421,53 @@ int main(void)
 
         if (down & KEY_START)
             break;
+
+        if (down & KEY_Y) {
+            settings_open = true;
+            settings_selected = 0;
+            print_settings_menu();
+        }
+
+        if (settings_open) {
+            if (down & KEY_B) {
+                settings_open = false;
+                print_file_list();
+            }
+
+            if (down & KEY_UP) {
+                if (settings_selected > 0)
+                    settings_selected--;
+                print_settings_menu();
+            }
+
+            if (down & KEY_DOWN) {
+                if (settings_selected + 1 < SETTINGS_COUNT)
+                    settings_selected++;
+                print_settings_menu();
+            }
+
+            if (down & KEY_A)
+                change_selected_setting();
+
+            if (down & KEY_TOUCH) {
+                touchPosition touch;
+                hidTouchRead(&touch);
+                unsigned int row = touch.py / 16;
+
+                if (row >= 3 && row <= 14) {
+                    unsigned int index = (row - 3) / 2;
+                    if (index < SETTINGS_COUNT) {
+                        settings_selected = index;
+                        change_selected_setting();
+                    }
+                }
+            }
+
+            execute_cpu_frame();
+            draw_interface(&core.video);
+            psp_video_present(&core.video);
+            continue;
+        }
 
         if (down & KEY_UP) {
             if (iso_count > 0 && selected > 0)
