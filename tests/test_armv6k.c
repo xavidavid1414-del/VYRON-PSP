@@ -289,6 +289,15 @@ int main(void)
     assert(code[1] == 0xE383370Du); /* ORR r3, r3, #0x00340000 */
     assert(code[2] == 0xE5803010u); /* STR r3, [r0, #16] */
 
+    /* SPECIAL2 MUL writes the low 32 bits of rs * rt to rd. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mul = (0x1Cu << 26) | (1u << 21) |
+                   (2u << 16) | (3u << 11) | 0x02u;
+    assert(psp_armv6k_translate_allegrex(&out, mul) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 4);
+    assert(code[2] == 0xE0030291u); /* MUL r3, r1, r2 */
+
     /* Unsupported branches must be handed to the interpreter. */
     assert(psp_armv6k_translate_allegrex(&out, 0x10000001u) ==
            PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
