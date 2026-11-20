@@ -16,15 +16,6 @@ static void mark_ram_write(PSP_Memory *memory, uint32_t offset, uint32_t length)
     }
 }
 
-uint32_t psp_memory_page_generation(PSP_Memory *memory, uint32_t address)
-{
-    uint32_t offset;
-    if (!memory || !memory->page_generation ||
-        !translate_address(memory, address, &offset))
-        return 0;
-    return memory->page_generation[offset / PSP_MEMORY_PAGE_SIZE];
-}
-
 static bool translate_vram_address(PSP_Memory *memory, uint32_t address,
                                   uint32_t *offset)
 {
@@ -64,6 +55,15 @@ static bool translate_address(
 
     *offset = address;
     return true;
+}
+
+uint32_t psp_memory_page_generation(PSP_Memory *memory, uint32_t address)
+{
+    uint32_t offset;
+    if (!memory || !memory->page_generation ||
+        !translate_address(memory, address, &offset))
+        return 0;
+    return memory->page_generation[offset / PSP_MEMORY_PAGE_SIZE];
 }
 
 bool psp_memory_is_valid(
