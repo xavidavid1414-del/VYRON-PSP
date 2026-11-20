@@ -778,6 +778,13 @@ static void set_memory_floor_from_elf(
         return false;
     }
 
+    if (!psp_ge_init(&core->ge, &core->memory, &core->video))
+    {
+        psp_video_destroy(&core->video);
+        psp_memory_destroy(&core->memory);
+        return false;
+    }
+
     psp_cpu_init(&core->cpu);
     psp_controller_reset(&core->controller);
     psp_memory_blocks_init(&core->memory_blocks, &core->memory);
@@ -808,6 +815,7 @@ void psp_core_reset(PSP_Core *core)
 
     psp_cpu_reset(&core->cpu);
     psp_controller_reset(&core->controller);
+    psp_ge_reset(&core->ge);
     psp_memory_blocks_reset(&core->memory_blocks);
     psp_io_service_reset(&core->io_service);
     psp_video_clear(&core->video, 0xFF000000u);
