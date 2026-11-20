@@ -42,6 +42,8 @@ bool psp_core_init(PSP_Core *core);
 void psp_core_reset(PSP_Core *core);
 void psp_core_destroy(PSP_Core *core);
 bool psp_core_run(PSP_Core *core, uint32_t cycles);
+bool psp_core_execute_ge_list(PSP_Core *core, uint32_t list_address,
+                              uint32_t max_commands);
 
 bool psp_core_mount_iso(
     PSP_Core *core,
