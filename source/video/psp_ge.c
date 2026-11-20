@@ -688,6 +688,52 @@ static uint32_t ge_merge_alpha(uint32_t destination, uint8_t alpha,
     return (destination & ~writable) | (((uint32_t)alpha << 24) & writable);
 }
 
+static uint32_t ge_load_framebuffer_pixel(PSP_GE *ge, int x, int y)
+{
+    if (ge == NULL || ge->memory == NULL || x < 0 || y < 0 ||
+        x >= PSP_VIDEO_WIDTH || y >= PSP_VIDEO_HEIGHT ||
+        ge->framebuffer_stride < PSP_VIDEO_WIDTH ||
+        ge->framebuffer_format > 3u)
+        return 0u;
+
+    uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
+    uint64_t address = (uint64_t)ge->framebuffer_address +
+        ((uint64_t)(uint32_t)y * ge->framebuffer_stride +
+         (uint32_t)x) * bpp;
+    if (address > UINT32_MAX ||
+        !psp_memory_is_valid(ge->memory, (uint32_t)address, bpp))
+        return 0u;
+    if (bpp == 4u)
+        return psp_memory_read32(ge->memory, (uint32_t)address);
+
+    uint32_t packed = psp_memory_read8(ge->memory, (uint32_t)address) |
+        ((uint32_t)psp_memory_read8(ge->memory,
+            (uint32_t)address + 1u) << 8);
+    uint32_t red, green, blue, alpha = 255u;
+    if (ge->framebuffer_format == 0u) {
+        red = (packed >> 11) & 31u;
+        green = (packed >> 5) & 63u;
+        blue = packed & 31u;
+        red = (red << 3) | (red >> 2);
+        green = (green << 2) | (green >> 4);
+        blue = (blue << 3) | (blue >> 2);
+    } else if (ge->framebuffer_format == 1u) {
+        red = (packed >> 11) & 31u;
+        green = (packed >> 6) & 31u;
+        blue = (packed >> 1) & 31u;
+        alpha = (packed & 1u) ? 255u : 0u;
+        red = (red << 3) | (red >> 2);
+        green = (green << 3) | (green >> 2);
+        blue = (blue << 3) | (blue >> 2);
+    } else {
+        red = ((packed >> 12) & 15u) * 17u;
+        green = ((packed >> 8) & 15u) * 17u;
+        blue = ((packed >> 4) & 15u) * 17u;
+        alpha = (packed & 15u) * 17u;
+    }
+    return (alpha << 24) | (red << 16) | (green << 8) | blue;
+}
+
 static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
                                           uint32_t color)
 {
@@ -803,7 +849,7 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
         (depth >= 65535.0f ? 65535u : (uint32_t)(depth + 0.5f));
     uint32_t depth_index = (uint32_t)y * PSP_VIDEO_WIDTH + (uint32_t)x;
     if (ge->clear_mode) {
-        uint32_t destination = psp_video_get_pixel(ge->video, x, y);
+        uint32_t destination = ge_load_framebuffer_pixel(ge, x, y);
         uint32_t write_mask = 0;
         if ((ge->clear_mode_mask & 0x100u) == 0)
             write_mask |= 0x00FFFFFFu;
@@ -831,7 +877,7 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
         if (!ge_compare_value(ge->alpha_test_function, alpha, reference))
             return;
     }
-    uint32_t destination = psp_video_get_pixel(ge->video, x, y);
+    uint32_t destination = ge_load_framebuffer_pixel(ge, x, y);
     uint8_t stencil_current = (uint8_t)(destination >> 24);
     if (ge->stencil_test_enabled) {
         uint32_t stencil_value = stencil_current & ge->stencil_mask;
