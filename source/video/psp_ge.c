@@ -127,6 +127,14 @@
 #define GE_CMD_FOG1 0xCDu
 #define GE_CMD_FOG2 0xCEu
 #define GE_CMD_FOGCOLOR 0xCFu
+#define GE_CMD_TRXSBP 0xB2u
+#define GE_CMD_TRXSBW 0xB3u
+#define GE_CMD_TRXDBP 0xB4u
+#define GE_CMD_TRXDBW 0xB5u
+#define GE_CMD_TRXKICK 0xEAu
+#define GE_CMD_TRXSPOS 0xEBu
+#define GE_CMD_TRXDPOS 0xECu
+#define GE_CMD_TRXSIZE 0xEEu
 
 typedef struct {
     float x;
@@ -1532,6 +1540,58 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
     return true;
 }
 
+
+static bool ge_execute_transfer(PSP_GE *ge, bool transfer_32bit)
+{
+    uint32_t bytes_per_pixel = transfer_32bit ? 4u : 2u;
+    uint32_t width = ge->transfer_width;
+    uint32_t height = ge->transfer_height;
+    uint32_t src_width = ge->transfer_source_buffer_width;
+    uint32_t dst_width = ge->transfer_destination_buffer_width;
+
+    if (width == 0u || height == 0u || width > 1024u || height > 1024u ||
+        src_width == 0u || dst_width == 0u ||
+        ge->transfer_source_x > src_width ||
+        width > src_width - ge->transfer_source_x ||
+        ge->transfer_destination_x > dst_width ||
+        width > dst_width - ge->transfer_destination_x)
+        return false;
+
+    uint64_t row_bytes64 = (uint64_t)width * bytes_per_pixel;
+    if (row_bytes64 > SIZE_MAX)
+        return false;
+    size_t row_bytes = (size_t)row_bytes64;
+    uint8_t *row = malloc(row_bytes);
+    if (row == NULL)
+        return false;
+
+    bool success = true;
+    for (uint32_t y = 0u; y < height; y++) {
+        uint64_t src64 = (uint64_t)ge->transfer_source_address +
+            ((uint64_t)(ge->transfer_source_y + y) * src_width +
+             ge->transfer_source_x) * bytes_per_pixel;
+        uint64_t dst64 = (uint64_t)ge->transfer_destination_address +
+            ((uint64_t)(ge->transfer_destination_y + y) * dst_width +
+             ge->transfer_destination_x) * bytes_per_pixel;
+        if (src64 > UINT32_MAX || dst64 > UINT32_MAX ||
+            !psp_memory_is_valid(ge->memory, (uint32_t)src64,
+                (uint32_t)row_bytes) ||
+            !psp_memory_is_valid(ge->memory, (uint32_t)dst64,
+                (uint32_t)row_bytes)) {
+            success = false;
+            break;
+        }
+        for (size_t i = 0u; i < row_bytes; i++)
+            row[i] = psp_memory_read8(ge->memory,
+                (uint32_t)src64 + (uint32_t)i);
+        for (size_t i = 0u; i < row_bytes; i++)
+            psp_memory_write8(ge->memory,
+                (uint32_t)dst64 + (uint32_t)i, row[i]);
+    }
+    free(row);
+    return success;
+}
+
 bool psp_ge_init(PSP_GE *ge, PSP_Memory *memory, PSP_Video *video)
 {
     if (ge == NULL || memory == NULL || video == NULL ||
@@ -1577,6 +1637,16 @@ void psp_ge_reset(PSP_GE *ge)
     ge->fog_end = 0.0f;
     ge->fog_slope = 0.0f;
     ge->fog_color = 0;
+    ge->transfer_source_address = 0u;
+    ge->transfer_source_buffer_width = 0u;
+    ge->transfer_destination_address = 0u;
+    ge->transfer_destination_buffer_width = 0u;
+    ge->transfer_source_x = 0u;
+    ge->transfer_source_y = 0u;
+    ge->transfer_destination_x = 0u;
+    ge->transfer_destination_y = 0u;
+    ge->transfer_width = 0u;
+    ge->transfer_height = 0u;
     memset(ge->light_enabled, 0, sizeof(ge->light_enabled));
     memset(ge->light_type, 0, sizeof(ge->light_type));
     memset(ge->light_direction, 0, sizeof(ge->light_direction));
@@ -1976,6 +2046,44 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_BLENDFIXEDB:
                 ge->blend_fixed_b = value;
+                break;
+            case GE_CMD_TRXSBP:
+                ge->transfer_source_address =
+                    ((ge->transfer_source_buffer_width & 0x000F0000u) << 8) |
+                    (value & 0x00FFFFFFu);
+                break;
+            case GE_CMD_TRXSBW:
+                ge->transfer_source_buffer_width = value;
+                ge->transfer_source_address =
+                    ((value & 0x000F0000u) << 8) |
+                    (ge->transfer_source_address & 0x00FFFFFFu);
+                break;
+            case GE_CMD_TRXDBP:
+                ge->transfer_destination_address =
+                    ((ge->transfer_destination_buffer_width & 0x000F0000u) << 8) |
+                    (value & 0x00FFFFFFu);
+                break;
+            case GE_CMD_TRXDBW:
+                ge->transfer_destination_buffer_width = value;
+                ge->transfer_destination_address =
+                    ((value & 0x000F0000u) << 8) |
+                    (ge->transfer_destination_address & 0x00FFFFFFu);
+                break;
+            case GE_CMD_TRXSPOS:
+                ge->transfer_source_x = value & 0x3FFu;
+                ge->transfer_source_y = (value >> 10) & 0x3FFu;
+                break;
+            case GE_CMD_TRXDPOS:
+                ge->transfer_destination_x = value & 0x3FFu;
+                ge->transfer_destination_y = (value >> 10) & 0x3FFu;
+                break;
+            case GE_CMD_TRXSIZE:
+                ge->transfer_width = (value & 0x3FFu) + 1u;
+                ge->transfer_height = ((value >> 10) & 0x3FFu) + 1u;
+                break;
+            case GE_CMD_TRXKICK:
+                if (!ge_execute_transfer(ge, (value & 1u) != 0u))
+                    return false;
                 break;
             case GE_CMD_CLUTADDR:
                 ge->clut_address = ge_resolve_address(ge, value);
