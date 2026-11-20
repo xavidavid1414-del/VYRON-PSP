@@ -316,7 +316,7 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
             float w1 = ge_edge(c->x, c->y, a->x, a->y, px, py);
             float w2 = ge_edge(a->x, a->y, b->x, b->y, px, py);
             if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
-                (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
+                (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0)) {
                 float wa = w0 / area;
                 float wb = w1 / area;
                 float wc = w2 / area;
@@ -326,6 +326,7 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
                 float v = a->v * wa + b->v * wb + c->v * wc;
                 ge_put_pixel(ge, x, y,
                     ge_shade_fragment(ge, color, u, v));
+            }
         }
     }
 }
