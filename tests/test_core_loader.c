@@ -137,6 +137,7 @@ int main(void)
     PSP_Core core;
     uint8_t elf[TEST_ELF_SIZE];
     uint8_t prx[0x160];
+    uint8_t iso_fixture[18u * 2048u] = {0};
 
     memset(&core, 0, sizeof(core));
     assert(psp_core_init(&core));
@@ -150,6 +151,20 @@ int main(void)
     assert(psp_nid_resolve(0x810C4BC3u, &service_code));
     assert(psp_nid_resolve(0x6A638D83u, &service_code));
     assert(psp_nid_resolve(0x27EB27B8u, &service_code));
+
+    /* Mounting an ISO must expose its filesystem to the sceIo HLE layer. */
+    uint8_t *pvd = iso_fixture + 16u * 2048u;
+    pvd[0] = 1;
+    memcpy(pvd + 1, "CD001", 5);
+    pvd[6] = 1;
+    uint8_t *root_record = pvd + 156;
+    root_record[0] = 34;
+    write_le32(root_record + 2, 17);
+    write_le32(root_record + 10, 2048);
+    assert(psp_core_mount_iso(&core, iso_fixture, sizeof(iso_fixture)));
+    assert(core.io_service.fs == &core.iso_fs);
+    psp_core_unmount_iso(&core);
+    assert(core.io_service.fs == NULL);
 
     make_test_elf(elf);
 
