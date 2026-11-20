@@ -21,6 +21,8 @@
 #define GE_CMD_OFFSETX 0x4Cu
 #define GE_CMD_OFFSETY 0x4Du
 #define GE_CMD_ZTESTENABLE 0x23u
+#define GE_CMD_CULLFACEENABLE 0x1Du
+#define GE_CMD_CULL 0x9Bu
 #define GE_CMD_ZTEST 0xDEu
 #define GE_CMD_ZWRITEDISABLE 0xE7u
 #define GE_CMD_PRIM    0x04u
@@ -642,6 +644,10 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
 
     float area = ge_edge(a->x, a->y, b->x, b->y, c->x, c->y);
     if (fabsf(area) < 0.0001f) return;
+    if (ge->cull_enabled &&
+        ((ge->cull_mode == 0u && area > 0.0f) ||
+         (ge->cull_mode == 1u && area < 0.0f)))
+        return;
     for (int y = min_y; y <= max_y; y++) {
         for (int x = min_x; x <= max_x; x++) {
             float px = (float)x + 0.5f, py = (float)y + 0.5f;
@@ -873,6 +879,8 @@ void psp_ge_reset(PSP_GE *ge)
     ge->viewport_offset[0] = 0.0f;
     ge->viewport_offset[1] = 0.0f;
     ge->depth_test_enabled = false;
+    ge->cull_enabled = false;
+    ge->cull_mode = 0;
     ge->depth_write_disabled = false;
     ge->depth_function = 1u;
 }
@@ -961,6 +969,12 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_ZTESTENABLE:
                 ge->depth_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_CULLFACEENABLE:
+                ge->cull_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_CULL:
+                ge->cull_mode = value & 1u;
                 break;
             case GE_CMD_ZTEST:
                 ge->depth_function = value & 7u;
