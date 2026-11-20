@@ -344,6 +344,21 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
                 return PSP_ARMV6K_TRANSLATE_ERROR;
             return PSP_ARMV6K_TRANSLATE_OK;
         }
+        if (function == 0x2Cu || function == 0x2Du) {
+            /* Allegrex MAX/MIN use signed comparisons. */
+            uint8_t condition = function == 0x2Cu ? 11u : 10u;
+            uint32_t cmp = ARM_COND_AL | (10u << 21) | (1u << 20) |
+                           (1u << 16) | 2u;
+            if (!emit_load_gpr(emitter, 1, rs) ||
+                !emit_load_gpr(emitter, 2, rt) ||
+                !emit_word(emitter, cmp) ||
+                !emit_word(emitter, ARM_COND_AL | (13u << 21) |
+                           (3u << 12) | 1u) ||
+                !emit_conditional_mov_reg(emitter, condition, 3, 2) ||
+                !emit_store_gpr(emitter, rd, 3))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
+        }
         if (function == 0x2Au || function == 0x2Bu) { /* SLT / SLTU */
             if (!emit_load_gpr(emitter, 1, rs) ||
                 !emit_load_gpr(emitter, 2, rt) ||
