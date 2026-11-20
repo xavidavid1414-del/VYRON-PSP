@@ -78,6 +78,11 @@ typedef struct {
     float u;
     float v;
     float reciprocal_w;
+    float clip_x;
+    float clip_y;
+    float clip_z;
+    float clip_w;
+    bool clip_valid;
     uint32_t color;
 } GE_Vertex;
 
@@ -130,8 +135,14 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     float cz = p[8] * vx + p[9] * vy + p[10] * vz + p[11];
     float cw = p[12] * vx + p[13] * vy + p[14] * vz + p[15];
 
-    if (!isfinite(cw) || fabsf(cw) < 0.000001f)
+    if (!isfinite(cx) || !isfinite(cy) || !isfinite(cz) ||
+        !isfinite(cw) || fabsf(cw) < 0.000001f)
         return false;
+    vertex->clip_x = cx;
+    vertex->clip_y = cy;
+    vertex->clip_z = cz;
+    vertex->clip_w = cw;
+    vertex->clip_valid = true;
     float inv_w = 1.0f / cw;
     vertex->reciprocal_w = inv_w;
     float nx = cx * inv_w, ny = cy * inv_w, nz = cz * inv_w;
@@ -834,7 +845,10 @@ static GE_Vertex ge_lerp_vertex(const GE_Vertex *a,
     GE_LERP_FIELD(x); GE_LERP_FIELD(y); GE_LERP_FIELD(z);
     GE_LERP_FIELD(nx); GE_LERP_FIELD(ny); GE_LERP_FIELD(nz);
     GE_LERP_FIELD(reciprocal_w);
+    GE_LERP_FIELD(clip_x); GE_LERP_FIELD(clip_y);
+    GE_LERP_FIELD(clip_z); GE_LERP_FIELD(clip_w);
 #undef GE_LERP_FIELD
+    out.clip_valid = a->clip_valid && b->clip_valid;
     /* Preserve perspective-correct texture attributes across generated
        clip vertices by interpolating u/w and v/w, then restoring u and v. */
     float rw = out.reciprocal_w;
@@ -907,6 +921,90 @@ static unsigned int ge_clip_polygon(const GE_Vertex *input,
     return output_count;
 }
 
+static float ge_homogeneous_clip_distance(const GE_Vertex *vertex,
+                                             unsigned int plane)
+{
+    switch (plane) {
+        case 0: return vertex->clip_x + vertex->clip_w;
+        case 1: return vertex->clip_w - vertex->clip_x;
+        case 2: return vertex->clip_y + vertex->clip_w;
+        case 3: return vertex->clip_w - vertex->clip_y;
+        case 4: return vertex->clip_z + vertex->clip_w;
+        default: return vertex->clip_w - vertex->clip_z;
+    }
+}
+
+static GE_Vertex ge_lerp_clip_vertex(const GE_Vertex *a,
+                                     const GE_Vertex *b, float t)
+{
+    GE_Vertex out = ge_lerp_vertex(a, b, t);
+    /* Homogeneous clipping uses the edge parameter before perspective
+       division, so ordinary vertex attributes remain linearly interpolated. */
+    out.u = a->u + (b->u - a->u) * t;
+    out.v = a->v + (b->v - a->v) * t;
+    out.clip_x = a->clip_x + (b->clip_x - a->clip_x) * t;
+    out.clip_y = a->clip_y + (b->clip_y - a->clip_y) * t;
+    out.clip_z = a->clip_z + (b->clip_z - a->clip_z) * t;
+    out.clip_w = a->clip_w + (b->clip_w - a->clip_w) * t;
+    out.clip_valid = true;
+    return out;
+}
+
+static unsigned int ge_clip_homogeneous_polygon(
+    const GE_Vertex *input, unsigned int input_count,
+    GE_Vertex *output, unsigned int plane)
+{
+    if (input_count == 0u) return 0u;
+    unsigned int output_count = 0u;
+    const GE_Vertex *previous = &input[input_count - 1u];
+    float previous_distance = ge_homogeneous_clip_distance(previous, plane);
+    bool previous_inside = previous_distance >= 0.0f;
+    for (unsigned int i = 0u; i < input_count; i++) {
+        const GE_Vertex *current = &input[i];
+        float current_distance = ge_homogeneous_clip_distance(current, plane);
+        bool current_inside = current_distance >= 0.0f;
+        if (current_inside != previous_inside) {
+            float denominator = previous_distance - current_distance;
+            if (fabsf(denominator) > 0.000001f && output_count < 12u) {
+                float t = previous_distance / denominator;
+                output[output_count++] = ge_lerp_clip_vertex(
+                    previous, current, t);
+            }
+        }
+        if (current_inside && output_count < 12u)
+            output[output_count++] = *current;
+        previous = current;
+        previous_distance = current_distance;
+        previous_inside = current_inside;
+    }
+    return output_count;
+}
+
+static bool ge_project_clipped_vertex(const PSP_GE *ge, GE_Vertex *vertex)
+{
+    if (!vertex->clip_valid || !isfinite(vertex->clip_w) ||
+        vertex->clip_w <= 0.000001f)
+        return false;
+    float inv_w = 1.0f / vertex->clip_w;
+    float nx = vertex->clip_x * inv_w;
+    float ny = vertex->clip_y * inv_w;
+    float nz = vertex->clip_z * inv_w;
+    if (!isfinite(nx) || !isfinite(ny) || !isfinite(nz))
+        return false;
+    vertex->reciprocal_w = inv_w;
+    vertex->x = ge->viewport_center[0] +
+        nx * ge->viewport_scale[0] - ge->viewport_offset[0];
+    vertex->y = ge->viewport_center[1] +
+        ny * ge->viewport_scale[1] - ge->viewport_offset[1];
+    vertex->z = ge->viewport_center[2] + nz * ge->viewport_scale[2];
+    if (!isfinite(vertex->x) || !isfinite(vertex->y) ||
+        !isfinite(vertex->z))
+        return false;
+    if (vertex->z < 0.0f) vertex->z = 0.0f;
+    if (vertex->z > 65535.0f) vertex->z = 65535.0f;
+    return true;
+}
+
 static void ge_rasterize_triangle(PSP_GE *ge, const GE_Vertex *a,
                                   const GE_Vertex *b, const GE_Vertex *c)
 {
@@ -966,6 +1064,18 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
     first[0] = *a; first[1] = *b; first[2] = *c;
     unsigned int count = 3u;
     GE_Vertex *input = first, *output = second;
+    if (a->clip_valid && b->clip_valid && c->clip_valid) {
+        for (unsigned int plane = 0u; plane < 6u && count; plane++) {
+            count = ge_clip_homogeneous_polygon(input, count, output, plane);
+            GE_Vertex *swap = input; input = output; output = swap;
+        }
+        if (count < 3u) return;
+        for (unsigned int i = 0u; i < count; i++) {
+            if (!ge_project_clipped_vertex(ge, &input[i]))
+                return;
+            input[i].clip_valid = false;
+        }
+    }
     float left = (float)(ge->scissor_left > 0 ? ge->scissor_left : 0);
     float top = (float)(ge->scissor_top > 0 ? ge->scissor_top : 0);
     int clip_right = ge->scissor_right < PSP_VIDEO_WIDTH - 1 ?
