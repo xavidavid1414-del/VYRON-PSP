@@ -442,5 +442,63 @@ int main(void)
 
     psp_syscall_reset();
 
+    /* MULT stores the signed 64-bit product in HI:LO. */
+    const uint32_t mult_signed =
+        (1u << 21) | (2u << 16) | 0x18u;
+    memcpy(ram, &mult_signed, sizeof(mult_signed));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = (uint32_t)-7;
+    cpu.gpr[2] = 9u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == 0xFFFFFFC1u);
+    assert(cpu.hi == 0xFFFFFFFFu);
+
+    /* MULTU stores the unsigned 64-bit product in HI:LO. */
+    const uint32_t mult_unsigned =
+        (1u << 21) | (2u << 16) | 0x19u;
+    memcpy(ram, &mult_unsigned, sizeof(mult_unsigned));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0xFFFFFFFFu;
+    cpu.gpr[2] = 2u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == 0xFFFFFFFEu);
+    assert(cpu.hi == 1u);
+
+    /* DIV truncates toward zero and keeps the signed remainder in HI. */
+    const uint32_t div_signed =
+        (1u << 21) | (2u << 16) | 0x1Au;
+    memcpy(ram, &div_signed, sizeof(div_signed));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = (uint32_t)-17;
+    cpu.gpr[2] = 5u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == (uint32_t)-3);
+    assert(cpu.hi == (uint32_t)-2);
+
+    /* DIVU stores quotient in LO and remainder in HI. */
+    const uint32_t div_unsigned =
+        (1u << 21) | (2u << 16) | 0x1Bu;
+    memcpy(ram, &div_unsigned, sizeof(div_unsigned));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 17u;
+    cpu.gpr[2] = 5u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == 3u);
+    assert(cpu.hi == 2u);
+
+    /* Signed division's INT_MIN / -1 overflow case is deterministic. */
+    memcpy(ram, &div_signed, sizeof(div_signed));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0x80000000u;
+    cpu.gpr[2] = 0xFFFFFFFFu;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == 0x80000000u);
+    assert(cpu.hi == 0u);
+
     return 0;
 }
