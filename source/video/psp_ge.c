@@ -14,10 +14,18 @@
 #define GE_CMD_OFFSET  0x13u
 #define GE_CMD_SCISSOR1 0xD4u
 #define GE_CMD_SCISSOR2 0xD5u
+#define GE_CMD_TEXTUREMAPENABLE 0x1Eu
+#define GE_CMD_TEXADDR0 0xA0u
+#define GE_CMD_TEXBUFWIDTH0 0xA8u
+#define GE_CMD_TEXSIZE0 0xB8u
+#define GE_CMD_TEXFORMAT 0xC3u
+#define GE_CMD_TEXWRAP 0xC7u
 
 typedef struct {
     float x;
     float y;
+    float u;
+    float v;
     uint32_t color;
 } GE_Vertex;
 
@@ -38,13 +46,14 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t morph_count = ((type >> 18) & 7u) + 1u;
     uint32_t transform_2d = (type >> 23) & 1u;
 
-    if (texture_type != 0 || normal_type != 0 || weight_type != 0 ||
+    if (normal_type != 0 || weight_type != 0 ||
         weight_count != 1 || morph_count != 1 ||
         (position_type != 2 && position_type != 3) ||
         color_type > 4)
         return false;
 
-    uint32_t stride = 0;
+    uint32_t stride = texture_type == 1 ? 2u :
+        (texture_type == 2 ? 4u : (texture_type == 3 ? 8u : 0u));
     if (color_type == 1 || color_type == 2 || color_type == 3)
         stride += 2;
     else if (color_type == 4)
@@ -58,6 +67,28 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
         return false;
 
     uint32_t address = (uint32_t)address64;
+    vertex->u = 0.0f;
+    vertex->v = 0.0f;
+    if (texture_type == 1) {
+        vertex->u = (float)psp_memory_read8(ge->memory, address);
+        vertex->v = (float)psp_memory_read8(ge->memory, address + 1);
+        address += 2;
+    } else if (texture_type == 2) {
+        uint32_t uv = psp_memory_read8(ge->memory, address) |
+            ((uint32_t)psp_memory_read8(ge->memory, address + 1) << 8);
+        uint32_t vv = psp_memory_read8(ge->memory, address + 2) |
+            ((uint32_t)psp_memory_read8(ge->memory, address + 3) << 8);
+        vertex->u = (float)uv;
+        vertex->v = (float)vv;
+        address += 4;
+    } else if (texture_type == 3) {
+        uint32_t ub = psp_memory_read32(ge->memory, address);
+        uint32_t vb = psp_memory_read32(ge->memory, address + 4);
+        memcpy(&vertex->u, &ub, sizeof(ub));
+        memcpy(&vertex->v, &vb, sizeof(vb));
+        address += 8;
+    }
+
     vertex->color = ge->draw_color;
     if (color_type == 1 || color_type == 2 || color_type == 3) {
         uint32_t packed = psp_memory_read8(ge->memory, address) |
@@ -102,7 +133,9 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     }
 
     if (!isfinite(vertex->x) || !isfinite(vertex->y) ||
-        fabsf(vertex->x) > 32768.0f || fabsf(vertex->y) > 32768.0f)
+        !isfinite(vertex->u) || !isfinite(vertex->v) ||
+        fabsf(vertex->x) > 32768.0f || fabsf(vertex->y) > 32768.0f ||
+        fabsf(vertex->u) > 65536.0f || fabsf(vertex->v) > 65536.0f)
         return false;
     if (!transform_2d) {
         vertex->x = (vertex->x + 1.0f) * (PSP_VIDEO_WIDTH / 2.0f);
@@ -157,6 +190,91 @@ static uint32_t ge_interpolate_color(uint32_t a, uint32_t b, uint32_t c,
         result |= (uint32_t)(channel + 0.5f) << shift;
     }
     return result;
+}
+
+static uint32_t ge_modulate_color(uint32_t a, uint32_t b)
+{
+    uint32_t result = 0;
+    for (unsigned int shift = 0; shift <= 24; shift += 8) {
+        uint32_t av = (a >> shift) & 0xFFu;
+        uint32_t bv = (b >> shift) & 0xFFu;
+        result |= ((av * bv + 127u) / 255u) << shift;
+    }
+    return result;
+}
+
+static bool ge_texture_sample(PSP_GE *ge, float u, float v,
+                              uint32_t *color)
+{
+    if (!ge->texture_enabled || color == NULL ||
+        ge->texture_width == 0 || ge->texture_height == 0 ||
+        ge->texture_buffer_width < ge->texture_width ||
+        ge->texture_format > 3u)
+        return false;
+
+    if (ge->texture_wrap_u == 0u) {
+        u = fmodf(u, (float)ge->texture_width);
+        if (u < 0.0f) u += (float)ge->texture_width;
+    } else {
+        if (u < 0.0f) u = 0.0f;
+        if (u > (float)(ge->texture_width - 1u))
+            u = (float)(ge->texture_width - 1u);
+    }
+    if (ge->texture_wrap_v == 0u) {
+        v = fmodf(v, (float)ge->texture_height);
+        if (v < 0.0f) v += (float)ge->texture_height;
+    } else {
+        if (v < 0.0f) v = 0.0f;
+        if (v > (float)(ge->texture_height - 1u))
+            v = (float)(ge->texture_height - 1u);
+    }
+
+    uint32_t x = (uint32_t)floorf(u);
+    uint32_t y = (uint32_t)floorf(v);
+    uint32_t bytes_per_pixel = ge->texture_format == 3u ? 4u : 2u;
+    uint64_t offset = ((uint64_t)y * ge->texture_buffer_width + x) *
+        bytes_per_pixel;
+    uint64_t address = (uint64_t)ge->texture_address + offset;
+    if (address > UINT32_MAX ||
+        !psp_memory_is_valid(ge->memory, (uint32_t)address,
+                             bytes_per_pixel))
+        return false;
+
+    uint32_t packed = psp_memory_read8(ge->memory, (uint32_t)address) |
+        ((uint32_t)psp_memory_read8(ge->memory,
+                                    (uint32_t)address + 1u) << 8);
+    if (ge->texture_format == 3u) {
+        *color = psp_memory_read32(ge->memory, (uint32_t)address);
+    } else if (ge->texture_format == 0u) {
+        *color = PSP_VIDEO_COLOR(
+            ((packed >> 11) & 31u) * 255u / 31u,
+            ((packed >> 5) & 63u) * 255u / 63u,
+            (packed & 31u) * 255u / 31u, 255u);
+    } else if (ge->texture_format == 1u) {
+        *color = PSP_VIDEO_COLOR(
+            ((packed >> 10) & 31u) * 255u / 31u,
+            ((packed >> 5) & 31u) * 255u / 31u,
+            (packed & 31u) * 255u / 31u,
+            (packed & 0x8000u) ? 255u : 0u);
+    } else {
+        *color = PSP_VIDEO_COLOR(
+            ((packed >> 8) & 15u) * 17u,
+            ((packed >> 4) & 15u) * 17u,
+            (packed & 15u) * 17u,
+            ((packed >> 12) & 15u) * 17u);
+    }
+    return true;
+}
+
+static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
+                                  float u, float v)
+{
+    uint32_t texel;
+    if (!ge->texture_enabled)
+        return color;
+    if (!ge_texture_sample(ge, u, v, &texel))
+        return 0;
+    return ge_modulate_color(color, texel);
 }
 
 static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
