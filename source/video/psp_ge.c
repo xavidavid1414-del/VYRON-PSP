@@ -26,11 +26,23 @@
 #define GE_CMD_LIGHTINGENABLE 0x17u
 #define GE_CMD_LIGHTENABLE0 0x18u
 #define GE_CMD_LIGHTENABLE1 0x19u
+#define GE_CMD_LIGHTENABLE2 0x1Au
+#define GE_CMD_LIGHTENABLE3 0x1Bu
 #define GE_CMD_LIGHTTYPE1 0x60u
+#define GE_CMD_LIGHTTYPE2 0x61u
+#define GE_CMD_LIGHTTYPE3 0x62u
 #define GE_CMD_LDX1 0x72u
 #define GE_CMD_LDY1 0x73u
 #define GE_CMD_LDZ1 0x74u
+#define GE_CMD_LDX2 0x75u
+#define GE_CMD_LDY2 0x76u
+#define GE_CMD_LDZ2 0x77u
+#define GE_CMD_LDX3 0x78u
+#define GE_CMD_LDY3 0x79u
+#define GE_CMD_LDZ3 0x7Au
 #define GE_CMD_LDC1 0x91u
+#define GE_CMD_LDC2 0x92u
+#define GE_CMD_LDC3 0x93u
 #define GE_CMD_AMBIENTCOLOR 0x5Cu
 #define GE_CMD_LIGHTTYPE0 0x5Fu
 #define GE_CMD_LDX0 0x6Fu
@@ -1528,12 +1540,24 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_LIGHTENABLE1:
                 ge->light_enabled[1] = (value & 1u) != 0;
                 break;
+            case GE_CMD_LIGHTENABLE2:
+                ge->light_enabled[2] = (value & 1u) != 0;
+                break;
+            case GE_CMD_LIGHTENABLE3:
+                ge->light_enabled[3] = (value & 1u) != 0;
+                break;
             case GE_CMD_LIGHTTYPE0:
                 ge->light0_type = value & 3u;
                 ge->light_type[0] = ge->light0_type;
                 break;
             case GE_CMD_LIGHTTYPE1:
                 ge->light_type[1] = value & 3u;
+                break;
+            case GE_CMD_LIGHTTYPE2:
+                ge->light_type[2] = value & 3u;
+                break;
+            case GE_CMD_LIGHTTYPE3:
+                ge->light_type[3] = value & 3u;
                 break;
             case GE_CMD_LDX0:
                 ge->light0_direction[0] = ge_decode_float24(value);
@@ -1554,12 +1578,36 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_LDZ1:
                 ge->light_direction[1][2] = ge_decode_float24(value);
                 break;
+            case GE_CMD_LDX2:
+                ge->light_direction[2][0] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDY2:
+                ge->light_direction[2][1] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDZ2:
+                ge->light_direction[2][2] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDX3:
+                ge->light_direction[3][0] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDY3:
+                ge->light_direction[3][1] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDZ3:
+                ge->light_direction[3][2] = ge_decode_float24(value);
+                break;
             case GE_CMD_LDC0:
                 ge->light0_diffuse = value & 0x00FFFFFFu;
                 ge->light_diffuse[0] = ge->light0_diffuse;
                 break;
             case GE_CMD_LDC1:
                 ge->light_diffuse[1] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LDC2:
+                ge->light_diffuse[2] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LDC3:
+                ge->light_diffuse[3] = value & 0x00FFFFFFu;
                 break;
             case GE_CMD_AMBIENTCOLOR:
                 ge->ambient_color = value & 0x00FFFFFFu;
