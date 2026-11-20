@@ -796,6 +796,7 @@ static void set_memory_floor_from_elf(
         (psp_ge_hle_init(&core->ge_hle, &core->ge),
          !psp_ge_hle_register(&core->ge_hle))) {
         psp_ge_hle_unregister();
+        psp_ge_destroy(&core->ge);
         psp_io_hle_unregister();
         psp_memory_hle_unregister();
         psp_controller_hle_unregister();
@@ -855,6 +856,7 @@ void psp_core_destroy(PSP_Core *core)
         return;
 
     psp_ge_hle_unregister();
+    psp_ge_destroy(&core->ge);
     psp_io_hle_unregister();
     psp_memory_hle_unregister();
     psp_controller_hle_unregister();
