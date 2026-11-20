@@ -4,6 +4,7 @@
 #include <string.h>
 
 #define GE_CMD_VADDR   0x01u
+#define GE_CMD_IADDR   0x02u
 #define GE_CMD_PRIM    0x04u
 #define GE_CMD_JUMP    0x08u
 #define GE_CMD_CALL    0x0Au
@@ -138,6 +139,34 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
         fabsf(vertex->u) > 65536.0f || fabsf(vertex->v) > 65536.0f)
         return false;
     return true;
+}
+
+
+static bool ge_read_primitive_vertex(PSP_GE *ge, uint32_t index,
+                                     GE_Vertex *vertex)
+{
+    uint32_t index_type = (ge->vertex_type >> 11) & 3u;
+    uint32_t vertex_index = index;
+    if (index_type != 0u) {
+        uint32_t index_size = index_type == 1u ? 1u :
+            (index_type == 2u ? 2u : 4u);
+        uint64_t address64 = (uint64_t)ge->index_address +
+            (uint64_t)index * index_size;
+        if (address64 > UINT32_MAX ||
+            !psp_memory_is_valid(ge->memory, (uint32_t)address64,
+                                 index_size))
+            return false;
+        uint32_t address = (uint32_t)address64;
+        if (index_type == 1u) {
+            vertex_index = psp_memory_read8(ge->memory, address);
+        } else if (index_type == 2u) {
+            vertex_index = psp_memory_read8(ge->memory, address) |
+                ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
+        } else {
+            vertex_index = psp_memory_read32(ge->memory, address);
+        }
+    }
+    return ge_read_vertex(ge, vertex_index, vertex);
 }
 
 static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color)
@@ -341,7 +370,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
     uint32_t drawn = 0;
     if (primitive == 0) {
         for (uint32_t i = 0; i < count; i++) {
-            if (!ge_read_vertex(ge, i, &vertices[0])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[0])) return false;
             ge_put_pixel(ge, (int)lroundf(vertices[0].x),
                          (int)lroundf(vertices[0].y),
                          ge_shade_fragment(ge, vertices[0].color,
@@ -351,34 +380,34 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
     } else if (primitive == 1) {
         if (count & 1u) return false;
         for (uint32_t i = 0; i < count; i += 2) {
-            if (!ge_read_vertex(ge, i, &vertices[0]) ||
-                !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[0]) ||
+                !ge_read_primitive_vertex(ge, i + 1, &vertices[1])) return false;
             ge_draw_line(ge, &vertices[0], &vertices[1]);
             drawn++;
         }
     } else if (primitive == 2) {
         if (count < 2) return false;
         for (uint32_t i = 0; i + 1 < count; i++) {
-            if (!ge_read_vertex(ge, i, &vertices[0]) ||
-                !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[0]) ||
+                !ge_read_primitive_vertex(ge, i + 1, &vertices[1])) return false;
             ge_draw_line(ge, &vertices[0], &vertices[1]);
             drawn++;
         }
     } else if (primitive == 3) {
         if (count % 3u) return false;
         for (uint32_t i = 0; i < count; i += 3) {
-            if (!ge_read_vertex(ge, i, &vertices[0]) ||
-                !ge_read_vertex(ge, i + 1, &vertices[1]) ||
-                !ge_read_vertex(ge, i + 2, &vertices[2])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[0]) ||
+                !ge_read_primitive_vertex(ge, i + 1, &vertices[1]) ||
+                !ge_read_primitive_vertex(ge, i + 2, &vertices[2])) return false;
             ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
             drawn++;
         }
     } else if (primitive == 4) {
         if (count < 3) return false;
         for (uint32_t i = 0; i + 2 < count; i++) {
-            if (!ge_read_vertex(ge, i, &vertices[0]) ||
-                !ge_read_vertex(ge, i + 1, &vertices[1]) ||
-                !ge_read_vertex(ge, i + 2, &vertices[2])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[0]) ||
+                !ge_read_primitive_vertex(ge, i + 1, &vertices[1]) ||
+                !ge_read_primitive_vertex(ge, i + 2, &vertices[2])) return false;
             if (i & 1u) {
                 GE_Vertex swap = vertices[0];
                 vertices[0] = vertices[1];
@@ -388,19 +417,19 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             drawn++;
         }
     } else if (primitive == 5) {
-        if (count < 3 || !ge_read_vertex(ge, 0, &vertices[0]))
+        if (count < 3 || !ge_read_primitive_vertex(ge, 0, &vertices[0]))
             return false;
         for (uint32_t i = 1; i + 1 < count; i++) {
-            if (!ge_read_vertex(ge, i, &vertices[1]) ||
-                !ge_read_vertex(ge, i + 1, &vertices[2])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[1]) ||
+                !ge_read_primitive_vertex(ge, i + 1, &vertices[2])) return false;
             ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
             drawn++;
         }
     } else if (primitive == 6) {
         if (count & 1u) return false;
         for (uint32_t i = 0; i < count; i += 2) {
-            if (!ge_read_vertex(ge, i, &vertices[0]) ||
-                !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
+            if (!ge_read_primitive_vertex(ge, i, &vertices[0]) ||
+                !ge_read_primitive_vertex(ge, i + 1, &vertices[1])) return false;
             int left = (int)floorf(fminf(vertices[0].x, vertices[1].x));
             int top = (int)floorf(fminf(vertices[0].y, vertices[1].y));
             int right = (int)ceilf(fmaxf(vertices[0].x, vertices[1].x));
@@ -462,6 +491,7 @@ void psp_ge_reset(PSP_GE *ge)
     if (ge == NULL || !ge->initialized) return;
     ge->base_address = 0;
     ge->vertex_address = 0;
+    ge->index_address = 0;
     ge->vertex_type = (2u << 7) | (1u << 23);
     ge->draw_color = 0xFFFFFFFFu;
     ge->texture_address = 0;
@@ -507,6 +537,9 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_VADDR:
                 ge->vertex_address = ge_resolve_address(ge, value);
+                break;
+            case GE_CMD_IADDR:
+                ge->index_address = ge_resolve_address(ge, value);
                 break;
             case GE_CMD_VTYPE:
                 ge->vertex_type = value;
