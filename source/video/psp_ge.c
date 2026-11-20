@@ -49,7 +49,7 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     if (normal_type != 0 || weight_type != 0 ||
         weight_count != 1 || morph_count != 1 ||
         (position_type != 2 && position_type != 3) ||
-        color_type > 4)
+        color_type > 4 || (ge->texture_enabled && texture_type == 0))
         return false;
 
     uint32_t stride = texture_type == 1 ? 2u :
