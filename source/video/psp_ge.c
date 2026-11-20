@@ -765,10 +765,11 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
         color = ge_blend_color(ge, color, destination);
     /* Stencil replaces the output alpha; otherwise alpha comes from the
        fragment. The pixel alpha mask preserves masked destination bits. */
-    color = ge_merge_alpha(color,
-        ge->stencil_test_enabled ? stencil_result :
-        (uint8_t)(psp_video_get_pixel(ge->video, x, y) >> 24),
-        ge->alpha_write_mask);
+    uint8_t alpha_result = ge->stencil_test_enabled ? stencil_result :
+        (uint8_t)(color >> 24);
+    uint32_t alpha_merged = ge_merge_alpha(destination, alpha_result,
+                                           ge->alpha_write_mask);
+    color = (color & 0x00FFFFFFu) | (alpha_merged & 0xFF000000u);
     psp_video_put_pixel(ge->video, x, y, color);
 }
 
