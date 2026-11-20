@@ -1,4 +1,4 @@
-# XAVRX-PSP
+# VYRON-PSP
 
 Experimental PSP emulator for the Nintendo 3DS family, targeting the New Nintendo 2DS XL.
 
@@ -51,18 +51,18 @@ make cia
 
 This creates `xavrx_psp.cia` using the project's ELF, SMDH icon, banner, and homebrew RSF metadata. The CIA is a homebrew build for installation with a compatible title installer; it is not a Nintendo-signed commercial title.
 
-GitHub Actions builds both `.3dsx` and `.cia` outputs and runs the host-side unit/integration tests on pushes to `main`. The combined artifact is named `XAVRX-PSP-3DS-BUILDS`.
+GitHub Actions builds both `.3dsx` and `.cia` outputs and runs the host-side unit/integration tests on pushes to `main`. The combined artifact is named `VYRON-PSP-3DS-BUILDS`.
 
 ## Install and use
 
-1. For Homebrew Launcher, copy `xavrx_psp.3dsx` to the SD card and launch it there. Alternatively, install `xavrx_psp.cia` with FBI or another compatible homebrew title installer and launch XAVRX PSP from the HOME Menu.
-2. Launch XAVRX-PSP once; it creates the storage folders automatically:
+1. For Homebrew Launcher, copy `xavrx_psp.3dsx` to the SD card and launch it there. Alternatively, install `xavrx_psp.cia` with FBI or another compatible homebrew title installer and launch VYRON PSP from the HOME Menu.
+2. Launch VYRON-PSP once; it creates the storage folders automatically:
    - `/PSP/GAMES` for uncompressed PSP `.iso` images.
    - `/PSP/SAVES` for future save data.
    - `/PSP/CONFIG` for future settings files.
    - `/PSP/SYSTEM` for internal emulator data.
 3. Place an uncompressed PSP `.iso` image, or a supported `.pbp`, `.prx`, or `.elf` file, in `/PSP/GAMES`.
-4. Select the file in XAVRX-PSP and press **A** to inspect and attempt to load its executable. ISO files are read from `PSP_GAME/SYSDIR/EBOOT.BIN`; PBP, PRX, and ELF files are passed directly to the loader.
+4. Select the file in VYRON-PSP and press **A** to inspect and attempt to load its executable. ISO files are read from `PSP_GAME/SYSDIR/EBOOT.BIN`; PBP, PRX, and ELF files are passed directly to the loader.
 
 At this stage, loading an ISO or ELF does **not** guarantee that the game can boot or run.
 
