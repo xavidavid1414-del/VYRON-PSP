@@ -37,9 +37,16 @@ typedef struct {
     uint32_t previous_buttons;
     uint32_t pressed;
     uint32_t released;
+    uint8_t analog_x;
+    uint8_t analog_y;
 } PSP_Controller;
 
 void psp_controller_reset(PSP_Controller *controller);
+void psp_controller_set_analog(
+    PSP_Controller *controller,
+    uint8_t x,
+    uint8_t y
+);
 void psp_controller_update(
     PSP_Controller *controller,
     uint32_t host_buttons,
