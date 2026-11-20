@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate simple, reproducible XAVRX PSP icon/banner assets for CIA packaging."""
+"""Generate simple, reproducible VYRON PSP icon/banner assets for CIA packaging."""
 import struct
 import wave
 import zlib
@@ -33,8 +33,8 @@ def art(x, y, w, h):
         return (20, 210, 220, 255)
     return bg
 
-png("assets/xavrx_icon.png", 48, 48, lambda x,y: art(x,y,48,48))
-png("assets/xavrx_banner.png", 256, 128, lambda x,y: art(x,y,256,128))
+png("assets/vyron_icon.png", 48, 48, lambda x,y: art(x,y,48,48))
+png("assets/vyron_banner.png", 256, 128, lambda x,y: art(x,y,256,128))
 with wave.open("assets/silence.wav", "wb") as wav:
     wav.setnchannels(1)
     wav.setsampwidth(2)
