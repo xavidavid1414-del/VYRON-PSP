@@ -701,6 +701,10 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
             break;
         }
 
+        case 0x2F: /* CACHE: cache maintenance is not modeled yet. */
+        case 0x33: /* PREF: memory prefetch is a performance hint. */
+            break;
+
         default:
             enter_exception(
                 cpu, pc, had_pending_branch,
