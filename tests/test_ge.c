@@ -1016,6 +1016,27 @@ int main(void)
     assert(!psp_ge_execute_list(&ge, transfer_list,
         (uint32_t)(sizeof(invalid_transfer) / sizeof(invalid_transfer[0]))));
 
+    /* Display presentation must use the display buffer, not GE draw target. */
+    psp_ge_reset(&ge);
+    const uint32_t draw_fb = PSP_VRAM_BASE + 0x4000u;
+    const uint32_t screen_fb = PSP_VRAM_BASE + 0x8000u;
+    ge.framebuffer_address = draw_fb;
+    ge.framebuffer_stride = PSP_VIDEO_STRIDE;
+    ge.framebuffer_format = 3u;
+    ge.display_address = screen_fb;
+    ge.display_stride = PSP_VIDEO_STRIDE;
+    ge.display_format = 3u;
+    psp_memory_write32(&memory, draw_fb, 0xFFFF0000u);
+    psp_memory_write32(&memory, screen_fb, 0xFF00FF00u);
+    psp_ge_present_framebuffer(&ge);
+    assert(psp_video_get_pixel(&video, 0, 0) == 0xFF00FF00u);
+
+    /* A null display address explicitly presents a black screen. */
+    ge.display_address = 0u;
+    psp_video_clear(&video, 0xFFFFFFFFu);
+    psp_ge_present_framebuffer(&ge);
+    assert(psp_video_get_pixel(&video, 0, 0) == 0xFF000000u);
+
     /* Framebuffer VRAM decoding covers all PSP pixel formats. */
     psp_ge_reset(&ge);
     const uint32_t display_fb = PSP_VRAM_BASE + 0x100u;
