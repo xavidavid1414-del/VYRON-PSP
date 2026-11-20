@@ -12,6 +12,7 @@ typedef struct { uint32_t uid, address, size; bool active; } PSP_MemoryBlock;
 typedef struct { PSP_Memory *memory; PSP_MemoryBlock blocks[PSP_MEMORY_BLOCK_MAX]; uint32_t arena_start, arena_end, next_uid; } PSP_MemoryBlocks;
 void psp_memory_blocks_init(PSP_MemoryBlocks *manager, PSP_Memory *memory);
 void psp_memory_blocks_reset(PSP_MemoryBlocks *manager);
+void psp_memory_blocks_set_floor(PSP_MemoryBlocks *manager, uint32_t used_end_offset);
 uint32_t psp_memory_block_alloc(PSP_MemoryBlocks *manager, uint32_t partition, uint32_t type, uint32_t size, uint32_t address);
 bool psp_memory_block_free(PSP_MemoryBlocks *manager, uint32_t uid);
 uint32_t psp_memory_block_head(PSP_MemoryBlocks *manager, uint32_t uid);
