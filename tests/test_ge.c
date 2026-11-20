@@ -96,6 +96,28 @@ int main(void)
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
     assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
 
+    /* 5650 textures decode to opaque RGB pixels as well. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_memory_write8(&memory, PSP_RAM_BASE + 0x2100, 0x00);
+    psp_memory_write8(&memory, PSP_RAM_BASE + 0x2101, 0xF8);
+    psp_memory_write8(&memory, PSP_RAM_BASE + 0x2102, 0xE0);
+    psp_memory_write8(&memory, PSP_RAM_BASE + 0x2103, 0x07);
+    command(&memory, list + 176, 0x10, 0x00080000u);
+    command(&memory, list + 180, 0xA0, 0x2100u);
+    command(&memory, list + 184, 0xA8, 0x00080002u);
+    command(&memory, list + 188, 0xB8, 0x00000101u);
+    command(&memory, list + 192, 0xC3, 0u);
+    command(&memory, list + 196, 0xC7, 0x00000101u);
+    command(&memory, list + 200, 0x1E, 1u);
+    command(&memory, list + 204, 0x01, 0x1400u);
+    command(&memory, list + 208, 0x12, textured_vtype);
+    command(&memory, list + 212, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 216, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 176, 12));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
+    assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
+
     /* Sprite primitives obey the configured scissor rectangle. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
