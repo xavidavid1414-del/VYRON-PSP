@@ -85,6 +85,13 @@ int main(void)
     assert(psp_syscall_dispatch(&cpu, &memory, syscall_code));
     assert(cpu.gpr[2] == 0u);
 
+    assert(psp_nid_resolve(PSP_NID_AUDIO_OUTPUT, &syscall_code));
+    cpu.gpr[4] = 0;
+    cpu.gpr[5] = 0x8000;
+    cpu.gpr[6] = pcm0;
+    assert(psp_syscall_dispatch(&cpu, &memory, syscall_code));
+    assert(cpu.gpr[2] == 0u);
+
     assert(psp_nid_resolve(PSP_NID_AUDIO_OUTPUT_BLOCKING, &syscall_code));
     cpu.gpr[4] = 0;
     cpu.gpr[5] = 0x8000;
