@@ -245,6 +245,22 @@ int main(void)
     assert(out.count == 5);
     assert(code[3] == 0xE0013002u); /* AND r3, r1, r2 */
 
+    /* SLTI compares against a sign-extended immediate. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t slti = (10u << 26) | (3u << 21) | (4u << 16) | 1u;
+    assert(psp_armv6k_translate_allegrex(&out, slti) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[1] == 0xE3510001u); /* CMP r1, #1 */
+
+    /* SLTIU uses an unsigned comparison after sign extension. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t sltiu = (11u << 26) | (3u << 21) | (4u << 16) | 1u;
+    assert(psp_armv6k_translate_allegrex(&out, sltiu) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[1] == 0xE3510001u); /* CMP r1, #1 */
+
     /* LUI r4, 0x1234 constructs 0x12340000. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t lui = (15u << 26) | (4u << 16) | 0x1234u;
