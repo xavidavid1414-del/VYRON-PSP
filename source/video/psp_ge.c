@@ -604,6 +604,44 @@ static bool ge_read_primitive_vertex(PSP_GE *ge, uint32_t index,
     return ge_read_vertex(ge, vertex_index, vertex);
 }
 
+static bool ge_test_bounding_box(PSP_GE *ge, uint32_t count)
+{
+    if (count == 0u) {
+        ge->bounding_box_outside = false;
+        return true;
+    }
+
+    bool outside[6] = {true, true, true, true, true, true};
+    for (uint32_t i = 0u; i < count; i++) {
+        GE_Vertex vertex;
+        if (!ge_read_primitive_vertex(ge, i, &vertex) ||
+            !vertex.clip_valid)
+            return false;
+
+        const float distances[6] = {
+            vertex.clip_x + vertex.clip_w,
+            vertex.clip_w - vertex.clip_x,
+            vertex.clip_y + vertex.clip_w,
+            vertex.clip_w - vertex.clip_y,
+            vertex.clip_z + vertex.clip_w,
+            vertex.clip_w - vertex.clip_z
+        };
+        for (uint32_t plane = 0u; plane < 6u; plane++) {
+            if (distances[plane] >= 0.0f)
+                outside[plane] = false;
+        }
+    }
+
+    ge->bounding_box_outside = false;
+    for (uint32_t plane = 0u; plane < 6u; plane++) {
+        if (outside[plane]) {
+            ge->bounding_box_outside = true;
+            break;
+        }
+    }
+    return true;
+}
+
 static uint32_t ge_blend_factor(uint32_t factor, unsigned int shift,
                                  uint32_t source, uint32_t destination,
                                  uint32_t fixed)
@@ -2163,6 +2201,7 @@ void psp_ge_reset(PSP_GE *ge)
     ge->display_format = 3u;
     ge->vertex_address = 0;
     ge->index_address = 0;
+    ge->bounding_box_outside = false;
     ge->vertex_type = (2u << 7) | (1u << 23);
     ge->patch_division_u = 1u;
     ge->patch_division_v = 1u;
@@ -2780,6 +2819,17 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_OFFSET:
                 /* Offset is used by transformed 3D vertices; unsupported here. */
+                break;
+            case GE_CMD_BBOX:
+                if (!ge_test_bounding_box(ge, value & 0xFFFFu))
+                    return false;
+                break;
+            case GE_CMD_BJUMP:
+                if (ge->bounding_box_outside) {
+                    uint32_t target = ge_resolve_address(ge, value);
+                    if (target < 4u) return false;
+                    pc64 = (uint64_t)target - 4u;
+                }
                 break;
             case GE_CMD_JUMP: {
                 uint32_t target = ge_resolve_address(ge, value);
