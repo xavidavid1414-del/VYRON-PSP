@@ -1,4 +1,4 @@
-name: XAVRX PSP - Nintendo 3DS Build
+name: VYRON PSP - Nintendo 3DS Build
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build XAVRX PSP
+      - name: Build VYRON PSP
         run: make
 
       - name: Build installable CIA package
@@ -26,86 +26,86 @@ jobs:
 
       - name: Run memory unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/memory source/memory/psp_memory.c tests/test_memory.c -o /tmp/xavrx-memory-tests
-          /tmp/xavrx-memory-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/memory source/memory/psp_memory.c tests/test_memory.c -o /tmp/vyron-memory-tests
+          /tmp/vyron-memory-tests
 
       - name: Run PSP memory block and HLE tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/memory -Isource/cpu -Isource/loader source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/cpu/psp_syscall.c source/loader/psp_nid.c tests/test_memory_blocks.c -o /tmp/xavrx-memory-block-tests
-          /tmp/xavrx-memory-block-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/memory -Isource/cpu -Isource/loader source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/cpu/psp_syscall.c source/loader/psp_nid.c tests/test_memory_blocks.c -o /tmp/vyron-memory-block-tests
+          /tmp/vyron-memory-block-tests
 
       - name: Run PSP ISO file HLE tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader -Isource/cpu -Isource/memory source/loader/psp_iso_fs.c source/loader/psp_io_hle.c source/loader/psp_nid.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_io_hle.c -o /tmp/xavrx-io-hle-tests
-          /tmp/xavrx-io-hle-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader -Isource/cpu -Isource/memory source/loader/psp_iso_fs.c source/loader/psp_io_hle.c source/loader/psp_nid.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_io_hle.c -o /tmp/vyron-io-hle-tests
+          /tmp/vyron-io-hle-tests
 
       - name: Run interpreter unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_interpreter.c -o /tmp/xavrx-interpreter-tests
-          /tmp/xavrx-interpreter-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_interpreter.c -o /tmp/vyron-interpreter-tests
+          /tmp/vyron-interpreter-tests
 
       - name: Run syscall registry unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_syscall.c tests/test_syscall.c -o /tmp/xavrx-syscall-tests
-          /tmp/xavrx-syscall-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_syscall.c tests/test_syscall.c -o /tmp/vyron-syscall-tests
+          /tmp/vyron-syscall-tests
 
       - name: Run PSP NID registry unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_nid.c tests/test_nid.c -o /tmp/xavrx-nid-tests
-          /tmp/xavrx-nid-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_nid.c tests/test_nid.c -o /tmp/vyron-nid-tests
+          /tmp/vyron-nid-tests
 
       - name: Run PRX import resolver unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader -Isource/memory source/loader/psp_nid.c source/loader/psp_prx_imports.c tests/test_prx_imports.c -o /tmp/xavrx-prx-import-tests
-          /tmp/xavrx-prx-import-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader -Isource/memory source/loader/psp_nid.c source/loader/psp_prx_imports.c tests/test_prx_imports.c -o /tmp/vyron-prx-import-tests
+          /tmp/vyron-prx-import-tests
 
       - name: Run controller HLE dispatch unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/cpu -Isource/memory -Isource/loader source/input/psp_controller.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_controller_hle_dispatch.c -o /tmp/xavrx-controller-hle-dispatch-tests
-          /tmp/xavrx-controller-hle-dispatch-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/cpu -Isource/memory -Isource/loader source/input/psp_controller.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_controller_hle_dispatch.c -o /tmp/vyron-controller-hle-dispatch-tests
+          /tmp/vyron-controller-hle-dispatch-tests
 
       - name: Run controller unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/input source/input/psp_controller.c tests/test_controller.c -o /tmp/xavrx-controller-tests
-          /tmp/xavrx-controller-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input source/input/psp_controller.c tests/test_controller.c -o /tmp/vyron-controller-tests
+          /tmp/vyron-controller-tests
 
       - name: Run controller HLE unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/memory source/input/psp_controller.c source/input/psp_controller_hle.c source/memory/psp_memory.c tests/test_controller_hle.c -o /tmp/xavrx-controller-hle-tests
-          /tmp/xavrx-controller-hle-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/memory source/input/psp_controller.c source/input/psp_controller_hle.c source/memory/psp_memory.c tests/test_controller_hle.c -o /tmp/vyron-controller-hle-tests
+          /tmp/vyron-controller-hle-tests
 
       - name: Run controller analog unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/input source/input/psp_controller.c tests/test_controller.c -o /tmp/xavrx-controller-analog-tests
-          /tmp/xavrx-controller-analog-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input source/input/psp_controller.c tests/test_controller.c -o /tmp/vyron-controller-analog-tests
+          /tmp/vyron-controller-analog-tests
 
       - name: Run loader unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_loader.c tests/test_loader.c -o /tmp/xavrx-loader-tests
-          /tmp/xavrx-loader-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_loader.c tests/test_loader.c -o /tmp/vyron-loader-tests
+          /tmp/vyron-loader-tests
 
       - name: Run PSP GE graphics tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/video -Isource/memory source/video/psp_ge.c source/video/psp_video.c source/memory/psp_memory.c tests/test_ge.c -lm -o /tmp/xavrx-ge-tests
-          /tmp/xavrx-ge-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/video -Isource/memory source/video/psp_ge.c source/video/psp_video.c source/memory/psp_memory.c tests/test_ge.c -lm -o /tmp/vyron-ge-tests
+          /tmp/vyron-ge-tests
 
       - name: Run PSP GE HLE tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/video -Isource/memory -Isource/cpu -Isource/loader source/video/psp_ge.c source/video/psp_ge_hle.c source/video/psp_video.c source/memory/psp_memory.c source/cpu/psp_syscall.c source/loader/psp_nid.c tests/test_ge_hle.c -lm -o /tmp/xavrx-ge-hle-tests
-          /tmp/xavrx-ge-hle-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/video -Isource/memory -Isource/cpu -Isource/loader source/video/psp_ge.c source/video/psp_ge_hle.c source/video/psp_video.c source/memory/psp_memory.c source/cpu/psp_syscall.c source/loader/psp_nid.c tests/test_ge_hle.c -lm -o /tmp/vyron-ge-hle-tests
+          /tmp/vyron-ge-hle-tests
 
       - name: Run core ELF integration tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/loader/psp_io_hle.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c source/video/psp_ge.c source/video/psp_ge_hle.c tests/test_video_stub.c tests/test_core_loader.c -lm -o /tmp/xavrx-core-loader-tests
-          /tmp/xavrx-core-loader-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/loader/psp_io_hle.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c source/video/psp_ge.c source/video/psp_ge_hle.c tests/test_video_stub.c tests/test_core_loader.c -lm -o /tmp/vyron-core-loader-tests
+          /tmp/vyron-core-loader-tests
 
       - name: Upload Nintendo 3DS builds
         uses: actions/upload-artifact@v4
         with:
-          name: XAVRX-PSP-3DS-BUILDS
+          name: VYRON-PSP-3DS-BUILDS
           path: |
-            xavrx_psp.3dsx
-            xavrx_psp.smdh
-            xavrx_psp.cia
+            vyron_psp.3dsx
+            vyron_psp.smdh
+            vyron_psp.cia
           if-no-files-found: error
           retention-days: 14
