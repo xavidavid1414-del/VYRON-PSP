@@ -77,6 +77,24 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(code[3] == 0xE1A03251u); /* MOV r3, r1, ASR r2 */
 
+    /* MULT/MULTU calculate both halves of the product into HI:LO. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mult = (1u << 21) | (2u << 16) | 0x18u;
+    assert(psp_armv6k_translate_allegrex(&out, mult) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[0] == 0xE5901004u); /* LDR rs */
+    assert(code[1] == 0xE5902008u); /* LDR rt */
+    assert(code[2] == 0xE0C43291u); /* SMULL r4, r3, r2, r1 */
+    assert(code[3] == 0xE5803088u); /* STR LO */
+    assert(code[4] == 0xE5804084u); /* STR HI */
+
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t multu = (1u << 21) | (2u << 16) | 0x19u;
+    assert(psp_armv6k_translate_allegrex(&out, multu) ==
+           PSP_ARMv6K_TRANSLATE_OK);
+    assert(code[2] == 0xE0843291u); /* UMULL r4, r3, r2, r1 */
+
     /* MFHI/MFLO copy the CPU special register into a GPR. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t mfhi = (4u << 11) | 0x10u;
