@@ -12,8 +12,8 @@
 #define GE_CMD_BASE    0x10u
 #define GE_CMD_VTYPE   0x12u
 #define GE_CMD_OFFSET  0x13u
-#define GE_CMD_SCISSOR1 0x17u
-#define GE_CMD_SCISSOR2 0x18u
+#define GE_CMD_SCISSOR1 0xD4u
+#define GE_CMD_SCISSOR2 0xD5u
 
 typedef struct {
     float x;
