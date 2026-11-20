@@ -692,10 +692,10 @@ static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
                                           uint32_t color)
 {
     if (ge == NULL || ge->memory == NULL || x < 0 || y < 0 ||
-        (uint32_t)x >= ge->framebuffer_stride)
+        (uint32_t)x >= ge->display_stride)
         return;
-    uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
-    uint64_t address = (uint64_t)ge->framebuffer_address +
+    uint32_t bpp = ge->display_format == 3u ? 4u : 2u;
+    uint64_t address = (uint64_t)ge->display_address +
         ((uint64_t)(uint32_t)y * ge->framebuffer_stride +
          (uint32_t)x) * bpp;
     if (address > UINT32_MAX ||
@@ -725,11 +725,15 @@ static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
 void psp_ge_present_framebuffer(PSP_GE *ge)
 {
     if (ge == NULL || !ge->initialized || ge->memory == NULL ||
-        ge->video == NULL || ge->framebuffer_stride < PSP_VIDEO_WIDTH ||
-        ge->framebuffer_format > 3u)
+        ge->video == NULL || ge->display_stride < PSP_VIDEO_WIDTH ||
+        ge->display_format > 3u)
         return;
+    if (ge->display_address == 0u) {
+        psp_video_clear(ge->video, 0xFF000000u);
+        return;
+    }
 
-    const uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
+    const uint32_t bpp = ge->display_format == 3u ? 4u : 2u;
     /* Validate the complete visible rectangle before touching the host
        framebuffer. This prevents partially presented frames on bad FBP/FBW. */
     uint64_t last_pixel = (uint64_t)(PSP_VIDEO_HEIGHT - 1u) *
@@ -1791,6 +1795,9 @@ void psp_ge_reset(PSP_GE *ge)
     ge->framebuffer_address = PSP_VRAM_BASE;
     ge->framebuffer_stride = PSP_VIDEO_STRIDE;
     ge->framebuffer_format = 3u;
+    ge->display_address = PSP_VRAM_BASE;
+    ge->display_stride = PSP_VIDEO_STRIDE;
+    ge->display_format = 3u;
     ge->vertex_address = 0;
     ge->index_address = 0;
     ge->vertex_type = (2u << 7) | (1u << 23);
