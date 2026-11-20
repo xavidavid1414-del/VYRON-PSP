@@ -235,5 +235,38 @@ int main(void)
     assert(cpu.pc == PSP_RAM_BASE + 12u);
     assert(!cpu.branch_pending);
 
+
+    /* JAL writes the return address and executes its delay slot. */
+    const uint32_t jal = (0x03u << 26) | 4u;
+    memcpy(ram, &jal, sizeof(jal));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.gpr[31] == PSP_RAM_BASE + 8u);
+    assert(cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 16u);
+    assert(!cpu.branch_pending);
+
+    /* JALR writes rd (or r31 when rd is zero) before the delay slot. */
+    const uint32_t jalr_r1_r5 =
+        (1u << 21) | (5u << 11) | 0x09u;
+    memcpy(ram, &jalr_r1_r5, sizeof(jalr_r1_r5));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 12u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.gpr[5] == PSP_RAM_BASE + 8u);
+    assert(cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 12u);
+    assert(!cpu.branch_pending);
+
     return 0;
 }
