@@ -53,10 +53,11 @@ int main(void)
 
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
-    command(&memory, list + 8, 0x01, 0xFFFFF0u);
-    command(&memory, list + 12, 0x12, vtype);
-    command(&memory, list + 16, 0x04, (3u << 16) | 3u);
-    command(&memory, list + 20, 0x0C, 0);
+    command(&memory, list + 8, 0x10, 0x00FF0000u);
+    command(&memory, list + 12, 0x01, 0xFFFFF0u);
+    command(&memory, list + 16, 0x12, vtype);
+    command(&memory, list + 20, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 24, 0x0C, 0);
     assert(!psp_ge_execute_list(&ge, list + 8, 8));
 
     /* A list without END cannot run past its caller-supplied command budget. */
