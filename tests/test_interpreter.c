@@ -53,6 +53,60 @@ int main(void)
     assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (5u << 2));
     assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
 
+    /* LH with an unaligned address must raise ADEL. */
+    const uint32_t lh_r2_r1 = (0x21u << 26) | (1u << 21) | (2u << 16);
+    memcpy(ram, &lh_r2_r1, sizeof(lh_r2_r1));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 1u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (4u << 2));
+    assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 1u);
+
+    /* SH with an unaligned address must raise ADES. */
+    const uint32_t sh_r2_r1 = (0x29u << 26) | (1u << 21) | (2u << 16);
+    memcpy(ram, &sh_r2_r1, sizeof(sh_r2_r1));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 1u;
+    cpu.gpr[2] = 0x12345678u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (5u << 2));
+    assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 1u);
+
+    /* LB beyond RAM must raise ADEL. */
+    const uint32_t lb_r2_r1 = (0x20u << 26) | (1u << 21) | (2u << 16);
+    memcpy(ram, &lb_r2_r1, sizeof(lb_r2_r1));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 16u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (4u << 2));
+    assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
+
+    /* SB beyond RAM must raise ADES. */
+    const uint32_t sb_r2_r1 = (0x28u << 26) | (1u << 21) | (2u << 16);
+    memcpy(ram, &sb_r2_r1, sizeof(sb_r2_r1));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 16u;
+    cpu.gpr[2] = 0x5Au;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (5u << 2));
+    assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
+
     /* Fetching an instruction beyond RAM must raise ADEL as well. */
     psp_cpu_reset(&cpu);
     cpu.pc = PSP_RAM_BASE + 16u;
