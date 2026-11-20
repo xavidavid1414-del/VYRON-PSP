@@ -384,6 +384,16 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         return PSP_ARMV6K_TRANSLATE_OK;
     }
 
+    if (opcode == 10u || opcode == 11u) {
+        /* SLTI/SLTIU sign-extend the immediate before comparison. */
+        uint32_t immediate = (uint32_t)(int32_t)(int16_t)(instruction & 0xFFFFu);
+        if (!emit_load_gpr(emitter, 1, rs) ||
+            !emit_set_less_imm(emitter, opcode == 11u, 3, 1, immediate) ||
+            !emit_store_gpr(emitter, rt, 3))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        return PSP_ARMV6K_TRANSLATE_OK;
+    }
+
     if (opcode == 12u || opcode == 13u || opcode == 14u) {
         /* ANDI/ORI/XORI use a zero-extended 16-bit immediate. */
         uint32_t immediate = instruction & 0xFFFFu;
