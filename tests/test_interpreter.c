@@ -524,5 +524,81 @@ int main(void)
     assert(cpu.lo == 0x01234567u);
     assert(cpu.hi == 0x89ABCDEFu);
 
+    /* SPECIAL2 MADD accumulates a signed product into HI:LO. */
+    const uint32_t madd = (0x1Cu << 26) | (1u << 21) | (2u << 16) | 0x00u;
+    memcpy(ram, &madd, sizeof(madd));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = (uint32_t)-3;
+    cpu.gpr[2] = 4u;
+    cpu.lo = 10u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.hi == 0xFFFFFFFFu);
+    assert(cpu.lo == 0xFFFFFFFEu);
+
+    /* SPECIAL2 MADDU accumulates an unsigned product. */
+    const uint32_t maddu = (0x1Cu << 26) | (1u << 21) | (2u << 16) | 0x01u;
+    memcpy(ram, &maddu, sizeof(maddu));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0xFFFFFFFFu;
+    cpu.gpr[2] = 2u;
+    cpu.lo = 1u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.hi == 1u);
+    assert(cpu.lo == 0xFFFFFFFFu);
+
+    /* SPECIAL2 MSUB subtracts a signed product from HI:LO. */
+    const uint32_t msub = (0x1Cu << 26) | (1u << 21) | (2u << 16) | 0x04u;
+    memcpy(ram, &msub, sizeof(msub));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = (uint32_t)-3;
+    cpu.gpr[2] = 4u;
+    cpu.lo = 10u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.hi == 0u);
+    assert(cpu.lo == 22u);
+
+    /* SPECIAL2 MSUBU subtracts an unsigned product modulo 64 bits. */
+    const uint32_t msubu = (0x1Cu << 26) | (1u << 21) | (2u << 16) | 0x05u;
+    memcpy(ram, &msubu, sizeof(msubu));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 3u;
+    cpu.gpr[2] = 4u;
+    cpu.lo = 10u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.hi == 0xFFFFFFFFu);
+    assert(cpu.lo == 0xFFFFFFFEu);
+
+    /* SPECIAL2 MUL writes the low signed product to rd. */
+    const uint32_t mul = (0x1Cu << 26) | (1u << 21) | (2u << 16) |
+                         (3u << 11) | 0x02u;
+    memcpy(ram, &mul, sizeof(mul));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = (uint32_t)-7;
+    cpu.gpr[2] = 9u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 0xFFFFFFC1u);
+
+    /* SPECIAL2 CLZ and CLO count leading zeroes and ones. */
+    const uint32_t clz = (0x1Cu << 26) | (1u << 21) | (3u << 11) | 0x20u;
+    memcpy(ram, &clz, sizeof(clz));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0x00F00000u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 8u);
+
+    const uint32_t clo = (0x1Cu << 26) | (1u << 21) | (3u << 11) | 0x21u;
+    memcpy(ram, &clo, sizeof(clo));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0xF0FFFFFFu;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 4u);
+
     return 0;
 }
