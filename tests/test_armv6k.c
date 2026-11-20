@@ -263,9 +263,9 @@ int main(void)
 
     /* Negative SLTI immediate must be sign-extended to 0xFFFFFFFF. */
     psp_armv6k_emitter_init(&out, code, 16);
-    uint32_t slti_negative = (10u << 26) | (3u << 21) |
+    uint32_t slti_negative_wide = (10u << 26) | (3u << 21) |
                              (4u << 16) | 0xFFFFu;
-    assert(psp_armv6k_translate_allegrex(&out, slti_negative) ==
+    assert(psp_armv6k_translate_allegrex(&out, slti_negative_wide) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 8);
     assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
