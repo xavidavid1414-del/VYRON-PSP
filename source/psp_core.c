@@ -575,6 +575,7 @@ void psp_core_reset(PSP_Core *core)
         return;
 
     psp_cpu_reset(&core->cpu);
+    psp_controller_reset(&core->controller);
     psp_video_clear(&core->video, 0xFF000000u);
 }
 
