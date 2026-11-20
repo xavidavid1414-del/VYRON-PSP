@@ -238,6 +238,19 @@ int main(void)
     assert(core.cpu.pc == loaded_pc);
     write_le32(prx + 164, 13);
 
+    /* Out-of-range compressed flag/type table indexes are rejected safely. */
+    write_le16(prx + 0x23B, 0x0421); /* type index 1, table has one item */
+    assert(!psp_core_load_executable_data(&core, prx, sizeof(prx)));
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x1004) ==
+           PSP_RAM_BASE + 0x20);
+    assert(core.cpu.pc == loaded_pc);
+    write_le16(prx + 0x23B, 0x0407); /* flag index 7, table has two items */
+    assert(!psp_core_load_executable_data(&core, prx, sizeof(prx)));
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x1004) ==
+           PSP_RAM_BASE + 0x20);
+    assert(core.cpu.pc == loaded_pc);
+    write_le16(prx + 0x23B, 0x0401);
+
     /* A paired LO16 relocation outside its write segment must be rejected. */
     write_le32(prx + 0x228, 28);
     core.cpu.pc = 0x87654321;
