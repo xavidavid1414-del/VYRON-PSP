@@ -20,6 +20,9 @@ typedef enum {
 
 void psp_armv6k_emitter_init(PSP_ARMv6KEmitter *emitter,
                              uint32_t *storage, size_t capacity);
+/* Wrap a translated block as an AAPCS-callable function taking PSP_CPU* in r0. */
+bool psp_armv6k_emit_function_prologue(PSP_ARMv6KEmitter *emitter);
+bool psp_armv6k_emit_function_epilogue(PSP_ARMv6KEmitter *emitter);
 bool psp_armv6k_emit_mov_imm(PSP_ARMv6KEmitter *emitter,
                              uint8_t rd, uint32_t immediate);
 bool psp_armv6k_emit_dp_reg(PSP_ARMv6KEmitter *emitter, uint8_t opcode,
