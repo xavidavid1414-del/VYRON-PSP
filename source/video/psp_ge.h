@@ -39,6 +39,10 @@ typedef struct {
     bool light_enabled[4];
     uint32_t light_type[4];
     float light_direction[4][3];
+    float light_position[4][3];
+    float light_attenuation[4][3];
+    float light_spot_exponent[4];
+    float light_spot_cutoff[4];
     uint32_t light_diffuse[4];
     uint32_t light_specular[4];
     uint32_t material_specular;
