@@ -1546,8 +1546,9 @@ static bool ge_execute_transfer(PSP_GE *ge, bool transfer_32bit)
     uint32_t bytes_per_pixel = transfer_32bit ? 4u : 2u;
     uint32_t width = ge->transfer_width;
     uint32_t height = ge->transfer_height;
-    uint32_t src_width = ge->transfer_source_buffer_width;
-    uint32_t dst_width = ge->transfer_destination_buffer_width;
+    /* Upper buffer-width register bits carry the framebuffer address. */
+    uint32_t src_width = ge->transfer_source_buffer_width & 0xFFFFu;
+    uint32_t dst_width = ge->transfer_destination_buffer_width & 0xFFFFu;
 
     if (width == 0u || height == 0u || width > 1024u || height > 1024u ||
         src_width == 0u || dst_width == 0u ||
