@@ -78,6 +78,32 @@ int main(void)
     assert(code[3] == 0x33A03001u); /* MOVLO r3, #1 */
     assert(code[4] == 0x23A03000u); /* MOVHS r3, #0 */
 
+    /* SLTI r3, r1, 7. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t slti = (0x0Au << 26) | (1u << 21) | (3u << 16) | 7u;
+    assert(psp_armv6k_translate_allegrex(&out, slti) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[1] == 0xE3510007u); /* CMP r1, #7 */
+    assert(code[2] == 0xB3A03001u); /* MOVLT r3, #1 */
+    assert(code[3] == 0xA3A03000u); /* MOVGE r3, #0 */
+
+    /* SLTIU compares against the sign-extended immediate as unsigned. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t sltiu = (0x0Bu << 26) | (1u << 21) | (3u << 16);
+    assert(psp_armv6k_translate_allegrex(&out, sltiu) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[2] == 0x33A03001u); /* MOVLO r3, #1 */
+    assert(code[3] == 0x23A03000u); /* MOVHS r3, #0 */
+
+    /* A non-encodable signed immediate must cleanly fall back. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t slti_negative = (0x0Au << 26) | (1u << 21) |
+                             (3u << 16) | 0xFFFCu;
+    assert(psp_armv6k_translate_allegrex(&out, slti_negative) ==
+           PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+    assert(out.count == 0);
+
     /* ADDIU r2, r1, -4. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t addiu = (9u << 26) | (1u << 21) | (2u << 16) | 0xFFFCu;
