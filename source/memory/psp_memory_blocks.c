@@ -7,6 +7,14 @@ void psp_memory_blocks_reset(PSP_MemoryBlocks *m) {
  if (!m) return;
  memset(m->blocks,0,sizeof(m->blocks)); m->next_uid=0x100u;
 }
+void psp_memory_blocks_set_floor(PSP_MemoryBlocks *m, uint32_t used_end_offset) {
+ if (!m) return;
+ uint32_t floor = align_up(used_end_offset);
+ if (floor < PSP_USER_ARENA_OFFSET) floor = PSP_USER_ARENA_OFFSET;
+ if (floor > m->arena_end) floor = m->arena_end;
+ m->arena_start = floor;
+ psp_memory_blocks_reset(m);
+}
 void psp_memory_blocks_init(PSP_MemoryBlocks *m, PSP_Memory *memory) {
  if (!m) return;
  memset(m,0,sizeof(*m)); m->memory=memory;
