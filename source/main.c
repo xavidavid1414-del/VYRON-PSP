@@ -70,7 +70,7 @@ static void update_controller_input(void)
     circlePosition cstick = {0, 0};
 
     circleRead(&stick);
-    cstickRead(&cstick);
+    hidCstickRead(&cstick);
 
     if (settings.cstick_enabled) {
         stick = cstick;
