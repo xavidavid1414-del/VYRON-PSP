@@ -55,7 +55,7 @@ static unsigned int displayed_fps;
 static void update_fps_display(void)
 {
     if (!settings.show_fps) {
-        printf("\\x1b[28;1H                 ");
+        printf("\x1b[28;1H                 ");
         return;
     }
 
@@ -75,7 +75,7 @@ static void update_fps_display(void)
         fps_window_start = now;
     }
 
-    printf("\\x1b[28;1HFPS: %u   ", displayed_fps);
+    printf("\x1b[28;1HFPS: %u   ", displayed_fps);
 }
 
 #define SETTINGS_FILE PSP_ROOT_DIRECTORY "/CONFIG/settings.ini"
