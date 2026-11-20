@@ -41,7 +41,8 @@ static PSP_DynarecBlock *translate_block(PSP_Dynarec *dynarec,
     block->start_pc = pc;
     block->page_generation = generation;
 
-    uint32_t page_offset = (pc - PSP_RAM_BASE) % PSP_MEMORY_PAGE_SIZE;
+    uint32_t ram_offset = pc >= PSP_RAM_BASE ? pc - PSP_RAM_BASE : pc;
+    uint32_t page_offset = ram_offset % PSP_MEMORY_PAGE_SIZE;
     uint32_t bytes_left = PSP_MEMORY_PAGE_SIZE - page_offset;
     uint32_t max_count = bytes_left / 4u;
     if (max_count > PSP_DYNAREC_BLOCK_INSTRUCTIONS)
