@@ -9,8 +9,8 @@
 #define NID_HEAD 0x9D9A5BA1u
 static PSP_MemoryBlocks *active;
 static bool alloc_call(PSP_CPU *c,PSP_Memory *m,uint32_t code) {
- (void)m; if(!c||!active||code!=SC_ALLOC)return false;
- c->gpr[2]=psp_memory_block_alloc(active,c->gpr[4],c->gpr[6],c->gpr[7],c->gpr[8]); return true;
+ if(!c||!m||!active||code!=SC_ALLOC)return false;
+ uint32_t address=psp_memory_read32(m,c->gpr[29]+16u); c->gpr[2]=psp_memory_block_alloc(active,c->gpr[4],c->gpr[6],c->gpr[7],address); return true;
 }
 static bool free_call(PSP_CPU *c,PSP_Memory *m,uint32_t code) {
  (void)m;if(!c||!active||code!=SC_FREE)return false;
