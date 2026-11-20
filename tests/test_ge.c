@@ -77,6 +77,37 @@ int main(void)
     assert((interpolated & 0xFFu) > 25u);
     assert(psp_video_get_pixel(&video, 35, 35) == 0);
 
+
+    /* A 4x4 control grid exercises the PSP BEZIER surface command.
+       The flat patch should tessellate into visible triangles. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    const uint32_t patch_vertices = PSP_RAM_BASE + 0x3000u;
+    const uint32_t patch_list = PSP_RAM_BASE + 0x3800u;
+    for (uint32_t py = 0u; py < 4u; py++) {
+        for (uint32_t px = 0u; px < 4u; px++) {
+            uint32_t address = patch_vertices + (py * 4u + px) * 8u;
+            psp_memory_write32(&memory, address, 0xFFFFFFFFu);
+            put16(&memory, address + 4u, (uint16_t)(100u + px * 10u));
+            put16(&memory, address + 6u, (uint16_t)(100u + py * 10u));
+        }
+    }
+    command(&memory, patch_list, 0x10u, 0x00080000u);
+    command(&memory, patch_list + 4u, 0x01u, 0x3000u);
+    command(&memory, patch_list + 8u, 0x12u, vtype);
+    command(&memory, patch_list + 12u, 0x36u, (2u << 8) | 2u);
+    command(&memory, patch_list + 16u, 0x37u, 3u);
+    command(&memory, patch_list + 20u, 0x05u, (4u << 8) | 4u);
+    command(&memory, patch_list + 24u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, patch_list, 8u));
+    assert(ge.primitives_drawn == 8u);
+    assert(psp_video_get_pixel(&video, 115, 115) != 0u);
+
+    /* Invalid patch dimensions are rejected without reading a partial grid. */
+    command(&memory, patch_list + 32u, 0x05u, (5u << 8) | 4u);
+    command(&memory, patch_list + 36u, 0x0Cu, 0u);
+    assert(!psp_ge_execute_list(&ge, patch_list + 32u, 2u));
+
     /* Stencil failures update the framebuffer alpha channel and reject RGB. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
