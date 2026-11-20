@@ -53,6 +53,14 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(code[1] == 0xE1A031C1u); /* MOV r3, r1, ASR #3 */
 
+    /* ROTRV uses shamt=1; other nonzero encodings are reserved. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t invalid_rotrv = (1u << 21) | (2u << 16) |
+                             (3u << 11) | (2u << 6) | 0x06u;
+    assert(psp_armv6k_translate_allegrex(&out, invalid_rotrv) ==
+           PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+    assert(out.count == 0);
+
     /* Variable shifts mask the guest shift amount to five bits. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t sllv = (1u << 21) | (2u << 16) | (3u << 11) | 0x04u;
