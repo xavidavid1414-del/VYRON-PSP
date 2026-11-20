@@ -26,6 +26,16 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/memory source/memory/psp_memory.c tests/test_memory.c -o /tmp/vyron-memory-tests
           /tmp/vyron-memory-tests
 
+      - name: Run PSP memory block and HLE tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/memory -Isource/cpu -Isource/loader source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/cpu/psp_syscall.c source/loader/psp_nid.c tests/test_memory_blocks.c -o /tmp/vyron-memory-block-tests
+          /tmp/vyron-memory-block-tests
+
+      - name: Run PSP ISO file HLE tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader -Isource/cpu -Isource/memory source/loader/psp_iso_fs.c source/loader/psp_io_hle.c source/loader/psp_nid.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_io_hle.c -o /tmp/vyron-io-hle-tests
+          /tmp/vyron-io-hle-tests
+
       - name: Run interpreter unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_interpreter.c -o /tmp/vyron-interpreter-tests
@@ -73,7 +83,7 @@ jobs:
 
       - name: Run core ELF integration tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c tests/test_video_stub.c tests/test_core_loader.c -o /tmp/vyron-core-loader-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/loader/psp_io_hle.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c tests/test_video_stub.c tests/test_core_loader.c -o /tmp/vyron-core-loader-tests
           /tmp/vyron-core-loader-tests
 
       - name: Upload Nintendo 3DS build
