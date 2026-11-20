@@ -267,7 +267,7 @@ int main(void)
                              (4u << 16) | 0xFFFFu;
     assert(psp_armv6k_translate_allegrex(&out, slti_negative_wide) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(out.count == 8);
+    assert(out.count == 9);
     assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
 
     /* SLTIU also sign-extends -1, then compares it as unsigned. */
@@ -276,7 +276,7 @@ int main(void)
                               (4u << 16) | 0xFFFFu;
     assert(psp_armv6k_translate_allegrex(&out, sltiu_negative) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(out.count == 8);
+    assert(out.count == 9);
     assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
 
     /* LUI r4, 0x1234 constructs 0x12340000. */
