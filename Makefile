@@ -54,17 +54,20 @@ export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 export _3DSXDEPS := $(OUTPUT).smdh
 export _3DSXFLAGS += --smdh=$(CURDIR)/$(TARGET).smdh
 
-.PHONY: all clean
+.PHONY: all cia clean
 
 all: $(BUILD)
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+cia: all
+	@bash tools/build_cia.sh
 
 $(BUILD):
 	@mkdir -p $@
 
 clean:
 	@echo "Cleaning VYRON PSP..."
-	@rm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf $(TARGET).map
+	@rm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf $(TARGET).map $(TARGET).cia $(TARGET).icn $(TARGET).bnr
 
 else
 
