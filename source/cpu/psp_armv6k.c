@@ -397,6 +397,10 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         }
         if (function == 0x00u || function == 0x02u || function == 0x03u) {
             uint8_t sa = (uint8_t)((instruction >> 6) & 31u);
+            if ((function == 0x00u || function == 0x03u) && rs != 0u)
+                return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
+            if (function == 0x02u && rs > 1u)
+                return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
             uint8_t shift_type = function == 0x00u ? 0u :
                                  (function == 0x02u ?
                                   (rs == 1u ? 3u : 1u) : 2u);
