@@ -200,5 +200,40 @@ int main(void)
     assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (10u << 2));
     assert(cpu.cop0[14] == PSP_RAM_BASE);
 
+
+    /* A taken BNE also executes its delay slot before applying the target. */
+    const uint32_t bne_r1_r2 =
+        (0x05u << 26) | (1u << 21) | (2u << 16) | 3u;
+    memcpy(ram, &bne_r1_r2, sizeof(bne_r1_r2));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 1u;
+    cpu.gpr[2] = 2u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 16u);
+    assert(!cpu.branch_pending);
+
+    /* A JR register jump applies its target after the delay slot. */
+    const uint32_t jr_r1 = (1u << 21) | 0x08u;
+    memcpy(ram, &jr_r1, sizeof(jr_r1));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 12u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 12u);
+    assert(!cpu.branch_pending);
+
     return 0;
 }
