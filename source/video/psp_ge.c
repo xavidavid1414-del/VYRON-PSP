@@ -586,7 +586,7 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
         float u = clipped_a.u + (clipped_b.u - clipped_a.u) * t;
         float v = clipped_a.v + (clipped_b.v - clipped_a.v) * t;
         float depth = clipped_a.z + (clipped_b.z - clipped_a.z) * t;
-        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v, 0.0f), depth);
+        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v, lod), depth);
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
         if (twice >= dy_i) { error += dy_i; x0 += sx; }
@@ -1071,6 +1071,29 @@ static void ge_rasterize_triangle(PSP_GE *ge, const GE_Vertex *a,
 
     float area = ge_edge(a->x, a->y, b->x, b->y, c->x, c->y);
     if (fabsf(area) < 0.0001f) return;
+    /* Estimate texture-space derivatives in screen pixels. This gives the
+       mip selector a stable per-triangle LOD; perspective-correct UVs are
+       still used for the actual fragment lookup. */
+    float determinant = (b->x - a->x) * (c->y - a->y) -
+        (c->x - a->x) * (b->y - a->y);
+    float lod = 0.0f;
+    if (fabsf(determinant) > 0.0001f) {
+        float du1 = b->u - a->u, du2 = c->u - a->u;
+        float dv1 = b->v - a->v, dv2 = c->v - a->v;
+        float dudx = (du1 * (c->y - a->y) -
+            du2 * (b->y - a->y)) / determinant;
+        float dudy = ((b->x - a->x) * du2 -
+            (c->x - a->x) * du1) / determinant;
+        float dvdx = (dv1 * (c->y - a->y) -
+            dv2 * (b->y - a->y)) / determinant;
+        float dvdy = ((b->x - a->x) * dv2 -
+            (c->x - a->x) * dv1) / determinant;
+        float rho_x = sqrtf(dudx * dudx + dvdx * dvdx);
+        float rho_y = sqrtf(dudy * dudy + dvdy * dvdy);
+        float rho = fmaxf(rho_x, rho_y);
+        if (isfinite(rho) && rho > 1.0f)
+            lod = log2f(rho);
+    }
     if (ge->cull_enabled &&
         ((ge->cull_mode == 0u && area > 0.0f) ||
          (ge->cull_mode == 1u && area < 0.0f)))
