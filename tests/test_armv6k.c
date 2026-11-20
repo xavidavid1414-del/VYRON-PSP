@@ -77,6 +77,36 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(code[3] == 0xE1A03251u); /* MOV r3, r1, ASR r2 */
 
+    /* MFHI/MFLO copy the CPU special register into a GPR. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mfhi = (4u << 11) | 0x10u;
+    assert(psp_armv6k_translate_allegrex(&out, mfhi) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 2);
+    assert(code[0] == 0xE5903084u); /* LDR r3, [cpu, #hi] */
+    assert(code[1] == 0xE5803010u); /* STR r3, [cpu, #gpr[4]] */
+
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mflo = (4u << 11) | 0x12u;
+    assert(psp_armv6k_translate_allegrex(&out, mflo) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[0] == 0xE5903088u); /* LDR r3, [cpu, #lo] */
+
+    /* MTHI/MTLO copy a GPR into the CPU special register. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mthi = (5u << 21) | 0x11u;
+    assert(psp_armv6k_translate_allegrex(&out, mthi) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 2);
+    assert(code[0] == 0xE5901014u); /* LDR rs */
+    assert(code[1] == 0xE5801084u); /* STR hi */
+
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mtlo = (5u << 21) | 0x13u;
+    assert(psp_armv6k_translate_allegrex(&out, mtlo) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[1] == 0xE5801088u); /* STR lo */
+
     /* MOVZ rd, rs, rt: update rd only when rt equals zero. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t movz = (1u << 21) | (2u << 16) | (3u << 11) | 0x0Au;
