@@ -787,9 +787,9 @@ int main(void)
     psp_video_clear(&video, 0u);
     const uint32_t fog_vertices = PSP_RAM_BASE + 0x3800u;
     const float fog_positions[3][3] = {
-        {-0.05f, -0.05f, -0.5f},
-        { 0.05f, -0.05f, -0.5f},
-        { 0.0f,   0.05f, -0.5f}
+        {-0.5f, -0.5f, -0.5f},
+        { 0.5f, -0.5f, -0.5f},
+        { 0.0f,  0.5f, -0.5f}
     };
     for (uint32_t i = 0u; i < 3u; i++) {
         uint32_t address = fog_vertices + i * 16u;
