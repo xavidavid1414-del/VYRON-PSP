@@ -793,6 +793,7 @@ static void set_memory_floor_from_elf(
     psp_io_service_init(&core->io_service, &core->iso_fs);
 
     if (!psp_controller_hle_register(&core->controller) ||
+        !psp_audio_hle_register(&core->audio) ||
         !psp_memory_hle_register(&core->memory_blocks) ||
         !psp_io_hle_register(&core->io_service) ||
         (psp_ge_hle_init(&core->ge_hle, &core->ge),
