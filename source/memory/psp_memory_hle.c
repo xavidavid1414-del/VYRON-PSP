@@ -1,6 +1,7 @@
 #include "psp_memory_hle.h"
 #include "../cpu/psp_syscall.h"
 #include "../loader/psp_nid.h"
+#include <stddef.h>
 
 #define SC_ALLOC 3u
 #define SC_FREE 4u
