@@ -261,6 +261,24 @@ int main(void)
     assert(out.count == 5);
     assert(code[1] == 0xE3510001u); /* CMP r1, #1 */
 
+    /* Negative SLTI immediate must be sign-extended to 0xFFFFFFFF. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t slti_negative = (10u << 26) | (3u << 21) |
+                             (4u << 16) | 0xFFFFu;
+    assert(psp_armv6k_translate_allegrex(&out, slti_negative) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 8);
+    assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
+
+    /* SLTIU also sign-extends -1, then compares it as unsigned. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t sltiu_negative = (11u << 26) | (3u << 21) |
+                              (4u << 16) | 0xFFFFu;
+    assert(psp_armv6k_translate_allegrex(&out, sltiu_negative) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 8);
+    assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
+
     /* LUI r4, 0x1234 constructs 0x12340000. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t lui = (15u << 26) | (4u << 16) | 0x1234u;
