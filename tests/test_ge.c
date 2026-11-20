@@ -571,6 +571,27 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 1052u, 16u));
     assert(psp_video_get_pixel(&video, 50, 50) == 0xFF00FF00u);
 
+    /* Triangles crossing the framebuffer edge are clipped, not dropped. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_memory_write32(&memory, vertices, 0xFFFF0000u);
+    put16(&memory, vertices + 4u, (uint16_t)-10);
+    put16(&memory, vertices + 6u, 10u);
+    psp_memory_write32(&memory, vertices + 8u, 0xFFFF0000u);
+    put16(&memory, vertices + 12u, 30u);
+    put16(&memory, vertices + 14u, 10u);
+    psp_memory_write32(&memory, vertices + 16u, 0xFFFF0000u);
+    put16(&memory, vertices + 20u, 30u);
+    put16(&memory, vertices + 22u, 50u);
+    command(&memory, list + 1120u, 0x10, 0x00080000u);
+    command(&memory, list + 1124u, 0x01, 0x1000u);
+    command(&memory, list + 1128u, 0x12, vtype);
+    command(&memory, list + 1132u, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 1136u, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1120u, 8u));
+    assert(psp_video_get_pixel(&video, 0, 15) == 0xFFFF0000u);
+    assert(psp_video_get_pixel(&video, 5, 45) == 0u);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
