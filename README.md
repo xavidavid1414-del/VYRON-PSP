@@ -16,14 +16,14 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading.
 - A partial MIPS interpreter with delay-slot handling and exception basics.
 - Experimental framebuffer output and Nintendo 3DS audio output plumbing.
-- Unit and integration tests for memory, interpreter, loader, and ELF loading.
+- HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.\n- Unit and integration tests for memory, interpreter, loader, PRX imports, controller HLE dispatch, and ELF loading.
 
 ### Known limitations
 
 - Encrypted PSP `~PSP` executables are not decrypted.
 - CSO-compressed images are not supported; use an uncompressed `.iso` image.
 - PRX relocation support is partial; `PT_PSPREL2` is unsupported.
-- PSP kernel/HLE modules, system services, imports, and much of the PSP SDK environment are not implemented.
+- Only the currently registered PSP controller read/peek NIDs are resolved; broad PSP kernel/HLE modules, system services, and the SDK environment remain unimplemented.
 - CPU instruction coverage and timing are incomplete.
 - PSP GPU command processing, display lists, textures, frame synchronization, and audio decoding/mixing are not implemented as a complete PSP graphics/audio pipeline.
 - Commercial game compatibility is unknown and should not be assumed.
@@ -59,7 +59,7 @@ At this stage, loading an ISO or ELF does **not** guarantee that the game can bo
 - Use **UP/DOWN** and **A**, or tap a setting with the stylus, to change an option.
 - Press **B** to return to the game list.
 - Settings are stored in `/PSP/CONFIG/settings.ini`.
-- The menu stores preferences for the FPS counter, stylus menu, C-Stick, video fit mode, and A/B and X/Y swaps.
+- The menu stores preferences for the FPS counter, stylus menu, C-Stick, video fit mode, and individual A/B/X/Y-to-PSP face-button mappings.
 - The FPS counter displays the frontend frame rate when enabled. FIT and STRETCH are connected to the top-screen framebuffer presentation.
 - The 3DS frontend now samples held buttons and maps them to PSP controller bit values. A/B and X/Y swaps are applied, and the controller module tracks pressed/released transitions.
 - **Input limitation:** this controller state is not yet exposed to PSP software. PSP imports such as `sceCtrlReadBufferPositive` and `sceCtrlPeekBufferPositive` plus their HLE/NID resolution are still missing. C-Stick analog input and the stylus overlay are also not implemented.
