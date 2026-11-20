@@ -5,7 +5,6 @@
 #include <string.h>
 
 #define GE_CMD_VADDR   0x01u
-#define GE_CMD_OFFSETADDR 0x13u
 #define GE_CMD_ORIGIN 0x14u
 #define GE_CMD_IADDR   0x02u
 #define GE_CMD_WORLDMATRIXNUMBER 0x3Au
@@ -2839,9 +2838,6 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                     return false;
                 break;
             case GE_CMD_OFFSET:
-                /* Offset is used by transformed 3D vertices; unsupported here. */
-                break;
-            case GE_CMD_OFFSETADDR:
                 ge->address_offset = (value & 0x00FFFFFFu) << 8;
                 break;
             case GE_CMD_ORIGIN:
