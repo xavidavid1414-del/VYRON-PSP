@@ -2,6 +2,8 @@
 #include "psp_core.h"
 #include "cpu/psp_interpreter.h"
 #include "cpu/psp_syscall.h"
+#include "input/psp_controller_hle.h"
+#include "loader/psp_nid.h"
 
 #include <string.h>
 
@@ -552,6 +554,7 @@ static bool load_elf_segments(
     memset(core, 0, sizeof(*core));
 
     psp_syscall_reset();
+    psp_nid_reset();
 
     if (!psp_memory_init(&core->memory))
         return false;
@@ -563,6 +566,15 @@ static bool load_elf_segments(
     }
 
     psp_cpu_init(&core->cpu);
+    psp_controller_reset(&core->controller);
+
+    if (!psp_controller_hle_register(&core->controller)) {
+        psp_video_destroy(&core->video);
+        psp_memory_destroy(&core->memory);
+        psp_syscall_reset();
+        psp_nid_reset();
+        return false;
+    }
 
     core->initialized = true;
 
@@ -607,7 +619,9 @@ void psp_core_destroy(PSP_Core *core)
     if (core == NULL)
         return;
 
+    psp_controller_hle_unregister();
     psp_syscall_reset();
+    psp_nid_reset();
 
     psp_core_unload_executable(core);
     psp_core_unmount_iso(core);
