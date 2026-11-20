@@ -31,6 +31,11 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_interpreter.c -o /tmp/vyron-interpreter-tests
           /tmp/vyron-interpreter-tests
 
+      - name: Run syscall registry unit tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_syscall.c tests/test_syscall.c -o /tmp/vyron-syscall-tests
+          /tmp/vyron-syscall-tests
+
       - name: Run loader unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_loader.c tests/test_loader.c -o /tmp/vyron-loader-tests
