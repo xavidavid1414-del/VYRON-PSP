@@ -841,7 +841,7 @@ int main(void)
     command(&memory, list + 1916u, 0x55, 0x00FFFFFFu);
     command(&memory, list + 1920u, 0x58, encode_float24(1.0f));
     command(&memory, list + 1924u, 0x01, 0x3900u);
-    command(&memory, list + 1928u, 0x12, (7u << 2) | (2u << 5) | (3u << 7));
+    command(&memory, list + 1928u, 0x12, (7u << 2) | (3u << 5) | (3u << 7));
     command(&memory, list + 1932u, 0x04, (3u << 16) | 3u);
     command(&memory, list + 1936u, 0x0Cu, 0u);
     assert(psp_ge_execute_list(&ge, list + 1880u, 15u));
