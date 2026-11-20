@@ -692,10 +692,14 @@ static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
                                           uint32_t color)
 {
     if (ge == NULL || ge->memory == NULL || x < 0 || y < 0 ||
-        (uint32_t)x >= ge->display_stride)
+        ge->framebuffer_stride < PSP_VIDEO_WIDTH ||
+        ge->framebuffer_format > 3u ||
+        (uint32_t)x >= ge->framebuffer_stride ||
+        (uint32_t)x >= PSP_VIDEO_WIDTH || (uint32_t)y >= PSP_VIDEO_HEIGHT)
         return;
-    uint32_t bpp = ge->display_format == 3u ? 4u : 2u;
-    uint64_t address = (uint64_t)ge->display_address +
+
+    uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
+    uint64_t address = (uint64_t)ge->framebuffer_address +
         ((uint64_t)(uint32_t)y * ge->framebuffer_stride +
          (uint32_t)x) * bpp;
     if (address > UINT32_MAX ||
@@ -705,6 +709,7 @@ static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
         psp_memory_write32(ge->memory, (uint32_t)address, color);
         return;
     }
+
     uint32_t packed;
     if (ge->framebuffer_format == 0u)
         packed = (((color >> 19) & 31u) << 11) |
