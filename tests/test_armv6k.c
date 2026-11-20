@@ -281,5 +281,21 @@ int main(void)
     assert(out.count == 5);
     assert(code[3] == 0xE1A03271u); /* MOV r3, r1, ROR r2 */
 
+    /* Allegrex MAX emits a signed conditional select sequence. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t max_inst = (1u << 21) | (2u << 16) |
+                        (3u << 11) | 0x2Cu;
+    assert(psp_armv6k_translate_allegrex(&out, max_inst) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 7);
+
+    /* Allegrex MIN uses the complementary signed condition. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t min_inst = (1u << 21) | (2u << 16) |
+                        (3u << 11) | 0x2Du;
+    assert(psp_armv6k_translate_allegrex(&out, min_inst) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 7);
+
     return 0;
 }
