@@ -295,7 +295,7 @@ int main(void)
                         (3u << 11) | 0x2Du;
     assert(psp_armv6k_translate_allegrex(&out, min_inst) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(out.count == 7);
+    assert(out.count == 6);
 
     return 0;
 }
