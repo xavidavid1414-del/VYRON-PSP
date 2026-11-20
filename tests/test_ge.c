@@ -86,6 +86,7 @@ int main(void)
     command(&memory, list + 80, 0x0C, 0);
     assert(psp_ge_execute_list(&ge, list + 64, 8));
     assert(psp_video_get_pixel(&video, 20, 10) != 0);
+    assert(ge.primitives_drawn == 2);
 
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
