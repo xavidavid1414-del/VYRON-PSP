@@ -76,6 +76,17 @@ int main(void)
     assert(psp_video_get_pixel(&video, 22, 22) == 0xFF00FF00u);
     assert(psp_video_get_pixel(&video, 10, 10) == 0);
 
+    /* Line-strip primitive joins each adjacent vertex pair. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    command(&memory, list + 64, 0x10, 0x00080000u);
+    command(&memory, list + 68, 0x01, 0x1000u);
+    command(&memory, list + 72, 0x12, vtype);
+    command(&memory, list + 76, 0x04, (2u << 16) | 3u);
+    command(&memory, list + 80, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 64, 8));
+    assert(psp_video_get_pixel(&video, 20, 10) != 0);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
