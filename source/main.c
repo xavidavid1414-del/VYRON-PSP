@@ -249,11 +249,16 @@ static void change_selected_setting(void)
     print_settings_menu();
 }
 
-static bool has_iso_extension(const char *name)
+static bool has_supported_extension(const char *name)
 {
     const char *dot = strrchr(name, '.');
+    if (!dot)
+        return false;
 
-    return dot && strcasecmp(dot, ".iso") == 0;
+    return strcasecmp(dot, ".iso") == 0 ||
+           strcasecmp(dot, ".pbp") == 0 ||
+           strcasecmp(dot, ".prx") == 0 ||
+           strcasecmp(dot, ".elf") == 0;
 }
 
 static void scan_iso_directory(void)
@@ -276,7 +281,7 @@ static void scan_iso_directory(void)
            iso_count < MAX_ISO_FILES) {
 
         if (entry->d_name[0] == '.' ||
-            !has_iso_extension(entry->d_name))
+            !has_supported_extension(entry->d_name))
             continue;
 
         snprintf(iso_files[iso_count].name,
@@ -292,7 +297,7 @@ static void scan_iso_directory(void)
              "%u PSP image(s) detected", iso_count);
 }
 
-static void probe_selected_iso(void)
+static void load_selected_image(void)
 {
     char path[256];
     PSP_ISO_File iso;
@@ -306,6 +311,21 @@ static void probe_selected_iso(void)
 
     snprintf(path, sizeof(path), "%s/%s",
              ISO_DIRECTORY, iso_files[selected].name);
+
+    const char *extension = strrchr(iso_files[selected].name, '.');
+    if (!extension || strcasecmp(extension, ".iso") != 0) {
+        psp_core_reset(&core);
+        bool loaded = psp_core_load_executable(&core, path);
+        if (loaded) {
+            execution_active = true;
+            snprintf(status_message, sizeof(status_message),
+                     "Executable image loaded");
+        } else {
+            snprintf(status_message, sizeof(status_message),
+                     "Unsupported or encrypted image");
+        }
+        return;
+    }
 
     if (!psp_iso_file_open(&iso, path)) {
         snprintf(status_message, sizeof(status_message),
@@ -565,7 +585,7 @@ int main(void)
         }
 
         if ((down & KEY_A) && iso_count > 0) {
-            probe_selected_iso();
+            load_selected_image();
             print_file_list();
         }
 
