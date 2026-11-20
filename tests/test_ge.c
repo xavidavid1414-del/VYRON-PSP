@@ -34,9 +34,9 @@ int main(void)
     /* Three colored 2D vertices form a filled triangle. */
     psp_memory_write32(&memory, vertices, 0xFFFF0000u);
     put16(&memory, vertices + 4, 10); put16(&memory, vertices + 6, 10);
-    psp_memory_write32(&memory, vertices + 8, 0xFFFF0000u);
+    psp_memory_write32(&memory, vertices + 8, 0xFF00FF00u);
     put16(&memory, vertices + 12, 40); put16(&memory, vertices + 14, 10);
-    psp_memory_write32(&memory, vertices + 16, 0xFFFF0000u);
+    psp_memory_write32(&memory, vertices + 16, 0xFF0000FFu);
     put16(&memory, vertices + 20, 10); put16(&memory, vertices + 22, 40);
 
     command(&memory, list, 0x10, 0x00080000u); /* BASE = 0x08000000 */
@@ -48,7 +48,11 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list, 8));
     assert(ge.commands_executed == 5);
     assert(ge.primitives_drawn == 1);
-    assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
+    uint32_t interpolated = psp_video_get_pixel(&video, 15, 15);
+    assert((interpolated >> 24) == 0xFFu);
+    assert(((interpolated >> 16) & 0xFFu) > 140u);
+    assert(((interpolated >> 8) & 0xFFu) > 25u);
+    assert((interpolated & 0xFFu) > 25u);
     assert(psp_video_get_pixel(&video, 35, 35) == 0);
 
     /* Sprite primitives obey the configured scissor rectangle. */
