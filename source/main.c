@@ -44,9 +44,9 @@ typedef struct {
     unsigned int map_b;
     unsigned int map_x;
     unsigned int map_y;
-} XAVRX_Settings;
+} VYRON_Settings;
 
-static XAVRX_Settings settings = {1, 1, 1, 0, 0, 1, 2, 3};
+static VYRON_Settings settings = {1, 1, 1, 0, 0, 1, 2, 3};
 static bool settings_open;
 static unsigned int settings_selected;
 
@@ -201,7 +201,7 @@ static void save_settings(void)
 static void print_settings_menu(void)
 {
     consoleClear();
-    printf("\x1b[1;1HXAVRX PSP | SETTINGS");
+    printf("\x1b[1;1HVYRON PSP | SETTINGS");
     printf("\x1b[3;1HUP/DOWN: Select  A: Change");
     printf("\x1b[4;1HB: Back  START: Exit");
     printf("\x1b[6;1H%s FPS counter: %s",
@@ -449,7 +449,7 @@ static void print_file_list(void)
 {
     consoleClear();
 
-    printf("\x1b[1;1HXAVRX PSP | CPU EXECUTION");
+    printf("\x1b[1;1HVYRON PSP | CPU EXECUTION");
     printf("\x1b[3;1HFolder: %s", ISO_DIRECTORY);
     printf("\x1b[5;1H");
 
@@ -485,7 +485,7 @@ int main(void)
     consoleInit(GFX_BOTTOM, NULL);
 
     if (!psp_core_init(&core)) {
-        printf("XAVRX PSP: initialization failed.\n");
+        printf("VYRON PSP: initialization failed.\n");
 
         while (aptMainLoop()) {
             hidScanInput();
