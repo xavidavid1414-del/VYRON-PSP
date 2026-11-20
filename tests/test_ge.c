@@ -129,7 +129,7 @@ int main(void)
     command(&memory, origin_list, 0x14u, 0u);
     command(&memory, origin_list + 4u, 0x08u, 0x100u);
     command(&memory, origin_list + 8u, 0xD4u, 77u | (33u << 10));
-    command(&memory, origin_list + 0x104u, 0x0Cu, 0u);
+    command(&memory, origin_list + 0x100u, 0x0Cu, 0u);
     assert(psp_ge_execute_list(&ge, origin_list, 5u));
     assert(ge.scissor_left == 0);
 
