@@ -576,8 +576,15 @@ static bool load_elf_segments(
 
     psp_cpu_init(&core->cpu);
     psp_controller_reset(&core->controller);
+    psp_memory_blocks_init(&core->memory_blocks, &core->memory);
+    psp_io_service_init(&core->io_service, &core->iso_fs);
 
-    if (!psp_controller_hle_register(&core->controller)) {
+    if (!psp_controller_hle_register(&core->controller) ||
+        !psp_memory_hle_register(&core->memory_blocks) ||
+        !psp_io_hle_register(&core->io_service)) {
+        psp_io_hle_unregister();
+        psp_memory_hle_unregister();
+        psp_controller_hle_unregister();
         psp_video_destroy(&core->video);
         psp_memory_destroy(&core->memory);
         psp_syscall_reset();
@@ -597,6 +604,8 @@ void psp_core_reset(PSP_Core *core)
 
     psp_cpu_reset(&core->cpu);
     psp_controller_reset(&core->controller);
+    psp_memory_blocks_reset(&core->memory_blocks);
+    psp_io_service_reset(&core->io_service);
     psp_video_clear(&core->video, 0xFF000000u);
 }
 
@@ -628,6 +637,8 @@ void psp_core_destroy(PSP_Core *core)
     if (core == NULL)
         return;
 
+    psp_io_hle_unregister();
+    psp_memory_hle_unregister();
     psp_controller_hle_unregister();
     psp_syscall_reset();
     psp_nid_reset();
@@ -739,6 +750,7 @@ bool psp_core_load_executable(
     }
 
     core->image_loaded = true;
+    psp_memory_blocks_reset(&core->memory_blocks);
 
     return true;
 }
@@ -785,5 +797,6 @@ bool psp_core_load_executable_data(
     }
 
     core->image_loaded = true;
+    psp_memory_blocks_reset(&core->memory_blocks);
     return true;
 }
