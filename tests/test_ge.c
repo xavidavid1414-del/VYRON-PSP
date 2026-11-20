@@ -68,8 +68,8 @@ int main(void)
     command(&memory, list + 32, 0x10, 0x00080000u);
     command(&memory, list + 36, 0x01, 0x1100u);
     command(&memory, list + 40, 0x12, vtype);
-    command(&memory, list + 44, 0x17, (20u << 10) | 20u);
-    command(&memory, list + 48, 0x18, (25u << 10) | 25u);
+    command(&memory, list + 44, 0xD4, (20u << 10) | 20u);
+    command(&memory, list + 48, 0xD5, (25u << 10) | 25u);
     command(&memory, list + 52, 0x04, (6u << 16) | 2u);
     command(&memory, list + 56, 0x0C, 0);
     assert(psp_ge_execute_list(&ge, list + 32, 8));
