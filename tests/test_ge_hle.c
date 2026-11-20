@@ -84,6 +84,29 @@ int main(void)
     assert(psp_syscall_dispatch(&cpu, &memory, 15u));
     assert(cpu.gpr[2] == 0);
 
+
+    /* sceDisplaySetFrameBuf selects an independent display buffer. */
+    cpu.gpr[4] = PSP_VRAM_BASE + 0x2000u;
+    cpu.gpr[5] = 512u;
+    cpu.gpr[6] = 3u;
+    cpu.gpr[7] = 1u;
+    uint32_t display_syscall = 0u;
+    assert(psp_nid_resolve(0x289D82FEu, &display_syscall));
+    assert(display_syscall == 16u);
+    assert(psp_syscall_dispatch(&cpu, &memory, display_syscall));
+    assert(cpu.gpr[2] == 0u);
+    assert(ge.display_address == PSP_VRAM_BASE + 0x2000u);
+    assert(ge.display_stride == 512u && ge.display_format == 3u);
+
+    /* Invalid display parameters must not replace the active display buffer. */
+    cpu.gpr[4] = PSP_VRAM_BASE + 0x2000u;
+    cpu.gpr[5] = 480u; /* PSP display stride must be power-of-two. */
+    cpu.gpr[6] = 3u;
+    cpu.gpr[7] = 1u;
+    assert(psp_syscall_dispatch(&cpu, &memory, display_syscall));
+    assert(cpu.gpr[2] == 0x80020190u);
+    assert(ge.display_stride == 512u);
+
     psp_ge_hle_unregister();
     psp_syscall_reset();
     psp_nid_reset();
