@@ -81,7 +81,7 @@ bannertool makebanner \
 makerom -f cia -o vyron_psp.cia \
   -DAPP_ENCRYPTED=false \
   -rsf config/vyron_psp.rsf \
-  -target t -exefslogo \
+  -target t -exefslogo -desc app:4 \
   -elf vyron_psp.elf \
   -icon vyron_psp.icn \
   -banner vyron_psp.bnr
