@@ -84,7 +84,7 @@ bool psp_prx_resolve_imports(const uint8_t *elf, size_t elf_size,
         if (name_off>=str_size || section_type!=ELF_SHT_PROGBITS) continue;
         const char *name=(const char *)(elf+str_off+name_off);
         size_t remain=str_size-name_off;
-        if (!memchr(name,'\\0',remain)) { ok=false; break; }
+        if (!memchr(name,'\0',remain)) { ok=false; break; }
         if (strcmp(name,".lib.stub")!=0) continue;
         found_import_section=true;
         if (!span(elf_size,sec_off,sec_size)) { ok=false; break; }
