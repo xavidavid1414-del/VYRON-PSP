@@ -207,9 +207,11 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             int top = (int)floorf(fminf(vertices[0].y, vertices[1].y));
             int right = (int)ceilf(fmaxf(vertices[0].x, vertices[1].x));
             int bottom = (int)ceilf(fmaxf(vertices[0].y, vertices[1].y));
-            if (right >= left && bottom >= top)
-                psp_video_fill_rect(ge->video, left, top,
-                    right - left + 1, bottom - top + 1, vertices[0].color);
+            if (right >= left && bottom >= top) {
+                for (int y = top; y <= bottom; y++)
+                    for (int x = left; x <= right; x++)
+                        ge_put_pixel(ge, x, y, vertices[0].color);
+            }
         }
     } else {
         return false;
