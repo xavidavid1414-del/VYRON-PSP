@@ -782,6 +782,34 @@ int main(void)
     command(&memory, list + 32, 0x12, vtype);
     assert(!psp_ge_execute_list(&ge, list + 32, 2));
 
+    /* Fog is calculated from view-space Z and blended after texturing. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    const uint32_t fog_vertices = PSP_RAM_BASE + 0x3800u;
+    const float fog_positions[3][3] = {
+        {-0.5f, -0.5f, -0.5f},
+        { 0.5f, -0.5f, -0.5f},
+        { 0.0f,  0.5f, -0.5f}
+    };
+    for (uint32_t i = 0u; i < 3u; i++) {
+        uint32_t address = fog_vertices + i * 16u;
+        psp_memory_write32(&memory, address, 0xFFFF0000u);
+        put_float(&memory, address + 4u, fog_positions[i][0]);
+        put_float(&memory, address + 8u, fog_positions[i][1]);
+        put_float(&memory, address + 12u, fog_positions[i][2]);
+    }
+    command(&memory, list + 1840u, 0x10, 0x00080000u);
+    command(&memory, list + 1844u, 0xCD, encode_float24(0.0f));
+    command(&memory, list + 1848u, 0xCE, encode_float24(1.0f));
+    command(&memory, list + 1852u, 0xCF, 0x000000FFu);
+    command(&memory, list + 1856u, 0x1F, 1u);
+    command(&memory, list + 1860u, 0x01, 0x3800u);
+    command(&memory, list + 1864u, 0x12, (7u << 2) | (3u << 7));
+    command(&memory, list + 1868u, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 1872u, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1840u, 9u));
+    assert(psp_video_get_pixel(&video, 240, 150) == 0xFF0000FFu);
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
