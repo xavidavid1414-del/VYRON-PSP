@@ -5,6 +5,9 @@
 
 #define GE_CMD_VADDR   0x01u
 #define GE_CMD_PRIM    0x04u
+#define GE_CMD_JUMP    0x08u
+#define GE_CMD_CALL    0x0Au
+#define GE_CMD_RET     0x0Bu
 #define GE_CMD_END     0x0Cu
 #define GE_CMD_BASE    0x10u
 #define GE_CMD_VTYPE   0x12u
@@ -317,6 +320,8 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
         max_commands > 100000)
         return false;
 
+    uint32_t return_stack[16];
+    uint32_t stack_depth = 0;
     uint64_t pc64 = list_address;
     for (uint32_t i = 0; i < max_commands; i++, pc64 += 4u) {
         if (pc64 > UINT32_MAX) return false;
@@ -339,6 +344,25 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_OFFSET:
                 /* Offset is used by transformed 3D vertices; unsupported here. */
+                break;
+            case GE_CMD_JUMP: {
+                uint32_t target = ge_resolve_address(ge, value);
+                if (target < 4u) return false;
+                pc64 = (uint64_t)target - 4u;
+                break;
+            }
+            case GE_CMD_CALL: {
+                if (stack_depth >= 16u) return false;
+                uint32_t target = ge_resolve_address(ge, value);
+                if (target < 4u || pc > UINT32_MAX - 4u) return false;
+                return_stack[stack_depth++] = pc + 4u;
+                pc64 = (uint64_t)target - 4u;
+                break;
+            }
+            case GE_CMD_RET:
+                if (stack_depth == 0 || return_stack[stack_depth - 1] < 4u)
+                    return false;
+                pc64 = (uint64_t)return_stack[--stack_depth] - 4u;
                 break;
             case GE_CMD_SCISSOR1:
                 ge->scissor_left = (int)(value & 0x3FFu);
