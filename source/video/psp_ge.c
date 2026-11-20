@@ -141,6 +141,21 @@ static float ge_edge(float ax, float ay, float bx, float by,
     return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
 }
 
+static uint32_t ge_interpolate_color(uint32_t a, uint32_t b, uint32_t c,
+                                     float wa, float wb, float wc)
+{
+    uint32_t result = 0;
+    for (unsigned int shift = 0; shift <= 24; shift += 8) {
+        float channel = (float)((a >> shift) & 0xFFu) * wa +
+            (float)((b >> shift) & 0xFFu) * wb +
+            (float)((c >> shift) & 0xFFu) * wc;
+        if (channel < 0.0f) channel = 0.0f;
+        if (channel > 255.0f) channel = 255.0f;
+        result |= (uint32_t)(channel + 0.5f) << shift;
+    }
+    return result;
+}
+
 static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
                              const GE_Vertex *b, const GE_Vertex *c)
 {
@@ -167,7 +182,9 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
             float w2 = ge_edge(a->x, a->y, b->x, b->y, px, py);
             if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
                 (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
-                ge_put_pixel(ge, x, y, a->color);
+                ge_put_pixel(ge, x, y,
+                    ge_interpolate_color(a->color, b->color, c->color,
+                        w0 / area, w1 / area, w2 / area));
         }
     }
 }
