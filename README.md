@@ -6,7 +6,7 @@ Experimental PSP emulator for the Nintendo 3DS family, targeting the New Nintend
 
 ## Current build
 
-The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO images and an experimental MIPS execution core.
+The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO, PBP, PRX, and ELF files, plus an experimental MIPS execution core.
 
 ### Current capabilities
 
@@ -53,8 +53,8 @@ GitHub Actions also builds the application and runs the host-side unit/integrati
    - `/PSP/SAVES` for future save data.
    - `/PSP/CONFIG` for future settings files.
    - `/PSP/SYSTEM` for internal emulator data.
-3. Place an uncompressed PSP `.iso` image in `/PSP/GAMES`.
-4. Select the image in VYRON-PSP and press **A** to inspect and attempt to load its executable.
+3. Place an uncompressed PSP `.iso` image, or a supported `.pbp`, `.prx`, or `.elf` file, in `/PSP/GAMES`.
+4. Select the file in VYRON-PSP and press **A** to inspect and attempt to load its executable. ISO files are read from `PSP_GAME/SYSDIR/EBOOT.BIN`; PBP, PRX, and ELF files are passed directly to the loader.
 
 At this stage, loading an ISO or ELF does **not** guarantee that the game can boot or run.
 
