@@ -18,6 +18,13 @@ static void command(PSP_Memory *memory, uint32_t address,
                        ((uint32_t)opcode << 24) | (value & 0x00FFFFFFu));
 }
 
+static void put_float(PSP_Memory *memory, uint32_t address, float value)
+{
+    uint32_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    psp_memory_write32(memory, address, bits);
+}
+
 int main(void)
 {
     PSP_Memory memory;
@@ -54,6 +61,40 @@ int main(void)
     assert(((interpolated >> 8) & 0xFFu) > 25u);
     assert((interpolated & 0xFFu) > 25u);
     assert(psp_video_get_pixel(&video, 35, 35) == 0);
+
+    /* Textured triangles sample 8888 texels with interpolated UVs. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const uint32_t texture = PSP_RAM_BASE + 0x2000;
+    const uint32_t textured_vertices = PSP_RAM_BASE + 0x1400;
+    psp_memory_write32(&memory, texture, 0xFFFF0000u);
+    psp_memory_write32(&memory, texture + 4, 0xFF00FF00u);
+    psp_memory_write32(&memory, texture + 8, 0xFF0000FFu);
+    psp_memory_write32(&memory, texture + 12, 0xFFFFFFFFu);
+    const uint32_t textured_vtype =
+        3u | (4u << 2) | (2u << 7) | (1u << 23);
+    for (uint32_t i = 0; i < 3; i++) {
+        uint32_t address = textured_vertices + i * 16u;
+        put_float(&memory, address, i == 1 ? 2.0f : 0.0f);
+        put_float(&memory, address + 4, i == 2 ? 2.0f : 0.0f);
+        psp_memory_write32(&memory, address + 8, 0xFFFFFFFFu);
+        put16(&memory, address + 12, i == 1 ? 40 : 10);
+        put16(&memory, address + 14, i == 2 ? 40 : 10);
+    }
+    command(&memory, list + 128, 0x10, 0x00080000u);
+    command(&memory, list + 132, 0xA0, 0x2000u);
+    command(&memory, list + 136, 0xA8, 0x00080002u);
+    command(&memory, list + 140, 0xB8, 0x00000101u);
+    command(&memory, list + 144, 0xC3, 3u);
+    command(&memory, list + 148, 0xC7, 0x00000101u);
+    command(&memory, list + 152, 0x1E, 1u);
+    command(&memory, list + 156, 0x01, 0x1400u);
+    command(&memory, list + 160, 0x12, textured_vtype);
+    command(&memory, list + 164, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 168, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 128, 12));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
+    assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
 
     /* Sprite primitives obey the configured scissor rectangle. */
     psp_ge_reset(&ge);
