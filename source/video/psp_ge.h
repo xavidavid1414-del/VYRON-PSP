@@ -49,7 +49,7 @@ typedef struct {
     uint32_t clut_mask;
     uint32_t clut_start;
     uint32_t clut_entries_loaded;
-    uint32_t clut[256];
+    uint32_t clut[1024];
     uint32_t texture_function;
     uint32_t texture_environment_color;
     bool texture_color_component;
