@@ -918,6 +918,75 @@ int main(void)
        light while still receiving a visible spotlight contribution. */
     assert((spot_pixel & 0x00FFFFFFu) >= 0x00404040u);
 
+
+    /* PSP GE block transfers copy 16-bit and 32-bit rectangular regions. */
+    psp_ge_reset(&ge);
+    const uint32_t transfer_src = PSP_RAM_BASE + 0x5000u;
+    const uint32_t transfer_dst = PSP_RAM_BASE + 0x6000u;
+    const uint32_t transfer_list = PSP_RAM_BASE + 0x7000u;
+    for (uint32_t y = 0u; y < 3u; y++) {
+        for (uint32_t x = 0u; x < 4u; x++) {
+            psp_memory_write32(&memory,
+                transfer_src + (y * 4u + x) * 4u,
+                0xFF000000u | (y << 16) | (x << 8) | (x + y));
+        }
+    }
+    const uint32_t transfer32[][2] = {
+        {0xB2u, transfer_src & 0x00FFFFFFu},
+        {0xB3u, 4u},
+        {0xB4u, transfer_dst & 0x00FFFFFFu},
+        {0xB5u, 5u},
+        {0xEBu, (1u << 10) | 1u},
+        {0xECu, 2u},
+        {0xEEu, (2u << 10) | 1u},
+        {0xEAu, 1u},
+        {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(transfer32) / sizeof(transfer32[0]); i++)
+        command(&memory, transfer_list + i * 4u,
+            (uint8_t)transfer32[i][0], transfer32[i][1]);
+    assert(psp_ge_execute_list(&ge, transfer_list,
+        (uint32_t)(sizeof(transfer32) / sizeof(transfer32[0]))));
+    assert(psp_memory_read32(&memory, transfer_dst + (2u * 4u)) ==
+        psp_memory_read32(&memory, transfer_src + (1u * 4u + 1u) * 4u));
+    assert(psp_memory_read32(&memory, transfer_dst + (2u * 4u) + 4u) ==
+        psp_memory_read32(&memory, transfer_src + (1u * 4u + 2u) * 4u));
+    assert(psp_memory_read32(&memory, transfer_dst + (2u * 5u + 0u) * 4u) ==
+        psp_memory_read32(&memory, transfer_src + (2u * 4u + 1u) * 4u));
+
+    psp_ge_reset(&ge);
+    const uint32_t transfer16_src = PSP_RAM_BASE + 0x8000u;
+    const uint32_t transfer16_dst = PSP_RAM_BASE + 0x9000u;
+    put16(&memory, transfer16_src, 0x1234u);
+    put16(&memory, transfer16_src + 2u, 0xABCDu);
+    const uint32_t transfer16[][2] = {
+        {0xB2u, transfer16_src & 0x00FFFFFFu}, {0xB3u, 2u},
+        {0xB4u, transfer16_dst & 0x00FFFFFFu}, {0xB5u, 2u},
+        {0xEEu, 1u}, {0xEAu, 0u}, {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(transfer16) / sizeof(transfer16[0]); i++)
+        command(&memory, transfer_list + i * 4u,
+            (uint8_t)transfer16[i][0], transfer16[i][1]);
+    assert(psp_ge_execute_list(&ge, transfer_list,
+        (uint32_t)(sizeof(transfer16) / sizeof(transfer16[0]))));
+    assert(psp_memory_read8(&memory, transfer16_dst) == 0x34u);
+    assert(psp_memory_read8(&memory, transfer16_dst + 1u) == 0x12u);
+    assert(psp_memory_read8(&memory, transfer16_dst + 2u) == 0xCDu);
+    assert(psp_memory_read8(&memory, transfer16_dst + 3u) == 0xABu);
+
+    /* Invalid transfer dimensions/buffer widths fail without out-of-bounds access. */
+    psp_ge_reset(&ge);
+    const uint32_t invalid_transfer[][2] = {
+        {0xB2u, transfer_src & 0x00FFFFFFu}, {0xB3u, 1u},
+        {0xB4u, transfer_dst & 0x00FFFFFFu}, {0xB5u, 1u},
+        {0xEEu, 1u}, {0xEAu, 1u}, {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(invalid_transfer) / sizeof(invalid_transfer[0]); i++)
+        command(&memory, transfer_list + i * 4u,
+            (uint8_t)invalid_transfer[i][0], invalid_transfer[i][1]);
+    assert(!psp_ge_execute_list(&ge, transfer_list,
+        (uint32_t)(sizeof(invalid_transfer) / sizeof(invalid_transfer[0]))));
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
