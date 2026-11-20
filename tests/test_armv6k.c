@@ -101,7 +101,7 @@ int main(void)
     uint32_t slti_negative = (0x0Au << 26) | (1u << 21) |
                              (3u << 16) | 0xFFFCu;
     assert(psp_armv6k_translate_allegrex(&out, slti_negative) ==
-           PSP_ARMv6K_TRANSLATE_OK);
+           PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 9);
     assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
 
