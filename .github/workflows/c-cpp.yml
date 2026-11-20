@@ -44,6 +44,11 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_interpreter.c -o /tmp/vyron-interpreter-tests
           /tmp/vyron-interpreter-tests
 
+      - name: Run translated Allegrex block tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_dynarec.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_dynarec.c -o /tmp/vyron-dynarec-tests
+          /tmp/vyron-dynarec-tests
+
       - name: Run syscall registry unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_syscall.c tests/test_syscall.c -o /tmp/vyron-syscall-tests
