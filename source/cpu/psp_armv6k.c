@@ -121,6 +121,19 @@ static bool emit_store_gpr(PSP_ARMv6KEmitter *emitter, uint8_t mips_reg,
         (int32_t)(offsetof(PSP_CPU, gpr) + (size_t)mips_reg * sizeof(uint32_t)));
 }
 
+static bool emit_shift_imm(PSP_ARMv6KEmitter *emitter, uint8_t rd,
+                            uint8_t rm, uint8_t shift_type,
+                            uint8_t amount)
+{
+    if (rd > 15u || rm > 15u || shift_type > 3u || amount > 31u)
+        return false;
+    uint32_t word = ARM_COND_AL | (13u << 21) |
+                    ((uint32_t)rd << 12) |
+                    ((uint32_t)amount << 7) |
+                    ((uint32_t)shift_type << 5) | rm;
+    return emit_word(emitter, word);
+}
+
 static bool emit_set_less(PSP_ARMv6KEmitter *emitter, bool is_unsigned,
                             uint8_t rd, uint8_t rn, uint8_t rm)
 {
