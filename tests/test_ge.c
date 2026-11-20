@@ -433,6 +433,34 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 416, 20));
     assert(psp_video_get_pixel(&video, 60, 30) == 0xFF00FF00u);
 
+    /* Homogeneous right-plane clipping keeps the visible part of a
+       triangle whose third vertex lies beyond the camera frustum. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const float clip_positions[3][3] = {
+        {-0.5f, -0.5f, 0.0f},
+        { 2.0f, -0.5f, 0.0f},
+        {-0.5f,  0.5f, 0.0f}
+    };
+    for (uint32_t i = 0; i < 3u; i++) {
+        uint32_t address = vertices_3d + i * 16u;
+        psp_memory_write32(&memory, address, 0xFFFF0000u);
+        put_float(&memory, address + 4u, clip_positions[i][0]);
+        put_float(&memory, address + 8u, clip_positions[i][1]);
+        put_float(&memory, address + 12u, clip_positions[i][2]);
+    }
+    command(&memory, list + 1160u, 0x10, 0x00080000u);
+    command(&memory, list + 1164u, 0x42, encode_float24(20.0f));
+    command(&memory, list + 1168u, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 1172u, 0x45, encode_float24(40.0f));
+    command(&memory, list + 1176u, 0x46, encode_float24(40.0f));
+    command(&memory, list + 1180u, 0x01, 0x3000u);
+    command(&memory, list + 1184u, 0x12, (7u << 2) | (3u << 7));
+    command(&memory, list + 1188u, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 1192u, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1160u, 9u));
+    assert(psp_video_get_pixel(&video, 55, 45) == 0xFFFF0000u);
+
     /* Directional diffuse lighting uses transformed vertex normals. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
