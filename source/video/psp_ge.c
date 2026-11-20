@@ -152,6 +152,12 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color)
     psp_video_put_pixel(ge->video, x, y, color);
 }
 
+static uint32_t ge_interpolate_color(uint32_t a, uint32_t b,
+                                     uint32_t c, float wa,
+                                     float wb, float wc);
+static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
+                                  float u, float v);
+
 static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
                          const GE_Vertex *b)
 {
