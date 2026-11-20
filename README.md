@@ -15,12 +15,13 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - PBP executable-region extraction.
 - ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading, including PSPREL1 and compressed PSPREL2 relocation streams.
 - A partial MIPS interpreter with delay-slot handling and exception basics.
-- Experimental PSP GE software-renderer subset: display-list decoding with bounded jump/call/return flow, 2D points/lines/line strips/triangles/triangle strips/triangle fans/sprites, 8-bit/16-bit/32-bit indexed vertices, interpolated vertex colors, world/view/projection transforms, viewport mapping, depth testing, configurable basic alpha blending and alpha testing, nearest-neighbor and bilinear 5650/5551/4444/8888 texture sampling with MODULATE/DECAL/BLEND/REPLACE/ADD texture functions, and scissor clipping, rendered into the PSP framebuffer.
+- Experimental PSP GE software-renderer subset: display-list decoding with bounded jump/call/return flow, 2D points/lines/line strips/triangles/triangle strips/triangle fans/sprites, 8-bit/16-bit/32-bit indexed vertices, interpolated vertex colors, world/view/projection transforms, viewport mapping, depth testing, configurable basic alpha blending and alpha testing, nearest-neighbor and bilinear 5650/5551/4444/8888 texture sampling with MODULATE/DECAL/BLEND/REPLACE/ADD texture functions, and scissor clipping, rendered into the emulator framebuffer.
 - Experimental framebuffer output and Nintendo 3DS audio output plumbing.
+- Synchronous PSP GE HLE for display-list enqueue/dequeue and list/draw synchronization queries; nonzero stall addresses, callbacks, and asynchronous scheduling are not implemented.
 - HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.
 - Experimental PSP user-partition memory blocks with allocation, release, and block-head lookup HLE calls.
 - Read-only ISO file services for `disc0:/` and `umd0:/`: open, read, seek, and close, including nested directory paths.
-- Unit and integration tests for memory, interpreter, loader, PRX imports, controller HLE dispatch, and ELF loading.
+- Unit and integration tests for memory, interpreter, loader, PRX imports, controller and GE HLE dispatch, software graphics, and ELF loading.
 
 ### Known limitations
 
@@ -31,7 +32,7 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - Memory block allocation currently supports user partition ID 2 only; kernel partitions and broader heap APIs are not implemented.
 - ISO file writes and removable-memory-stick (`ms0:`) access are not implemented. File access is limited to the mounted ISO image.
 - CPU instruction coverage and timing are incomplete.
-- PSP GE support is an early software subset: texture filtering/mipmap and indexed texture formats, depth testing, blending, full 3D lighting, clipping, and perspective-correct interpolation, framebuffer transfer commands, GE synchronization/HLE, and many display-list commands remain unsupported. Audio decoding/mixing is not implemented as a complete PSP audio pipeline.
+- PSP GE support is an early software subset: mipmaps and indexed texture formats, full 3D lighting, geometric clipping, perspective-correct interpolation, PSP EDRAM/framebuffer transfer commands, stencil/color tests, asynchronous GE scheduling, callback interrupts, resumable stall lists, and many display-list commands remain unsupported. Audio decoding/mixing is not implemented as a complete PSP audio pipeline.
 - Commercial game compatibility is unknown and should not be assumed.
 
 ## Build
