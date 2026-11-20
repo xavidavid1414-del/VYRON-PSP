@@ -139,6 +139,9 @@
 #define GE_CMD_TRXSPOS 0xEBu
 #define GE_CMD_TRXDPOS 0xECu
 #define GE_CMD_TRXSIZE 0xEEu
+#define GE_CMD_FRAMEBUFPTR 0x9Cu
+#define GE_CMD_FRAMEBUFWIDTH 0x9Du
+#define GE_CMD_FRAMEBUFPIXFORMAT 0xD2u
 
 typedef struct {
     float x;
@@ -685,6 +688,40 @@ static uint32_t ge_merge_alpha(uint32_t destination, uint8_t alpha,
     return (destination & ~writable) | (((uint32_t)alpha << 24) & writable);
 }
 
+static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
+                                          uint32_t color)
+{
+    if (ge == NULL || ge->memory == NULL || x < 0 || y < 0 ||
+        (uint32_t)x >= ge->framebuffer_stride)
+        return;
+    uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
+    uint64_t address = (uint64_t)ge->framebuffer_address +
+        ((uint64_t)(uint32_t)y * ge->framebuffer_stride +
+         (uint32_t)x) * bpp;
+    if (address > UINT32_MAX ||
+        !psp_memory_is_valid(ge->memory, (uint32_t)address, bpp))
+        return;
+    if (bpp == 4u) {
+        psp_memory_write32(ge->memory, (uint32_t)address, color);
+        return;
+    }
+    uint32_t packed;
+    if (ge->framebuffer_format == 0u)
+        packed = (((color >> 19) & 31u) << 11) |
+                 (((color >> 10) & 63u) << 5) | ((color >> 3) & 31u);
+    else if (ge->framebuffer_format == 1u)
+        packed = (((color >> 19) & 31u) << 11) |
+                 (((color >> 11) & 31u) << 6) |
+                 (((color >> 3) & 31u) << 1) | (color >> 31);
+    else
+        packed = (((color >> 28) & 15u) << 12) |
+                 (((color >> 20) & 15u) << 8) |
+                 (((color >> 12) & 15u) << 4) | ((color >> 4) & 15u);
+    psp_memory_write8(ge->memory, (uint32_t)address, (uint8_t)packed);
+    psp_memory_write8(ge->memory, (uint32_t)address + 1u,
+                      (uint8_t)(packed >> 8));
+}
+
 static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
                           float depth)
 {
@@ -706,6 +743,7 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
         if ((ge->clear_mode_mask & 0x400u) == 0)
             ge->depth_buffer[depth_index] = (uint16_t)depth_value;
         psp_video_put_pixel(ge->video, x, y, color);
+        ge_store_framebuffer_pixel(ge, x, y, color);
         return;
     }
     if (ge->color_test_enabled) {
@@ -771,6 +809,7 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
                                            ge->alpha_write_mask);
     color = (color & 0x00FFFFFFu) | (alpha_merged & 0xFF000000u);
     psp_video_put_pixel(ge->video, x, y, color);
+    ge_store_framebuffer_pixel(ge, x, y, color);
 }
 
 static uint32_t ge_interpolate_color(uint32_t a, uint32_t b,
@@ -1684,6 +1723,9 @@ void psp_ge_reset(PSP_GE *ge)
 {
     if (ge == NULL || !ge->initialized) return;
     ge->base_address = 0;
+    ge->framebuffer_address = PSP_VRAM_BASE;
+    ge->framebuffer_stride = PSP_VIDEO_STRIDE;
+    ge->framebuffer_format = 3u;
     ge->vertex_address = 0;
     ge->index_address = 0;
     ge->vertex_type = (2u << 7) | (1u << 23);
@@ -1843,6 +1885,15 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_IADDR:
                 ge->index_address = ge_resolve_address(ge, value);
+                break;
+            case GE_CMD_FRAMEBUFPTR:
+                ge->framebuffer_address = ge_resolve_address(ge, value);
+                break;
+            case GE_CMD_FRAMEBUFWIDTH:
+                ge->framebuffer_stride = value & 0xFFFFu;
+                break;
+            case GE_CMD_FRAMEBUFPIXFORMAT:
+                ge->framebuffer_format = value & 3u;
                 break;
             case GE_CMD_VTYPE:
                 ge->vertex_type = value;
