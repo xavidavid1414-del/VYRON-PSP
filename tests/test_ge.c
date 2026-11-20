@@ -482,6 +482,19 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 880, 10));
     assert(psp_video_get_pixel(&video, 25, 25) == 0x80FF0000u);
 
+    /* Clear-mode masks preserve color, alpha, and depth when requested. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0xFF0000FFu);
+    command(&memory, list + 912, 0x10, 0x00080000u);
+    command(&memory, list + 916, 0x01, 0x1000u);
+    command(&memory, list + 920, 0x12, vtype);
+    command(&memory, list + 924, 0xD3, 1u | 0x700u);
+    command(&memory, list + 928, 0x04, 1u);
+    command(&memory, list + 932, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 912, 8));
+    assert(psp_video_get_pixel(&video, 25, 25) == 0xFF0000FFu);
+    assert(ge.depth_buffer[25u * PSP_VIDEO_WIDTH + 25u] == 0xFFFFu);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
