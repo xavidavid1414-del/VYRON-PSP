@@ -67,9 +67,9 @@ command -v bannertool >/dev/null
 command -v makerom >/dev/null
 
 bannertool makesmdh \
-  -s "XAVRX PSP" \
+  -s "VYRON PSP" \
   -l "Experimental PSP emulator for Nintendo 3DS" \
-  -p "XAVRX PSP Project" \
+  -p "VYRON PSP Project" \
   -i assets/xavrx_icon.png \
   -o xavrx_psp.icn
 
