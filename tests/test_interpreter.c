@@ -116,5 +116,34 @@ int main(void)
     assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (4u << 2));
     assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
 
+
+    /* ADDI signed overflow must raise OV without changing rt. */
+    const uint32_t addi_overflow =
+        (0x08u << 26) | (1u << 21) | (2u << 16) | 1u;
+    memcpy(ram, &addi_overflow, sizeof(addi_overflow));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0x7FFFFFFFu;
+    cpu.gpr[2] = 0xCAFEBABEu;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (12u << 2));
+    assert(cpu.cop0[14] == PSP_RAM_BASE);
+    assert(cpu.gpr[2] == 0xCAFEBABEu);
+
+    /* A reserved SPECIAL function must raise RI. */
+    const uint32_t reserved_special = 0x0000003Fu;
+    memcpy(ram, &reserved_special, sizeof(reserved_special));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (10u << 2));
+    assert(cpu.cop0[14] == PSP_RAM_BASE);
+
     return 0;
 }
