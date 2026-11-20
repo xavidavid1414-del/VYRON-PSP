@@ -69,6 +69,35 @@ int main(void)
     assert((interpolated & 0xFFu) > 25u);
     assert(psp_video_get_pixel(&video, 35, 35) == 0);
 
+    /* Stencil failures update the framebuffer alpha channel and reject RGB. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_video_put_pixel(&video, 15, 15, 0xFF112233u);
+    command(&memory, list + 64, 0x10, 0x00080000u);
+    command(&memory, list + 68, 0x01, 0x1000u);
+    command(&memory, list + 72, 0x12, vtype);
+    command(&memory, list + 76, 0x24, 1u); /* Stencil enable */
+    command(&memory, list + 80, 0xDC, (0xFFu << 16) | 0u); /* Never */
+    command(&memory, list + 84, 0xDD, 1u << 8); /* Stencil fail: zero */
+    command(&memory, list + 88, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 92, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 64, 10));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0x00112233u);
+
+    /* Passing stencil can replace alpha with the reference value. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    command(&memory, list + 1280, 0x10, 0x00080000u);
+    command(&memory, list + 1284, 0x01, 0x1000u);
+    command(&memory, list + 1288, 0x12, vtype);
+    command(&memory, list + 1292, 0x24, 1u);
+    command(&memory, list + 1296, 0xDC, (0xFFu << 16) | (0x5Au << 8) | 1u);
+    command(&memory, list + 1300, 0xDD, 2u); /* Stencil pass: replace */
+    command(&memory, list + 1304, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 1308, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 1280, 10));
+    assert((psp_video_get_pixel(&video, 15, 15) >> 24) == 0x5Au);
+
     /* Textured triangles sample 8888 texels with interpolated UVs. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
