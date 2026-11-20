@@ -1090,6 +1090,30 @@ int main(void)
     assert(!psp_ge_execute_list(&ge, transfer_list,
         (uint32_t)(sizeof(invalid_transfer) / sizeof(invalid_transfer[0]))));
 
+    /* A bad final source row must not partially modify the destination. */
+    psp_ge_reset(&ge);
+    const uint32_t late_source = PSP_RAM_BASE + PSP_RAM_SIZE - 4u;
+    const uint32_t atomic_destination = PSP_RAM_BASE + 0xC000u;
+    psp_memory_write32(&memory, late_source, 0x12345678u);
+    psp_memory_write32(&memory, atomic_destination, 0xAABBCCDDu);
+    psp_memory_write32(&memory, atomic_destination + 4u, 0x55667788u);
+    const uint32_t atomic_transfer[][2] = {
+        {0xB2u, late_source & 0x00FFFFFFu},
+        {0xB3u, ((late_source >> 8) & 0x000F0000u) | 1u},
+        {0xB4u, atomic_destination & 0x00FFFFFFu},
+        {0xB5u, ((atomic_destination >> 8) & 0x000F0000u) | 1u},
+        {0xEEu, (1u << 10)},
+        {0xEAu, 1u}, {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(atomic_transfer) /
+         sizeof(atomic_transfer[0]); i++)
+        command(&memory, transfer_list + i * 4u,
+            (uint8_t)atomic_transfer[i][0], atomic_transfer[i][1]);
+    assert(!psp_ge_execute_list(&ge, transfer_list,
+        (uint32_t)(sizeof(atomic_transfer) / sizeof(atomic_transfer[0]))));
+    assert(psp_memory_read32(&memory, atomic_destination) == 0xAABBCCDDu);
+    assert(psp_memory_read32(&memory, atomic_destination + 4u) == 0x55667788u);
+
     /* Display presentation must use the display buffer, not GE draw target. */
     psp_ge_reset(&ge);
     const uint32_t draw_fb = PSP_VRAM_BASE + 0x4000u;
