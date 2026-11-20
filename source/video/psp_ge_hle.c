@@ -11,6 +11,7 @@
 #define SC_GE_LIST_SYNC 13u
 #define SC_GE_DRAW_SYNC 14u
 #define SC_GE_DEQUEUE 15u
+#define SC_DISPLAY_SET_FRAMEBUF 16u
 
 #define NID_GE_ENQUEUE 0xAB49E76Au
 #define NID_GE_ENQUEUE_HEAD 0x1C0D95A6u
@@ -18,6 +19,7 @@
 #define NID_GE_LIST_SYNC 0x03444EB4u
 #define NID_GE_DRAW_SYNC 0xB287BD61u
 #define NID_GE_DEQUEUE 0x5FB86AB0u
+#define NID_DISPLAY_SET_FRAMEBUF 0x289D82FEu
 
 #define GE_LIST_ID_MAGIC 0x35000000u
 #define GE_ERROR_INVALID 0x80020190u
@@ -128,6 +130,41 @@ static bool draw_sync_call(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
     return true;
 }
 
+
+static bool display_set_framebuf_call(PSP_CPU *cpu, PSP_Memory *memory,
+                                      uint32_t code)
+{
+    if (!cpu || !memory || !active || !active->initialized ||
+        code != SC_DISPLAY_SET_FRAMEBUF)
+        return false;
+
+    uint32_t address = cpu->gpr[4];
+    uint32_t stride = cpu->gpr[5];
+    uint32_t format = cpu->gpr[6];
+    uint32_t sync = cpu->gpr[7];
+    if (format > 3u || sync > 1u ||
+        (address != 0u &&
+         (stride < PSP_VIDEO_WIDTH || (stride & (stride - 1u)) != 0u))) {
+        cpu->gpr[2] = GE_ERROR_INVALID;
+        return true;
+    }
+    if (address != 0u) {
+        uint32_t bpp = format == 3u ? 4u : 2u;
+        uint64_t span = ((uint64_t)(PSP_VIDEO_HEIGHT - 1u) * stride +
+                         PSP_VIDEO_WIDTH) * bpp;
+        if (span > UINT32_MAX ||
+            !psp_memory_is_valid(memory, address, (uint32_t)span)) {
+            cpu->gpr[2] = GE_ERROR_INVALID;
+            return true;
+        }
+    }
+    active->ge->display_address = address;
+    active->ge->display_stride = stride;
+    active->ge->display_format = format;
+    cpu->gpr[2] = 0u;
+    return true;
+}
+
 static bool dequeue_call(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
 {
     (void)memory;
@@ -155,12 +192,14 @@ bool psp_ge_hle_register(PSP_GE_HLE *service)
         !psp_syscall_register(SC_GE_LIST_SYNC, list_sync_call) ||
         !psp_syscall_register(SC_GE_DRAW_SYNC, draw_sync_call) ||
         !psp_syscall_register(SC_GE_DEQUEUE, dequeue_call) ||
+        !psp_syscall_register(SC_DISPLAY_SET_FRAMEBUF, display_set_framebuf_call) ||
         !psp_nid_register(NID_GE_ENQUEUE, SC_GE_ENQUEUE) ||
         !psp_nid_register(NID_GE_ENQUEUE_HEAD, SC_GE_ENQUEUE_HEAD) ||
         !psp_nid_register(NID_GE_STALL, SC_GE_STALL) ||
         !psp_nid_register(NID_GE_LIST_SYNC, SC_GE_LIST_SYNC) ||
         !psp_nid_register(NID_GE_DRAW_SYNC, SC_GE_DRAW_SYNC) ||
-        !psp_nid_register(NID_GE_DEQUEUE, SC_GE_DEQUEUE)) {
+        !psp_nid_register(NID_GE_DEQUEUE, SC_GE_DEQUEUE) ||
+        !psp_nid_register(NID_DISPLAY_SET_FRAMEBUF, SC_DISPLAY_SET_FRAMEBUF)) {
         psp_ge_hle_unregister();
         return false;
     }
@@ -175,11 +214,13 @@ void psp_ge_hle_unregister(void)
     psp_syscall_unregister(SC_GE_LIST_SYNC);
     psp_syscall_unregister(SC_GE_DRAW_SYNC);
     psp_syscall_unregister(SC_GE_DEQUEUE);
+    psp_syscall_unregister(SC_DISPLAY_SET_FRAMEBUF);
     psp_nid_unregister(NID_GE_ENQUEUE);
     psp_nid_unregister(NID_GE_ENQUEUE_HEAD);
     psp_nid_unregister(NID_GE_STALL);
     psp_nid_unregister(NID_GE_LIST_SYNC);
     psp_nid_unregister(NID_GE_DRAW_SYNC);
     psp_nid_unregister(NID_GE_DEQUEUE);
+    psp_nid_unregister(NID_DISPLAY_SET_FRAMEBUF);
     active = NULL;
 }
