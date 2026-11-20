@@ -19,6 +19,7 @@ typedef struct {
     uint32_t display_format;
     uint32_t vertex_address;
     uint32_t index_address;
+    bool bounding_box_outside;
     float world_matrix[12];
     float view_matrix[12];
     float projection_matrix[16];
