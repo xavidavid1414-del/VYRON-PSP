@@ -300,7 +300,7 @@ int main(void)
 
     /* MULT emits signed SMULL and stores both HI and LO. */
     psp_armv6k_emitter_init(&out, code, 16);
-    uint32_t mult = (1u << 21) | (2u << 16) | 0x18u;
+    uint32_t mult_signed_check = (1u << 21) | (2u << 16) | 0x18u;
     assert(psp_armv6k_translate_allegrex(&out, mult) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 5);
@@ -308,7 +308,7 @@ int main(void)
 
     /* MULTU emits unsigned UMULL. */
     psp_armv6k_emitter_init(&out, code, 16);
-    uint32_t multu = (1u << 21) | (2u << 16) | 0x19u;
+    uint32_t multu_unsigned_check = (1u << 21) | (2u << 16) | 0x19u;
     assert(psp_armv6k_translate_allegrex(&out, multu) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 5);
