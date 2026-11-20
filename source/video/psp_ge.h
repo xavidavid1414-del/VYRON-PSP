@@ -37,6 +37,10 @@ typedef struct {
     uint32_t light0_diffuse;
     uint32_t ambient_color;
     uint32_t texture_address;
+    uint32_t texture_level_address[8];
+    uint32_t texture_level_buffer_width[8];
+    uint32_t texture_level_width[8];
+    uint32_t texture_level_height[8];
     uint32_t texture_address_low;
     uint32_t texture_buffer_width_register;
     uint32_t texture_buffer_width;
