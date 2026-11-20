@@ -128,7 +128,8 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     if (normal_type != 0 || weight_type != 0 ||
         weight_count != 1 || morph_count != 1 ||
         (position_type < 1 || position_type > 3) ||
-        color_type > 4 || (ge->texture_enabled && texture_type == 0))
+        (color_type != 0u && (color_type < 4u || color_type > 7u)) ||
+        (ge->texture_enabled && texture_type == 0))
         return false;
 
     uint32_t position_size = position_type == 1 ? 1u :
@@ -136,9 +137,9 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t position_components = transform_2d ? 2u : 3u;
     uint32_t stride = texture_type == 1 ? 2u :
         (texture_type == 2 ? 4u : (texture_type == 3 ? 8u : 0u));
-    if (color_type == 1 || color_type == 2 || color_type == 3)
+    if (color_type >= 4u && color_type <= 6u)
         stride += 2;
-    else if (color_type == 4)
+    else if (color_type == 7u)
         stride += 4;
     stride += position_size * position_components;
 
@@ -172,16 +173,16 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     }
 
     vertex->color = ge->draw_color;
-    if (color_type == 1 || color_type == 2 || color_type == 3) {
+    if (color_type >= 4u && color_type <= 6u) {
         uint32_t packed = psp_memory_read8(ge->memory, address) |
             ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
         address += 2u;
-        if (color_type == 1) {
+        if (color_type == 4u) {
             vertex->color = PSP_VIDEO_COLOR(
                 ((packed >> 11) & 31u) * 255u / 31u,
                 ((packed >> 5) & 63u) * 255u / 63u,
                 (packed & 31u) * 255u / 31u, 255u);
-        } else if (color_type == 2) {
+        } else if (color_type == 5u) {
             vertex->color = PSP_VIDEO_COLOR(
                 ((packed >> 10) & 31u) * 255u / 31u,
                 ((packed >> 5) & 31u) * 255u / 31u,
@@ -194,7 +195,7 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
                 (packed & 15u) * 17u,
                 ((packed >> 12) & 15u) * 17u);
         }
-    } else if (color_type == 4) {
+    } else if (color_type == 7u) {
         vertex->color = psp_memory_read32(ge->memory, address);
         address += 4u;
     }
