@@ -270,6 +270,18 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         return PSP_ARMV6K_TRANSLATE_OK;
     }
 
+    if (opcode == 0x1Cu && function == 0x02u) { /* SPECIAL2 MUL */
+        if (!emit_load_gpr(emitter, 1, rs) ||
+            !emit_load_gpr(emitter, 2, rt))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        /* ARM MUL Rd, Rm, Rs; low 32 bits match Allegrex MUL. */
+        uint32_t mul = ARM_COND_AL | (3u << 16) |
+                       (2u << 8) | (1u << 4) | 1u;
+        if (!emit_word(emitter, mul) || !emit_store_gpr(emitter, rd, 3))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        return PSP_ARMV6K_TRANSLATE_OK;
+    }
+
     if (opcode == 0u) {
         /* MULT/MULTU produce a full 64-bit result in HI:LO. */
         if (function == 0x18u || function == 0x19u) {
