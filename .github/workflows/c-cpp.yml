@@ -36,6 +36,16 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_syscall.c tests/test_syscall.c -o /tmp/vyron-syscall-tests
           /tmp/vyron-syscall-tests
 
+      - name: Run PSP NID registry unit tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_nid.c tests/test_nid.c -o /tmp/vyron-nid-tests
+          /tmp/vyron-nid-tests
+
+      - name: Run controller HLE dispatch unit tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/cpu -Isource/memory -Isource/loader source/input/psp_controller.c source/input/psp_controller_hle.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_controller_hle_dispatch.c -o /tmp/vyron-controller-hle-dispatch-tests
+          /tmp/vyron-controller-hle-dispatch-tests
+
       - name: Run controller unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/input source/input/psp_controller.c tests/test_controller.c -o /tmp/vyron-controller-tests
@@ -58,7 +68,7 @@ jobs:
 
       - name: Run core ELF integration tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/loader/psp_loader.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c tests/test_video_stub.c tests/test_core_loader.c -o /tmp/vyron-core-loader-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/loader/psp_loader.c source/loader/psp_nid.c source/input/psp_controller_hle.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c tests/test_video_stub.c tests/test_core_loader.c -o /tmp/vyron-core-loader-tests
           /tmp/vyron-core-loader-tests
 
       - name: Upload Nintendo 3DS build
