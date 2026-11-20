@@ -13,6 +13,7 @@
 #include "loader/psp_iso_fs.h"
 #include "loader/psp_loader.h"
 #include "video/psp_video.h"
+#include "video/psp_ge.h"
 #include "input/psp_controller.h"
 
 typedef struct {
@@ -21,6 +22,7 @@ typedef struct {
     PSP_MemoryBlocks memory_blocks;
     PSP_IO_Service io_service;
     PSP_Video video;
+    PSP_GE ge;
     PSP_Controller controller;
 
     PSP_ISO_Info iso_info;
