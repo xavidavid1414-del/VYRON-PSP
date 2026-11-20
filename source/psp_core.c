@@ -4,6 +4,7 @@
 #include "cpu/psp_syscall.h"
 #include "input/psp_controller_hle.h"
 #include "loader/psp_nid.h"
+#include "loader/psp_prx_imports.h"
 
 #include <string.h>
 
@@ -536,6 +537,12 @@ static bool load_elf_segments(
         elf,
         elf_size
     );
+
+    /* Resolve PRX imports in staging RAM so unresolved NIDs cannot leave
+       partially patched code or replace the currently loaded image. */
+    if (loaded)
+        loaded = psp_prx_resolve_imports(
+            elf, elf_size, staging_ram, core->memory.size);
 
     core->memory.ram = original_ram;
 
