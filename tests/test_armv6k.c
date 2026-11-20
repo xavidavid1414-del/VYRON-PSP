@@ -298,6 +298,22 @@ int main(void)
     assert(out.count == 4);
     assert(code[2] == 0xE0030291u); /* MUL r3, r1, r2 */
 
+    /* MULT emits signed SMULL and stores both HI and LO. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t mult = (1u << 21) | (2u << 16) | 0x18u;
+    assert(psp_armv6k_translate_allegrex(&out, mult) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[2] == 0xE0C43291u); /* SMULL r3, r4, r2, r1 */
+
+    /* MULTU emits unsigned UMULL. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t multu = (1u << 21) | (2u << 16) | 0x19u;
+    assert(psp_armv6k_translate_allegrex(&out, multu) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[2] == 0xE0843291u); /* UMULL r3, r4, r2, r1 */
+
     /* Unsupported branches must be handed to the interpreter. */
     assert(psp_armv6k_translate_allegrex(&out, 0x10000001u) ==
            PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
