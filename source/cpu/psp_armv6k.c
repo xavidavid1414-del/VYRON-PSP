@@ -121,6 +121,34 @@ static bool emit_store_gpr(PSP_ARMv6KEmitter *emitter, uint8_t mips_reg,
         (int32_t)(offsetof(PSP_CPU, gpr) + (size_t)mips_reg * sizeof(uint32_t)));
 }
 
+static bool emit_constant16(PSP_ARMv6KEmitter *emitter,
+                              uint8_t rd, uint16_t value,
+                              unsigned shift)
+{
+    uint32_t high = (uint32_t)((value >> 8) & 0xFFu) << (shift + 8u);
+    uint32_t low = (uint32_t)(value & 0xFFu) << shift;
+    bool initialized = false;
+    uint32_t operand;
+
+    if (high != 0u) {
+        if (!encode_imm8(high, &operand) ||
+            !psp_armv6k_emit_dp_imm(emitter, 13, false, rd, 0, high))
+            return false;
+        initialized = true;
+    }
+    if (low != 0u) {
+        if (!encode_imm8(low, &operand)) return false;
+        if (initialized) {
+            if (!psp_armv6k_emit_dp_imm(emitter, 12, false, rd, rd, low))
+                return false;
+        } else if (!psp_armv6k_emit_dp_imm(emitter, 13, false, rd, 0, low)) {
+            return false;
+        }
+        initialized = true;
+    }
+    return initialized || psp_armv6k_emit_mov_imm(emitter, rd, 0);
+}
+
 static bool emit_shift_imm(PSP_ARMv6KEmitter *emitter, uint8_t rd,
                             uint8_t rm, uint8_t shift_type,
                             uint8_t amount)
@@ -239,10 +267,25 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         /* ANDI/ORI/XORI use a zero-extended 16-bit immediate. */
         uint32_t immediate = instruction & 0xFFFFu;
         arm_opcode = opcode == 12u ? 0u : (opcode == 13u ? 12u : 1u);
-        if (!encode_imm8(immediate, &(uint32_t){0}))
-            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
-        if (!emit_load_gpr(emitter, 1, rs) ||
-            !psp_armv6k_emit_dp_imm(emitter, arm_opcode, false, 3, 1, immediate) ||
+        if (!emit_load_gpr(emitter, 1, rs))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        if (encode_imm8(immediate, &(uint32_t){0})) {
+            if (!psp_armv6k_emit_dp_imm(emitter, arm_opcode, false, 3, 1,
+                                        immediate))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+        } else {
+            if (!emit_constant16(emitter, 2, (uint16_t)immediate, 0) ||
+                !psp_armv6k_emit_dp_reg(emitter, arm_opcode, false, 3, 1, 2))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+        }
+        if (!emit_store_gpr(emitter, rt, 3))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        return PSP_ARMV6K_TRANSLATE_OK;
+    }
+
+    if (opcode == 15u) { /* LUI rt, immediate */
+        uint16_t immediate = (uint16_t)(instruction & 0xFFFFu);
+        if (!emit_constant16(emitter, 3, immediate, 16u) ||
             !emit_store_gpr(emitter, rt, 3))
             return PSP_ARMV6K_TRANSLATE_ERROR;
         return PSP_ARMV6K_TRANSLATE_OK;
