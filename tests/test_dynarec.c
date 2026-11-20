@@ -1,7 +1,7 @@
-#include "cpu/psp_cpu.h"
-#include "cpu/psp_dynarec.h"
-#include "cpu/psp_interpreter.h"
-#include "memory/psp_memory.h"
+#include "psp_cpu.h"
+#include "psp_dynarec.h"
+#include "psp_interpreter.h"
+#include "psp_memory.h"
 
 #include <assert.h>
 #include <stdint.h>
