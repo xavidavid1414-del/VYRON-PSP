@@ -461,6 +461,40 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 1160u, 9u));
     assert(psp_video_get_pixel(&video, 55, 45) == 0xFFFF0000u);
 
+    /* Exercise every homogeneous frustum plane: left, right, bottom,
+       top, near, and far. Each clipped triangle must retain its center. */
+    const float frustum_cases[6][3][3] = {
+        {{-2.0f, -0.5f, 0.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 0.5f, 0.0f}},
+        {{-0.5f, -0.5f, 0.0f}, {2.0f, -0.5f, 0.0f}, {0.0f, 0.5f, 0.0f}},
+        {{-0.5f, -2.0f, 0.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 0.5f, 0.0f}},
+        {{-0.5f, -0.5f, 0.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 2.0f, 0.0f}},
+        {{-0.5f, -0.5f, -2.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 0.5f, 0.0f}},
+        {{-0.5f, -0.5f, 2.0f}, {0.5f, -0.5f, 0.0f}, {0.0f, 0.5f, 0.0f}}
+    };
+    for (uint32_t plane = 0u; plane < 6u; plane++) {
+        psp_ge_reset(&ge);
+        psp_video_clear(&video, 0);
+        for (uint32_t vertex = 0u; vertex < 3u; vertex++) {
+            uint32_t address = vertices_3d + vertex * 16u;
+            psp_memory_write32(&memory, address, 0xFF00FF00u);
+            put_float(&memory, address + 4u, frustum_cases[plane][vertex][0]);
+            put_float(&memory, address + 8u, frustum_cases[plane][vertex][1]);
+            put_float(&memory, address + 12u, frustum_cases[plane][vertex][2]);
+        }
+        uint32_t list_base = list + 1200u + plane * 48u;
+        command(&memory, list_base, 0x10, 0x00080000u);
+        command(&memory, list_base + 4u, 0x42, encode_float24(20.0f));
+        command(&memory, list_base + 8u, 0x43, encode_float24(-20.0f));
+        command(&memory, list_base + 12u, 0x45, encode_float24(40.0f));
+        command(&memory, list_base + 16u, 0x46, encode_float24(40.0f));
+        command(&memory, list_base + 20u, 0x01, 0x3000u);
+        command(&memory, list_base + 24u, 0x12, (7u << 2) | (3u << 7));
+        command(&memory, list_base + 28u, 0x04, (3u << 16) | 3u);
+        command(&memory, list_base + 32u, 0x0C, 0u);
+        assert(psp_ge_execute_list(&ge, list_base, 9u));
+        assert(psp_video_get_pixel(&video, 40, 40) == 0xFF00FF00u);
+    }
+
     /* Directional diffuse lighting uses transformed vertex normals. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
