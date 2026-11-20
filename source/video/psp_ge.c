@@ -512,7 +512,7 @@ static uint32_t ge_interpolate_color(uint32_t a, uint32_t b,
                                      uint32_t c, float wa,
                                      float wb, float wc);
 static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
-                                  float u, float v);
+                                  float u, float v, float lod);
 
 static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
                          const GE_Vertex *b)
@@ -586,7 +586,7 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
         float u = clipped_a.u + (clipped_b.u - clipped_a.u) * t;
         float v = clipped_a.v + (clipped_b.v - clipped_a.v) * t;
         float depth = clipped_a.z + (clipped_b.z - clipped_a.z) * t;
-        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v, lod), depth);
+        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v, 0.0f), depth);
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
         if (twice >= dy_i) { error += dy_i; x0 += sx; }
@@ -745,7 +745,10 @@ static bool ge_texture_sample_level(PSP_GE *ge, unsigned int level,
         !ge_texture_sample_nearest(ge, level, x0, y0 + 1, &c01) ||
         !ge_texture_sample_nearest(ge, level, x0 + 1, y0 + 1, &c11))
         return false;
-    *color = ge_interpolate_texels(c00, c10, c01, c11, tx, ty);
+    uint32_t top = ge_interpolate_color(c00, c10, c10, 1.0f - tx, tx, 0.0f);
+    uint32_t bottom = ge_interpolate_color(c01, c11, c11, 1.0f - tx, tx, 0.0f);
+    *color = ge_interpolate_color(top, bottom, bottom,
+                                  1.0f - ty, ty, 0.0f);
     return true;
 }
 
@@ -800,7 +803,7 @@ static bool ge_texture_sample(PSP_GE *ge, float u, float v, float lod,
     }
     if (!ge_texture_sample_level(ge, high, u, v, linear_texel, &b))
         return false;
-    *color = ge_interpolate_texels(a, b, a, b, blend, 0.0f);
+    *color = ge_interpolate_color(a, b, b, 1.0f - blend, blend, 0.0f);
     return true;
 }
 
@@ -854,7 +857,7 @@ static uint32_t ge_blend_texture_color(const PSP_GE *ge, uint32_t primary,
 }
 
 static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
-                                  float u, float v)
+                                  float u, float v, float lod)
 {
     uint32_t texel;
     if (ge->clear_mode || !ge->texture_enabled)
@@ -1122,7 +1125,7 @@ static void ge_rasterize_triangle(PSP_GE *ge, const GE_Vertex *a,
                     b->v * b->reciprocal_w * wb +
                     c->v * c->reciprocal_w * wc) / perspective_weight;
                 ge_put_pixel(ge, x, y,
-                    ge_shade_fragment(ge, color, u, v), depth);
+                    ge_shade_fragment(ge, color, u, v, lod), depth);
             }
         }
     }
