@@ -810,6 +810,40 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 1840u, 9u));
     assert(psp_video_get_pixel(&video, 240, 150) == 0xFF0000FFu);
 
+    /* Blinn-Phong specular highlights use material and per-light colors. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    const uint32_t specular_vertices = PSP_RAM_BASE + 0x3900u;
+    const float specular_positions[3][3] = {
+        {-0.5f, -0.5f, -0.5f},
+        { 0.5f, -0.5f, -0.5f},
+        { 0.0f,  0.5f, -0.5f}
+    };
+    for (uint32_t i = 0u; i < 3u; i++) {
+        uint32_t address = specular_vertices + i * 16u;
+        psp_memory_write32(&memory, address, 0xFF000000u);
+        put_float(&memory, address + 4u, specular_positions[i][0]);
+        put_float(&memory, address + 8u, specular_positions[i][1]);
+        put_float(&memory, address + 12u, specular_positions[i][2]);
+    }
+    command(&memory, list + 1880u, 0x10, 0x00080000u);
+    command(&memory, list + 1884u, 0x17, 1u);
+    command(&memory, list + 1888u, 0x18, 1u);
+    command(&memory, list + 1892u, 0x5F, 0u);
+    command(&memory, list + 1896u, 0x6F, encode_float24(0.0f));
+    command(&memory, list + 1900u, 0x70, encode_float24(0.0f));
+    command(&memory, list + 1904u, 0x71, encode_float24(-1.0f));
+    command(&memory, list + 1908u, 0x90, 0u);
+    command(&memory, list + 1912u, 0x98, 0x00FFFFFFu);
+    command(&memory, list + 1916u, 0x55, 0x00FFFFFFu);
+    command(&memory, list + 1920u, 0x58, encode_float24(16.0f));
+    command(&memory, list + 1924u, 0x01, 0x3900u);
+    command(&memory, list + 1928u, 0x12, (7u << 2) | (3u << 7));
+    command(&memory, list + 1932u, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 1936u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1880u, 15u));
+    assert(psp_video_get_pixel(&video, 240, 150) == 0xFFFFFFFFu);
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
