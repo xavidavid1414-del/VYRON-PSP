@@ -161,6 +161,7 @@ int main(void)
     memset(&core, 0, sizeof(core));
     assert(psp_core_init(&core));
     assert(core.ge.initialized);
+    assert(core.ge_hle.initialized);
     psp_memory_write32(&core.memory, PSP_RAM_BASE + 0x400, 0x0C000000u);
     assert(psp_core_execute_ge_list(&core, PSP_RAM_BASE + 0x400, 1));
 
@@ -173,6 +174,12 @@ int main(void)
     assert(psp_nid_resolve(0x810C4BC3u, &service_code));
     assert(psp_nid_resolve(0x6A638D83u, &service_code));
     assert(psp_nid_resolve(0x27EB27B8u, &service_code));
+    assert(psp_nid_resolve(0xAB49E76Au, &service_code));
+    assert(psp_nid_resolve(0x1C0D95A6u, &service_code));
+    assert(psp_nid_resolve(0xE0D68148u, &service_code));
+    assert(psp_nid_resolve(0x03444EB4u, &service_code));
+    assert(psp_nid_resolve(0xB287BD61u, &service_code));
+    assert(psp_nid_resolve(0x5FB86AB0u, &service_code));
 
     /* Mounting an ISO must expose its filesystem to the sceIo HLE layer. */
     uint8_t *pvd = iso_fixture + 16u * 2048u;
