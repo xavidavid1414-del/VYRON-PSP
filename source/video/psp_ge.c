@@ -730,22 +730,29 @@ void psp_ge_present_framebuffer(PSP_GE *ge)
         return;
 
     const uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
-    for (uint32_t y = 0; y < PSP_VIDEO_HEIGHT; y++) {
-        for (uint32_t x = 0; x < PSP_VIDEO_WIDTH; x++) {
-            uint64_t address = (uint64_t)ge->framebuffer_address +
-                ((uint64_t)y * ge->framebuffer_stride + x) * bpp;
-            if (address > UINT32_MAX ||
-                !psp_memory_is_valid(ge->memory, (uint32_t)address, bpp))
-                return;
+    /* Validate the complete visible rectangle before touching the host
+       framebuffer. This prevents partially presented frames on bad FBP/FBW. */
+    uint64_t last_pixel = (uint64_t)(PSP_VIDEO_HEIGHT - 1u) *
+        ge->framebuffer_stride + (PSP_VIDEO_WIDTH - 1u);
+    uint64_t byte_span = (last_pixel + 1u) * bpp;
+    if (byte_span > UINT32_MAX ||
+        (uint64_t)ge->framebuffer_address + byte_span > UINT32_MAX + 1ull ||
+        !psp_memory_is_valid(ge->memory, ge->framebuffer_address,
+                             (uint32_t)byte_span))
+        return;
 
+    for (uint32_t y = 0; y < PSP_VIDEO_HEIGHT; y++) {
+        uint64_t row_address = (uint64_t)ge->framebuffer_address +
+            (uint64_t)y * ge->framebuffer_stride * bpp;
+        for (uint32_t x = 0; x < PSP_VIDEO_WIDTH; x++) {
+            uint32_t address = (uint32_t)(row_address + (uint64_t)x * bpp);
             uint32_t color;
             if (bpp == 4u) {
-                color = psp_memory_read32(ge->memory, (uint32_t)address);
+                color = psp_memory_read32(ge->memory, address);
             } else {
-                uint32_t packed = psp_memory_read8(
-                    ge->memory, (uint32_t)address);
+                uint32_t packed = psp_memory_read8(ge->memory, address);
                 packed |= (uint32_t)psp_memory_read8(
-                    ge->memory, (uint32_t)address + 1u) << 8;
+                    ge->memory, address + 1u) << 8;
                 uint32_t red, green, blue, alpha = 0xFFu;
                 if (ge->framebuffer_format == 0u) {
                     red = (packed >> 11) & 31u;
