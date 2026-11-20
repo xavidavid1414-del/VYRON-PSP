@@ -21,7 +21,6 @@ typedef struct {
     uint32_t read_frame;
     uint32_t write_frame;
     uint32_t queued_frames;
-    uint32_t resample_phase;
 } PSP_Audio_Channel;
 
 typedef struct {
