@@ -865,6 +865,14 @@ void psp_core_destroy(PSP_Core *core)
     memset(core, 0, sizeof(*core));
 }
 
+bool psp_core_execute_ge_list(PSP_Core *core, uint32_t list_address,
+                              uint32_t max_commands)
+{
+    if (core == NULL || !core->initialized)
+        return false;
+    return psp_ge_execute_list(&core->ge, list_address, max_commands);
+}
+
 bool psp_core_run(PSP_Core *core, uint32_t cycles)
 {
     if (core == NULL || !core->initialized)
