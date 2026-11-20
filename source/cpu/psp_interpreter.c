@@ -54,6 +54,14 @@ static uint32_t arithmetic_shift_right(uint32_t value, uint32_t amount)
     return shifted;
 }
 
+static uint32_t rotate_right(uint32_t value, uint32_t amount)
+{
+    amount &= 31u;
+    if (amount == 0)
+        return value;
+    return (value >> amount) | (value << (32u - amount));
+}
+
 static uint32_t read16(PSP_Memory *memory, uint32_t address)
 {
     return (uint32_t)psp_memory_read8(memory, address)
@@ -252,8 +260,16 @@ bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
                     set_register(cpu, rd, b << shamt);
                     break;
 
-                case 0x02:
-                    set_register(cpu, rd, b >> shamt);
+                case 0x02: /* SRL / ROTR */
+                    if (rs == 0u)
+                        set_register(cpu, rd, b >> shamt);
+                    else if (rs == 1u)
+                        set_register(cpu, rd, rotate_right(b, shamt));
+                    else {
+                        enter_exception(cpu, pc, had_pending_branch,
+                            EXC_RI, 0, false);
+                        return true;
+                    }
                     break;
 
                 case 0x03:
@@ -265,8 +281,16 @@ bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
                     set_register(cpu, rd, b << (a & 31u));
                     break;
 
-                case 0x06:
-                    set_register(cpu, rd, b >> (a & 31u));
+                case 0x06: /* SRLV / ROTRV */
+                    if (shamt == 0u)
+                        set_register(cpu, rd, b >> (a & 31u));
+                    else if (shamt == 1u)
+                        set_register(cpu, rd, rotate_right(b, a));
+                    else {
+                        enter_exception(cpu, pc, had_pending_branch,
+                            EXC_RI, 0, false);
+                        return true;
+                    }
                     break;
 
                 case 0x07:
