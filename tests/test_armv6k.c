@@ -263,5 +263,23 @@ int main(void)
     assert(psp_armv6k_translate_allegrex(&out, addu) ==
            PSP_ARMV6K_TRANSLATE_ERROR);
     assert(out.failed);
+    /* Allegrex ROTR maps to ARM ROR with an immediate amount. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t rotr = (1u << 21) | (2u << 16) | (3u << 11) |
+                    (8u << 6) | 0x02u;
+    assert(psp_armv6k_translate_allegrex(&out, rotr) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 3);
+    assert(code[1] == 0xE1A03461u); /* MOV r3, r1, ROR #8 */
+
+    /* Allegrex ROTRV maps to ARM ROR with a register amount. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t rotrv = (1u << 21) | (2u << 16) | (3u << 11) |
+                     (1u << 6) | 0x06u;
+    assert(psp_armv6k_translate_allegrex(&out, rotrv) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[3] == 0xE1A03271u); /* MOV r3, r1, ROR r2 */
+
     return 0;
 }
