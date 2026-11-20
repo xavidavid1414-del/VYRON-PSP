@@ -182,6 +182,11 @@ int main(void)
     write_le32(prx + 0x148, 24);
     assert(!psp_core_load_executable_data(
         &core, prx, sizeof(prx)));
+    /* Failed PRX loading must leave the previously loaded RAM intact. */
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 4) ==
+           PSP_RAM_BASE + 0x1004);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 16) ==
+           0x3C080800);
 
     /* An entry point outside executable memory must be rejected. */
     write_le32(elf + 24, TEST_DATA_ENTRY);
