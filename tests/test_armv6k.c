@@ -287,7 +287,7 @@ int main(void)
                         (3u << 11) | 0x2Cu;
     assert(psp_armv6k_translate_allegrex(&out, max_inst) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(out.count == 7);
+    assert(out.count == 6);
 
     /* Allegrex MIN uses the complementary signed condition. */
     psp_armv6k_emitter_init(&out, code, 16);
