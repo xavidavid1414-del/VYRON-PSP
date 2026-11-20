@@ -16,6 +16,7 @@
 #include "video/psp_ge.h"
 #include "video/psp_ge_hle.h"
 #include "input/psp_controller.h"
+#include "audio/psp_audio_hle.h"
 
 typedef struct {
     PSP_CPU cpu;
@@ -26,6 +27,7 @@ typedef struct {
     PSP_GE ge;
     PSP_GE_HLE ge_hle;
     PSP_Controller controller;
+    PSP_Audio_HLE audio;
 
     PSP_ISO_Info iso_info;
     PSP_ISO_FS iso_fs;
