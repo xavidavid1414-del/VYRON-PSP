@@ -229,6 +229,15 @@ int main(void)
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 24) ==
            0x3C090800);
 
+    /* Truncated compressed relocation streams must fail transactionally. */
+    uint32_t loaded_pc = core.cpu.pc;
+    write_le32(prx + 164, 12);
+    assert(!psp_core_load_executable_data(&core, prx, sizeof(prx)));
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x1004) ==
+           PSP_RAM_BASE + 0x20);
+    assert(core.cpu.pc == loaded_pc);
+    write_le32(prx + 164, 13);
+
     /* A paired LO16 relocation outside its write segment must be rejected. */
     write_le32(prx + 0x228, 28);
     core.cpu.pc = 0x87654321;
