@@ -48,6 +48,36 @@ static VYRON_Settings settings = {1, 1, 1, 0, 0, 0};
 static bool settings_open;
 static unsigned int settings_selected;
 
+static u64 fps_window_start;
+static unsigned int fps_frame_count;
+static unsigned int displayed_fps;
+
+static void update_fps_display(void)
+{
+    if (!settings.show_fps) {
+        printf("\\x1b[28;1H                 ");
+        return;
+    }
+
+    u64 now = osGetTime();
+
+    if (fps_window_start == 0)
+        fps_window_start = now;
+
+    fps_frame_count++;
+
+    u64 elapsed = now - fps_window_start;
+
+    if (elapsed >= 1000) {
+        displayed_fps = (unsigned int)
+            (((u64)fps_frame_count * 1000u) / elapsed);
+        fps_frame_count = 0;
+        fps_window_start = now;
+    }
+
+    printf("\\x1b[28;1HFPS: %u   ", displayed_fps);
+}
+
 #define SETTINGS_FILE PSP_ROOT_DIRECTORY "/CONFIG/settings.ini"
 #define SETTINGS_COUNT 6
 
@@ -466,6 +496,7 @@ int main(void)
             execute_cpu_frame();
             draw_interface(&core.video);
             psp_video_present(&core.video);
+            update_fps_display();
             continue;
         }
 
@@ -509,6 +540,7 @@ int main(void)
 
         draw_interface(&core.video);
         psp_video_present(&core.video);
+        update_fps_display();
     }
 
     execution_active = false;
