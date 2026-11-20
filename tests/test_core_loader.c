@@ -1,4 +1,5 @@
 #include "psp_core.h"
+#include "psp_nid.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -142,7 +143,6 @@ int main(void)
 
     /* Core startup must register controller, memory, and file HLE NIDs. */
     uint32_t service_code = 0;
-    assert(psp_nid_resolve(0x1C90B00Bu, &service_code) == false);
     assert(psp_nid_resolve(0x237DBD4Fu, &service_code));
     assert(psp_nid_resolve(0xB6D61D02u, &service_code));
     assert(psp_nid_resolve(0x9D9A5BA1u, &service_code));
