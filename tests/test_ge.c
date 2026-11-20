@@ -43,7 +43,7 @@ int main(void)
 
     const uint32_t list = PSP_RAM_BASE + 0x100;
     const uint32_t vertices = PSP_RAM_BASE + 0x1000;
-    const uint32_t vtype = (4u << 2) | (2u << 7) | (1u << 23);
+    const uint32_t vtype = (7u << 2) | (2u << 7) | (1u << 23);
 
     /* Three colored 2D vertices form a filled triangle. */
     psp_memory_write32(&memory, vertices, 0xFFFF0000u);
