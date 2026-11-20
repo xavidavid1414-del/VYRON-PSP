@@ -96,7 +96,7 @@ int main(void)
     command(&memory, patch_list + 4u, 0x01u, 0x3000u);
     command(&memory, patch_list + 8u, 0x12u, vtype);
     command(&memory, patch_list + 12u, 0x36u, (2u << 8) | 2u);
-    command(&memory, patch_list + 16u, 0x37u, 3u);
+    command(&memory, patch_list + 16u, 0x37u, 4u);
     command(&memory, patch_list + 20u, 0x05u, (4u << 8) | 4u);
     command(&memory, patch_list + 24u, 0x0Cu, 0u);
     assert(psp_ge_execute_list(&ge, patch_list, 8u));
@@ -111,7 +111,7 @@ int main(void)
     command(&memory, patch_list + 68u, 0x01u, 0x3000u);
     command(&memory, patch_list + 72u, 0x12u, vtype);
     command(&memory, patch_list + 76u, 0x36u, (2u << 8) | 2u);
-    command(&memory, patch_list + 80u, 0x37u, 3u);
+    command(&memory, patch_list + 80u, 0x37u, 4u);
     command(&memory, patch_list + 84u, 0x06u,
             (3u << 18) | (3u << 16) | (4u << 8) | 4u);
     command(&memory, patch_list + 88u, 0x0Cu, 0u);
