@@ -695,5 +695,23 @@ int main(void)
         assert((cpu.cop0[13] & 0x7Cu) == (10u << 2));
     }
 
+    /* Malformed MOVZ/MOVN instructions raise Reserved Instruction. */
+    const uint32_t invalid_mov_conditional[] = {
+        (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x0Au,
+        (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x0Bu
+    };
+    for (size_t i = 0; i < sizeof(invalid_mov_conditional) /
+                            sizeof(invalid_mov_conditional[0]); ++i) {
+        memcpy(ram, &invalid_mov_conditional[i],
+               sizeof(invalid_mov_conditional[i]));
+        psp_cpu_reset(&cpu);
+        cpu.pc = PSP_RAM_BASE;
+        cpu.gpr[1] = 0x12345678u;
+        cpu.gpr[2] = 0u;
+        assert(psp_interpreter_step(&cpu, &memory));
+        assert(cpu.pc == PSP_RAM_BASE + 0x180u);
+        assert((cpu.cop0[13] & 0x7Cu) == (10u << 2));
+    }
+
     return 0;
 }
