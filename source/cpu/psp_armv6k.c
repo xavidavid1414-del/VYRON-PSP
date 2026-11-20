@@ -271,6 +271,25 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     }
 
     if (opcode == 0u) {
+        /* HI/LO transfers use the architectural fields in PSP_CPU. */
+        if (function == 0x10u || function == 0x12u) { /* MFHI / MFLO */
+            size_t offset = function == 0x10u ? offsetof(PSP_CPU, hi) :
+                                                offsetof(PSP_CPU, lo);
+            if (!psp_armv6k_emit_ldr_str(emitter, true, 3, 0,
+                                         (int32_t)offset) ||
+                !emit_store_gpr(emitter, rd, 3))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
+        }
+        if (function == 0x11u || function == 0x13u) { /* MTHI / MTLO */
+            size_t offset = function == 0x11u ? offsetof(PSP_CPU, hi) :
+                                                offsetof(PSP_CPU, lo);
+            if (!emit_load_gpr(emitter, 1, rs) ||
+                !psp_armv6k_emit_ldr_str(emitter, false, 1, 0,
+                                         (int32_t)offset))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
+        }
         if (function == 0x0Au || function == 0x0Bu) {
             /* MOVZ/MOVN preserve rd unless rt is zero/nonzero. */
             uint8_t condition = function == 0x0Au ? 0u : 1u; /* EQ / NE */
