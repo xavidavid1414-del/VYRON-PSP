@@ -303,6 +303,8 @@ bool psp_audio_hle_register(PSP_Audio_HLE *audio)
         !psp_nid_register(PSP_NID_AUDIO_CH_RESERVE, PSP_SYSCALL_AUDIO_CH_RESERVE) ||
         !psp_nid_register(PSP_NID_AUDIO_OUTPUT, PSP_SYSCALL_AUDIO_OUTPUT) ||
         !psp_nid_register(PSP_NID_AUDIO_OUTPUT_PANNED, PSP_SYSCALL_AUDIO_OUTPUT_PANNED) ||
+        !psp_nid_register(PSP_NID_AUDIO_OUTPUT, PSP_SYSCALL_AUDIO_OUTPUT) ||
+        !psp_nid_register(PSP_NID_AUDIO_OUTPUT_PANNED, PSP_SYSCALL_AUDIO_OUTPUT_PANNED) ||
         !psp_nid_register(PSP_NID_AUDIO_CH_RELEASE, PSP_SYSCALL_AUDIO_CH_RELEASE) ||
         !psp_nid_register(PSP_NID_AUDIO_OUTPUT_BLOCKING, PSP_SYSCALL_AUDIO_OUTPUT_BLOCKING) ||
         !psp_nid_register(PSP_NID_AUDIO_OUTPUT_PANNED_BLOCKING, PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING) ||
@@ -321,6 +323,8 @@ void psp_audio_hle_unregister(void)
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_CH_RESERVE);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT_PANNED);
+    psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT);
+    psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT_PANNED);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_CH_RELEASE);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT_BLOCKING);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING);
@@ -329,6 +333,8 @@ void psp_audio_hle_unregister(void)
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_CHANGE_CONFIG);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_CHANGE_VOLUME);
     psp_nid_unregister(PSP_NID_AUDIO_CH_RESERVE);
+    psp_nid_unregister(PSP_NID_AUDIO_OUTPUT);
+    psp_nid_unregister(PSP_NID_AUDIO_OUTPUT_PANNED);
     psp_nid_unregister(PSP_NID_AUDIO_OUTPUT);
     psp_nid_unregister(PSP_NID_AUDIO_OUTPUT_PANNED);
     psp_nid_unregister(PSP_NID_AUDIO_CH_RELEASE);
