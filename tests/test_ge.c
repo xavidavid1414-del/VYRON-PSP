@@ -346,20 +346,24 @@ int main(void)
     command(&memory, list + 416, 0x10, 0x00080000u);
     command(&memory, list + 420, 0x3A, 3u);
     command(&memory, list + 424, 0x3B, encode_float24(0.5f));
-    command(&memory, list + 428, 0x42, encode_float24(20.0f));
-    command(&memory, list + 432, 0x43, encode_float24(-20.0f));
-    command(&memory, list + 436, 0x44, encode_float24(100.0f));
-    command(&memory, list + 440, 0x45, encode_float24(40.0f));
-    command(&memory, list + 444, 0x46, encode_float24(40.0f));
-    command(&memory, list + 448, 0x47, encode_float24(100.0f));
-    command(&memory, list + 452, 0x01, 0x3000u);
-    command(&memory, list + 456, 0x12, (4u << 2) | (3u << 7));
-    command(&memory, list + 460, 0x23, 1u);
-    command(&memory, list + 464, 0xDE, 4u);
-    command(&memory, list + 468, 0x04, 3u);
-    command(&memory, list + 472, 0x0C, 0);
-    assert(psp_ge_execute_list(&ge, list + 416, 16));
-    assert(psp_video_get_pixel(&video, 50, 40) == 0xFF00FF00u);
+    command(&memory, list + 428, 0x3C, 7u);
+    command(&memory, list + 432, 0x3D, encode_float24(0.5f));
+    command(&memory, list + 436, 0x3E, 0u);
+    command(&memory, list + 440, 0x3F, encode_float24(2.0f));
+    command(&memory, list + 444, 0x42, encode_float24(20.0f));
+    command(&memory, list + 448, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 452, 0x44, encode_float24(100.0f));
+    command(&memory, list + 456, 0x45, encode_float24(40.0f));
+    command(&memory, list + 460, 0x46, encode_float24(40.0f));
+    command(&memory, list + 464, 0x47, encode_float24(100.0f));
+    command(&memory, list + 468, 0x01, 0x3000u);
+    command(&memory, list + 472, 0x12, (4u << 2) | (3u << 7));
+    command(&memory, list + 476, 0x23, 1u);
+    command(&memory, list + 480, 0xDE, 4u);
+    command(&memory, list + 484, 0x04, 3u);
+    command(&memory, list + 488, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 416, 20));
+    assert(psp_video_get_pixel(&video, 60, 30) == 0xFF00FF00u);
 
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
