@@ -496,27 +496,80 @@ static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
 static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
                          const GE_Vertex *b)
 {
-    int x0 = (int)lroundf(a->x), y0 = (int)lroundf(a->y);
-    int x1 = (int)lroundf(b->x), y1 = (int)lroundf(b->y);
-    int dx = x1 >= x0 ? x1 - x0 : x0 - x1;
+    /* Liang-Barsky clipping keeps off-screen lines bounded before Bresenham. */
+    float dx = b->x - a->x, dy = b->y - a->y;
+    float t0 = 0.0f, t1 = 1.0f;
+    float left = (float)(ge->scissor_left > 0 ? ge->scissor_left : 0);
+    float top = (float)(ge->scissor_top > 0 ? ge->scissor_top : 0);
+    float right = (float)(ge->scissor_right < PSP_VIDEO_WIDTH - 1 ?
+        ge->scissor_right : PSP_VIDEO_WIDTH - 1);
+    float bottom = (float)(ge->scissor_bottom < PSP_VIDEO_HEIGHT - 1 ?
+        ge->scissor_bottom : PSP_VIDEO_HEIGHT - 1);
+    if (right < left || bottom < top) return;
+    float p[4] = {-dx, dx, -dy, dy};
+    float q[4] = {a->x - left, right - a->x,
+                  a->y - top, bottom - a->y};
+    for (unsigned int i = 0; i < 4u; i++) {
+        if (fabsf(p[i]) < 0.000001f) {
+            if (q[i] < 0.0f) return;
+            continue;
+        }
+        float r = q[i] / p[i];
+        if (p[i] < 0.0f) {
+            if (r > t1) return;
+            if (r > t0) t0 = r;
+        } else {
+            if (r < t0) return;
+            if (r < t1) t1 = r;
+        }
+    }
+    GE_Vertex clipped_a = *a, clipped_b = *b;
+    if (t1 < t0) return;
+    GE_Vertex *ends[2] = {&clipped_a, &clipped_b};
+    float ts[2] = {t0, t1};
+    for (unsigned int i = 0; i < 2u; i++) {
+        float t = ts[i];
+        GE_Vertex *v = ends[i];
+        v->x = a->x + dx * t;
+        v->y = a->y + dy * t;
+        v->z = a->z + (b->z - a->z) * t;
+        v->u = a->u + (b->u - a->u) * t;
+        v->v = a->v + (b->v - a->v) * t;
+        v->reciprocal_w = a->reciprocal_w +
+            (b->reciprocal_w - a->reciprocal_w) * t;
+        uint32_t color = 0;
+        for (unsigned int shift = 0; shift <= 24; shift += 8) {
+            float av = (float)((a->color >> shift) & 0xFFu);
+            float bv = (float)((b->color >> shift) & 0xFFu);
+            float channel = av + (bv - av) * t;
+            if (channel < 0.0f) channel = 0.0f;
+            if (channel > 255.0f) channel = 255.0f;
+            color |= (uint32_t)(channel + 0.5f) << shift;
+        }
+        v->color = color;
+    }
+    int x0 = (int)lroundf(clipped_a.x), y0 = (int)lroundf(clipped_a.y);
+    int x1 = (int)lroundf(clipped_b.x), y1 = (int)lroundf(clipped_b.y);
+    int dx_i = x1 >= x0 ? x1 - x0 : x0 - x1;
     int sx = x0 < x1 ? 1 : -1;
-    int dy = y1 >= y0 ? y0 - y1 : y1 - y0;
+    int dy_i = y1 >= y0 ? y0 - y1 : y1 - y0;
     int sy = y0 < y1 ? 1 : -1;
-    int error = dx + dy;
-    int total_steps = dx > -dy ? dx : -dy;
+    int error = dx_i + dy_i;
+    int total_steps = dx_i > -dy_i ? dx_i : -dy_i;
     int step = 0;
     for (;;) {
         float t = total_steps ? (float)step / (float)total_steps : 0.0f;
         uint32_t color = ge_interpolate_color(
-            a->color, b->color, b->color, 1.0f - t, t, 0.0f);
-        float u = a->u + (b->u - a->u) * t;
-        float v = a->v + (b->v - a->v) * t;
-        float depth = a->z + (b->z - a->z) * t;
+            clipped_a.color, clipped_b.color, clipped_b.color,
+            1.0f - t, t, 0.0f);
+        float u = clipped_a.u + (clipped_b.u - clipped_a.u) * t;
+        float v = clipped_a.v + (clipped_b.v - clipped_a.v) * t;
+        float depth = clipped_a.z + (clipped_b.z - clipped_a.z) * t;
         ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v), depth);
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
-        if (twice >= dy) { error += dy; x0 += sx; }
-        if (twice <= dx) { error += dx; y0 += sy; }
+        if (twice >= dy_i) { error += dy_i; x0 += sx; }
+        if (twice <= dx_i) { error += dx_i; y0 += sy; }
         step++;
     }
 }
