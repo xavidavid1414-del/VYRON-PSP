@@ -199,6 +199,25 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 96, 4));
     assert(ge.commands_executed == 4);
 
+    /* Alpha blending combines a translucent source with the framebuffer. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, vertices, 0x80FF0000u);
+    put16(&memory, vertices + 4, 20);
+    put16(&memory, vertices + 6, 20);
+    command(&memory, list + 344, 0x10, 0x00080000u);
+    command(&memory, list + 348, 0x01, 0x1000u);
+    command(&memory, list + 352, 0x12, vtype);
+    command(&memory, list + 356, 0x21, 1u);
+    command(&memory, list + 360, 0xDF, (3u << 8) | (2u << 4));
+    command(&memory, list + 364, 0x04, 1u);
+    command(&memory, list + 368, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 344, 8));
+    uint32_t blended = psp_video_get_pixel(&video, 20, 20);
+    assert(((blended >> 16) & 0xFFu) >= 126u);
+    assert((blended & 0xFFu) >= 126u);
+    assert(((blended >> 8) & 0xFFu) == 0u);
+
     /* Indexed triangles fetch 8-bit indices from IADDR. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
