@@ -24,6 +24,8 @@
 #define GE_CMD_CULLFACEENABLE 0x1Du
 #define GE_CMD_CULL 0x9Bu
 #define GE_CMD_LIGHTINGENABLE 0x17u
+#define GE_CMD_MATERIALSPECULAR 0x55u
+#define GE_CMD_MATERIALSPECULARCOEF 0x58u
 #define GE_CMD_FOGENABLE 0x1Fu
 #define GE_CMD_LIGHTENABLE0 0x18u
 #define GE_CMD_LIGHTENABLE1 0x19u
@@ -44,6 +46,10 @@
 #define GE_CMD_LDC1 0x91u
 #define GE_CMD_LDC2 0x92u
 #define GE_CMD_LDC3 0x93u
+#define GE_CMD_LSC0 0x98u
+#define GE_CMD_LSC1 0x99u
+#define GE_CMD_LSC2 0x9Au
+#define GE_CMD_LSC3 0x9Bu
 #define GE_CMD_AMBIENTCOLOR 0x5Cu
 #define GE_CMD_LIGHTTYPE0 0x5Fu
 #define GE_CMD_LDX0 0x6Fu
@@ -104,6 +110,9 @@ typedef struct {
     float clip_y;
     float clip_z;
     float clip_w;
+    float view_x;
+    float view_y;
+    float view_z;
     bool clip_valid;
     uint8_t fog_factor;
     uint32_t color;
@@ -136,6 +145,9 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     float vx = v[0] * wx + v[1] * wy + v[2] * wz + v[3];
     float vy = v[4] * wx + v[5] * wy + v[6] * wz + v[7];
     float vz = v[8] * wx + v[9] * wy + v[10] * wz + v[11];
+    vertex->view_x = vx;
+    vertex->view_y = vy;
+    vertex->view_z = vz;
 
     float nwx = w[0] * vertex->nx + w[1] * vertex->ny +
         w[2] * vertex->nz;
@@ -217,6 +229,7 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
         return;
 
     float diffuse_amount[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float specular_amount[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     float normal_length = sqrtf(vertex->nx * vertex->nx +
         vertex->ny * vertex->ny + vertex->nz * vertex->nz);
     if (normal_length > 0.000001f && isfinite(normal_length)) {
@@ -244,6 +257,33 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
                     diffuse_amount[light] = dot > 0.0f ? dot : 0.0f;
                     if (diffuse_amount[light] > 1.0f)
                         diffuse_amount[light] = 1.0f;
+                    float view_length = sqrtf(vertex->view_x * vertex->view_x +
+                        vertex->view_y * vertex->view_y +
+                        vertex->view_z * vertex->view_z);
+                    if (view_length > 0.000001f &&
+                        isfinite(view_length) &&
+                        ge->material_specular_coefficient > 0.0f &&
+                        (ge->material_specular & 0x00FFFFFFu) != 0u &&
+                        (ge->light_specular[light] & 0x00FFFFFFu) != 0u) {
+                        float lx = -direction[0] / direction_length;
+                        float ly = -direction[1] / direction_length;
+                        float lz = -direction[2] / direction_length;
+                        float vx = -vertex->view_x / view_length;
+                        float vy = -vertex->view_y / view_length;
+                        float vz = -vertex->view_z / view_length;
+                        float hx = lx + vx, hy = ly + vy, hz = lz + vz;
+                        float half_length = sqrtf(hx * hx + hy * hy + hz * hz);
+                        if (half_length > 0.000001f && isfinite(half_length)) {
+                            float ndoth = (normal[0] * hx + normal[1] * hy +
+                                normal[2] * hz) / half_length;
+                            if (ndoth > 0.0f) {
+                                float power = powf(ndoth,
+                                    ge->material_specular_coefficient);
+                                if (isfinite(power))
+                                    specular_amount[light] = power;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -252,14 +292,20 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
     uint32_t result = vertex->color & 0xFF000000u;
     for (unsigned int shift = 0; shift <= 16; shift += 8) {
         float factor = (float)((ge->ambient_color >> shift) & 0xFFu) / 255.0f;
+        float specular = 0.0f;
         for (unsigned int light = 0; light < 4u; light++) {
             uint32_t diffuse_color = light == 0u ? ge->light0_diffuse :
                 ge->light_diffuse[light];
             float diffuse = (float)((diffuse_color >> shift) & 0xFFu) / 255.0f;
             factor += diffuse * diffuse_amount[light];
+            float material = (float)((ge->material_specular >> shift) & 0xFFu) / 255.0f;
+            float light_color = (float)((ge->light_specular[light] >> shift) & 0xFFu) / 255.0f;
+            specular += material * light_color * specular_amount[light];
         }
         if (factor > 1.0f) factor = 1.0f;
-        float channel = (float)((vertex->color >> shift) & 0xFFu) * factor;
+        float channel = (float)((vertex->color >> shift) & 0xFFu) * factor +
+            specular * 255.0f;
+        if (channel > 255.0f) channel = 255.0f;
         result |= (uint32_t)(channel + 0.5f) << shift;
     }
     vertex->color = result;
@@ -1447,7 +1493,10 @@ void psp_ge_reset(PSP_GE *ge)
     memset(ge->light_type, 0, sizeof(ge->light_type));
     memset(ge->light_direction, 0, sizeof(ge->light_direction));
     memset(ge->light_diffuse, 0, sizeof(ge->light_diffuse));
+    ge->material_specular = 0u;
+    ge->material_specular_coefficient = 1.0f;
     for (unsigned int light = 0; light < 4u; light++) {
+        ge->light_specular[light] = 0x00FFFFFFu;
         ge->light_direction[light][2] = -1.0f;
         ge->light_diffuse[light] = 0x00FFFFFFu;
     }
@@ -1706,6 +1755,29 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_LDC3:
                 ge->light_diffuse[3] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LSC0:
+                ge->light_specular[0] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LSC1:
+                ge->light_specular[1] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LSC2:
+                ge->light_specular[2] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_LSC3:
+                ge->light_specular[3] = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_MATERIALSPECULAR:
+                ge->material_specular = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_MATERIALSPECULARCOEF:
+                ge->material_specular_coefficient = ge_decode_float24(value);
+                if (!isfinite(ge->material_specular_coefficient) ||
+                    ge->material_specular_coefficient < 0.0f)
+                    ge->material_specular_coefficient = 0.0f;
+                if (ge->material_specular_coefficient > 128.0f)
+                    ge->material_specular_coefficient = 128.0f;
                 break;
             case GE_CMD_AMBIENTCOLOR:
                 ge->ambient_color = value & 0x00FFFFFFu;
