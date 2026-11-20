@@ -681,7 +681,7 @@ int main(void)
 
     /* SLL and SRA require rs=0; malformed encodings raise RI. */
     const uint32_t invalid_fixed_shifts[] = {
-        (2u << 21) | (3u << 11) | 4u,
+        (2u << 21) | (3u << 11),
         (2u << 21) | (3u << 11) | (4u << 6) | 0x03u
     };
     for (size_t i = 0; i < sizeof(invalid_fixed_shifts) /
