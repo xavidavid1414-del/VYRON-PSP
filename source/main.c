@@ -37,9 +37,7 @@ static bool has_iso_extension(const char *name)
 {
     const char *dot = strrchr(name, '.');
 
-    return dot &&
-        (strcasecmp(dot, ".iso") == 0 ||
-         strcasecmp(dot, ".cso") == 0);
+    return dot && strcasecmp(dot, ".iso") == 0;
 }
 
 static void scan_iso_directory(void)
@@ -95,7 +93,7 @@ static void probe_selected_iso(void)
 
     if (!psp_iso_file_open(&iso, path)) {
         snprintf(status_message, sizeof(status_message),
-                 "Cannot open ISO (CSO unsupported)");
+                 "Cannot open ISO file");
         return;
     }
 
@@ -141,14 +139,13 @@ static void probe_selected_iso(void)
         free(buffer);
         return;
     }
-if (eboot_entry.size >= 4 &&
-    memcmp(buffer, "~PSP", 4) == 0)
-{
-    snprintf(status_message, sizeof(status_message),
-             "Encrypted PRX detected: decryptor missing");
-    free(buffer);
-    return;
-}
+    if (eboot_entry.size >= 4 &&
+        memcmp(buffer, "~PSP", 4) == 0) {
+        snprintf(status_message, sizeof(status_message),
+                 "Encrypted PRX: decryption not supported");
+        free(buffer);
+        return;
+    }
     psp_core_reset(&core);
 
     bool loaded = psp_core_load_executable_data(
