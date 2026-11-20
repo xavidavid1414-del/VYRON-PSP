@@ -13,6 +13,19 @@ typedef struct {
     uint32_t base_address;
     uint32_t vertex_address;
     uint32_t index_address;
+    float world_matrix[12];
+    float view_matrix[12];
+    float projection_matrix[16];
+    uint32_t world_matrix_index;
+    uint32_t view_matrix_index;
+    uint32_t projection_matrix_index;
+    float viewport_scale[3];
+    float viewport_center[3];
+    float viewport_offset[2];
+    uint16_t *depth_buffer;
+    bool depth_test_enabled;
+    bool depth_write_disabled;
+    uint32_t depth_function;
     uint32_t vertex_type;
     uint32_t draw_color;
     uint32_t texture_address;
@@ -45,6 +58,7 @@ typedef struct {
 } PSP_GE;
 
 bool psp_ge_init(PSP_GE *ge, PSP_Memory *memory, PSP_Video *video);
+void psp_ge_destroy(PSP_GE *ge);
 void psp_ge_reset(PSP_GE *ge);
 bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                          uint32_t max_commands);
