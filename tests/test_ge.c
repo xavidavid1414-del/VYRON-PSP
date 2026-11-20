@@ -328,6 +328,35 @@ int main(void)
     assert(ge.primitives_drawn == 1);
     assert(psp_video_get_pixel(&video, 15, 15) != 0);
 
+    /* 16-bit and 32-bit-stride indices use their low 16-bit vertex index. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    put16(&memory, indices, 2);
+    put16(&memory, indices + 2, 0);
+    put16(&memory, indices + 4, 1);
+    command(&memory, list + 576, 0x10, 0x00080000u);
+    command(&memory, list + 580, 0x01, 0x1000u);
+    command(&memory, list + 584, 0x02, 0x1800u);
+    command(&memory, list + 588, 0x12, vtype | (2u << 11));
+    command(&memory, list + 592, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 596, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 576, 8));
+    assert(psp_video_get_pixel(&video, 15, 15) != 0);
+
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_memory_write32(&memory, indices, 0xABCD0002u);
+    psp_memory_write32(&memory, indices + 4u, 0x12340000u);
+    psp_memory_write32(&memory, indices + 8u, 0xFFFF0001u);
+    command(&memory, list + 608, 0x10, 0x00080000u);
+    command(&memory, list + 612, 0x01, 0x1000u);
+    command(&memory, list + 616, 0x02, 0x1800u);
+    command(&memory, list + 620, 0x12, vtype | (3u << 11));
+    command(&memory, list + 624, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 628, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 608, 8));
+    assert(psp_video_get_pixel(&video, 15, 15) != 0);
+
     /* 3D vertices use world/view/projection and viewport state with depth testing. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
