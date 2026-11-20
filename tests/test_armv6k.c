@@ -57,7 +57,7 @@ int main(void)
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t sllv = (1u << 21) | (2u << 16) | (3u << 11) | 0x04u;
     assert(psp_armv6k_translate_allegrex(&out, sllv) ==
-           PSP_ARMv6K_TRANSLATE_OK);
+           PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 5);
     assert(code[0] == 0xE5902004u); /* LDR shift amount */
     assert(code[1] == 0xE202201Fu); /* AND shift amount, #31 */
@@ -68,13 +68,13 @@ int main(void)
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t srlv = (1u << 21) | (2u << 16) | (3u << 11) | 0x06u;
     assert(psp_armv6k_translate_allegrex(&out, srlv) ==
-           PSP_ARMv6K_TRANSLATE_OK);
+           PSP_ARMV6K_TRANSLATE_OK);
     assert(code[3] == 0xE1A03231u); /* MOV r3, r1, LSR r2 */
 
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t srav = (1u << 21) | (2u << 16) | (3u << 11) | 0x07u;
     assert(psp_armv6k_translate_allegrex(&out, srav) ==
-           PSP_ARMv6K_TRANSLATE_OK);
+           PSP_ARMV6K_TRANSLATE_OK);
     assert(code[3] == 0xE1A03251u); /* MOV r3, r1, ASR r2 */
 
     /* MOVZ rd, rs, rt: update rd only when rt equals zero. */
