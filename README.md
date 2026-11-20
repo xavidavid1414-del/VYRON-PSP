@@ -10,7 +10,7 @@ The project builds a Nintendo 3DS `.3dsx` application and an installable homebre
 
 ### Phase 6 — PSP audio output
 
-**Implementation milestone: complete for the documented PCM output subset.** The emulator now has eight independently reserved PSP audio channels, mono PCM16 input, per-channel left/right volume and panning, saturated stereo mixing, bounded sample queues, 11.025/22.05/44.1 kHz conversion to the 3DS 44.1 kHz output clock, four audio HLE imports (channel reserve/release, blocking output, and panned blocking output), and a frontend path that submits mixed audio to Nintendo 3DS NDSP. Audio HLE and mixer behavior are covered by host regression tests.
+**Implementation milestone: complete for the documented PCM output subset.** The emulator now has eight independently reserved PSP audio channels, mono/stereo PCM16 input, per-channel format, sample-length and volume controls, left/right panning, saturated stereo mixing, bounded sample queues, and eight audio HLE imports (channel reserve/release, blocking and panned output, rest-length query, data-length update, format change, and volume change), and a frontend path that submits mixed audio to Nintendo 3DS NDSP. Audio HLE and mixer behavior are covered by host regression tests.
 
 This is not a complete PSP audio stack: compressed audio codecs, sceSas/ATRAC, output2/VAUDIO APIs, accurate blocking/wait timing, streaming callbacks, and per-game audio compatibility remain unsupported. Silence is submitted when no PSP samples are queued; real-hardware sound quality and timing still need testing on the New Nintendo 2DS XL.
 
