@@ -140,6 +140,14 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 1400u, 18u));
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFF0000FFu);
 
+    /* Restore the shared UVs after the mipmap minification test. */
+    put_float(&memory, textured_vertices, 0.0f);
+    put_float(&memory, textured_vertices + 4u, 0.0f);
+    put_float(&memory, textured_vertices + 16u, 2.0f);
+    put_float(&memory, textured_vertices + 20u, 0.0f);
+    put_float(&memory, textured_vertices + 32u, 0.0f);
+    put_float(&memory, textured_vertices + 36u, 2.0f);
+
     /* 5650 textures decode to opaque RGB pixels as well. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
