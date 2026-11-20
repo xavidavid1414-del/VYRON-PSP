@@ -16,6 +16,10 @@
 #define GE_CMD_SCISSOR1 0xD4u
 #define GE_CMD_SCISSOR2 0xD5u
 #define GE_CMD_TEXTUREMAPENABLE 0x1Eu
+#define GE_CMD_ALPHABLENDENABLE 0x21u
+#define GE_CMD_BLENDMODE 0xDFu
+#define GE_CMD_BLENDFIXEDA 0xE0u
+#define GE_CMD_BLENDFIXEDB 0xE1u
 #define GE_CMD_TEXADDR0 0xA0u
 #define GE_CMD_TEXBUFWIDTH0 0xA8u
 #define GE_CMD_TEXSIZE0 0xB8u
@@ -169,11 +173,67 @@ static bool ge_read_primitive_vertex(PSP_GE *ge, uint32_t index,
     return ge_read_vertex(ge, vertex_index, vertex);
 }
 
+static uint32_t ge_blend_factor(uint32_t factor, unsigned int shift,
+                                 uint32_t source, uint32_t destination,
+                                 uint32_t fixed)
+{
+    uint32_t src = (source >> shift) & 0xFFu;
+    uint32_t dst = (destination >> shift) & 0xFFu;
+    uint32_t sa = (source >> 24) & 0xFFu;
+    uint32_t da = (destination >> 24) & 0xFFu;
+    switch (factor) {
+        case 0: return dst;
+        case 1: return 255u - dst;
+        case 2: return sa;
+        case 3: return 255u - sa;
+        case 4: return da;
+        case 5: return 255u - da;
+        case 6: return sa > 127u ? 255u : sa * 2u;
+        case 7: return 255u - (sa > 127u ? 255u : sa * 2u);
+        case 8: return da > 127u ? 255u : da * 2u;
+        case 9: return 255u - (da > 127u ? 255u : da * 2u);
+        case 10: return (fixed >> shift) & 0xFFu;
+        default: return 255u;
+    }
+}
+
+static uint32_t ge_blend_color(const PSP_GE *ge, uint32_t source,
+                               uint32_t destination)
+{
+    uint32_t result = 0;
+    for (unsigned int shift = 0; shift <= 24; shift += 8) {
+        uint32_t sf = ge_blend_factor(ge->blend_source_factor, shift,
+            source, destination, ge->blend_fixed_a);
+        uint32_t df = ge_blend_factor(ge->blend_destination_factor, shift,
+            source, destination, ge->blend_fixed_b);
+        int src = (int)(((source >> shift) & 0xFFu) * sf / 255u);
+        int dst = (int)(((destination >> shift) & 0xFFu) * df / 255u);
+        int value;
+        switch (ge->blend_operation) {
+            case 0: value = src + dst; break;
+            case 1: value = src - dst; break;
+            case 2: value = dst - src; break;
+            case 3: value = src < dst ? src : dst; break;
+            case 4: value = src > dst ? src : dst; break;
+            case 5: value = src > dst ? src - dst : dst - src; break;
+            default: value = src; break;
+        }
+        if (value < 0) value = 0;
+        if (value > 255) value = 255;
+        result |= (uint32_t)value << shift;
+    }
+    return result;
+}
+
 static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color)
 {
     if (x < ge->scissor_left || x > ge->scissor_right ||
         y < ge->scissor_top || y > ge->scissor_bottom)
         return;
+    if (ge->alpha_blend_enabled) {
+        uint32_t destination = psp_video_get_pixel(ge->video, x, y);
+        color = ge_blend_color(ge, color, destination);
+    }
     psp_video_put_pixel(ge->video, x, y, color);
 }
 
@@ -504,6 +564,12 @@ void psp_ge_reset(PSP_GE *ge)
     ge->texture_wrap_u = 1;
     ge->texture_wrap_v = 1;
     ge->texture_enabled = false;
+    ge->alpha_blend_enabled = false;
+    ge->blend_operation = 0;
+    ge->blend_source_factor = 2;
+    ge->blend_destination_factor = 3;
+    ge->blend_fixed_a = 0xFFFFFFFFu;
+    ge->blend_fixed_b = 0xFFFFFFFFu;
     ge->scissor_left = 0;
     ge->scissor_top = 0;
     ge->scissor_right = PSP_VIDEO_WIDTH - 1;
@@ -546,6 +612,24 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_TEXTUREMAPENABLE:
                 ge->texture_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_ALPHABLENDENABLE:
+                ge->alpha_blend_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_BLENDMODE:
+                ge->blend_operation = value & 7u;
+                ge->blend_source_factor = (value >> 4) & 0xFu;
+                ge->blend_destination_factor = (value >> 8) & 0xFu;
+                if (ge->blend_operation > 5u ||
+                    ge->blend_source_factor > 10u ||
+                    ge->blend_destination_factor > 10u)
+                    return false;
+                break;
+            case GE_CMD_BLENDFIXEDA:
+                ge->blend_fixed_a = value;
+                break;
+            case GE_CMD_BLENDFIXEDB:
+                ge->blend_fixed_b = value;
                 break;
             case GE_CMD_TEXADDR0:
                 ge->texture_address_low = value & 0x00FFFFFFu;
