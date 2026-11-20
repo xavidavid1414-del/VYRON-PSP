@@ -1862,17 +1862,9 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_LKB2: case GE_CMD_LKB3:
             case GE_CMD_LKC0: case GE_CMD_LKC1:
             case GE_CMD_LKC2: case GE_CMD_LKC3: {
-                unsigned int light, component;
-                if (command <= GE_CMD_LKA3) {
-                    light = command - GE_CMD_LKA0;
-                    component = 0u;
-                } else if (command <= GE_CMD_LKB3) {
-                    light = command - GE_CMD_LKB0;
-                    component = 1u;
-                } else {
-                    light = command - GE_CMD_LKC0;
-                    component = 2u;
-                }
+                unsigned int attenuation_index = command - GE_CMD_LKA0;
+                unsigned int light = attenuation_index / 3u;
+                unsigned int component = attenuation_index % 3u;
                 ge->light_attenuation[light][component] =
                     ge_decode_float24(value);
                 break;
