@@ -208,12 +208,40 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                 !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
             ge_draw_line(ge, &vertices[0], &vertices[1]);
         }
+    } else if (primitive == 2) {
+        if (count < 2) return false;
+        for (uint32_t i = 0; i + 1 < count; i++) {
+            if (!ge_read_vertex(ge, i, &vertices[0]) ||
+                !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
+            ge_draw_line(ge, &vertices[0], &vertices[1]);
+        }
     } else if (primitive == 3) {
         if (count % 3u) return false;
         for (uint32_t i = 0; i < count; i += 3) {
             if (!ge_read_vertex(ge, i, &vertices[0]) ||
                 !ge_read_vertex(ge, i + 1, &vertices[1]) ||
                 !ge_read_vertex(ge, i + 2, &vertices[2])) return false;
+            ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
+        }
+    } else if (primitive == 4) {
+        if (count < 3) return false;
+        for (uint32_t i = 0; i + 2 < count; i++) {
+            if (!ge_read_vertex(ge, i, &vertices[0]) ||
+                !ge_read_vertex(ge, i + 1, &vertices[1]) ||
+                !ge_read_vertex(ge, i + 2, &vertices[2])) return false;
+            if (i & 1u) {
+                GE_Vertex swap = vertices[0];
+                vertices[0] = vertices[1];
+                vertices[1] = swap;
+            }
+            ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
+        }
+    } else if (primitive == 5) {
+        if (count < 3 || !ge_read_vertex(ge, 0, &vertices[0]))
+            return false;
+        for (uint32_t i = 1; i + 1 < count; i++) {
+            if (!ge_read_vertex(ge, i, &vertices[1]) ||
+                !ge_read_vertex(ge, i + 1, &vertices[2])) return false;
             ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
         }
     } else if (primitive == 6) {
