@@ -170,6 +170,7 @@ static void change_selected_setting(void)
         default: return;
     }
 
+    core.video.stretch = settings.video_fit != 0;
     save_settings();
     print_settings_menu();
 }
@@ -411,6 +412,7 @@ int main(void)
     }
 
     load_settings();
+    core.video.stretch = settings.video_fit != 0;
     scan_iso_directory();
     print_file_list();
 
