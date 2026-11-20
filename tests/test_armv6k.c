@@ -96,13 +96,14 @@ int main(void)
     assert(code[2] == 0x31A03001u); /* MOVLO r3, #1 */
     assert(code[3] == 0x21A03000u); /* MOVHS r3, #0 */
 
-    /* A non-encodable signed immediate must cleanly fall back. */
+    /* SLTI synthesizes a full-width sign-extended immediate. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t slti_negative = (0x0Au << 26) | (1u << 21) |
                              (3u << 16) | 0xFFFCu;
     assert(psp_armv6k_translate_allegrex(&out, slti_negative) ==
-           PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
-    assert(out.count == 0);
+           PSP_ARMv6K_TRANSLATE_OK);
+    assert(out.count == 9);
+    assert(code[5] == 0xE1510002u); /* CMP r1, r2 */
 
     /* ADDIU r2, r1, -4. */
     psp_armv6k_emitter_init(&out, code, 16);
