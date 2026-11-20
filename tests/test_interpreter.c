@@ -1,4 +1,5 @@
 #include "psp_interpreter.h"
+#include "psp_syscall.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -7,6 +8,21 @@
 #define COP0_BADVADDR 8u
 #define COP0_CAUSE 13u
 #define EXCEPTION_VECTOR (PSP_RAM_BASE + 0x180u)
+
+static bool test_syscall_handler(
+    PSP_CPU *cpu,
+    PSP_Memory *memory,
+    uint32_t syscall_code
+)
+{
+    (void)memory;
+
+    if (syscall_code != 0x54321u)
+        return false;
+
+    cpu->gpr[2] = 0xC0DEF00Du;
+    return true;
+}
 
 int main(void)
 {
@@ -377,6 +393,54 @@ int main(void)
     assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (4u << 2));
     assert(cpu.cop0[14] == PSP_RAM_BASE + 12u);
     assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
+
+    /* A registered SYSCALL is dispatched and completes normally. */
+    const uint32_t handled_syscall =
+        (0x54321u << 6) | 0x0Cu;
+    memcpy(ram, &handled_syscall, sizeof(handled_syscall));
+
+    psp_syscall_reset();
+    assert(psp_syscall_register(0x54321u, test_syscall_handler));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.gpr[2] == 0xC0DEF00Du);
+
+    /* An unregistered SYSCALL raises the system-call exception. */
+    psp_syscall_reset();
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[2] = 0x13572468u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (8u << 2));
+    assert(cpu.cop0[14] == PSP_RAM_BASE);
+    assert(cpu.gpr[2] == 0x13572468u);
+
+    /* A handled syscall in a branch delay slot preserves branch flow. */
+    const uint32_t branch_then_syscall =
+        (0x04u << 26) | (1u << 21) | (1u << 16) | 2u;
+    memcpy(ram, &branch_then_syscall, sizeof(branch_then_syscall));
+    memcpy(ram + 4, &handled_syscall, sizeof(handled_syscall));
+
+    psp_syscall_reset();
+    assert(psp_syscall_register(0x54321u, test_syscall_handler));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 9u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 12u);
+    assert(!cpu.branch_pending);
+    assert(cpu.gpr[2] == 0xC0DEF00Du);
+
+    psp_syscall_reset();
 
     return 0;
 }
