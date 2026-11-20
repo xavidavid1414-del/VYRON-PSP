@@ -5,6 +5,8 @@
 #include "input/psp_controller_hle.h"
 #include "loader/psp_nid.h"
 #include "loader/psp_prx_imports.h"
+#include "memory/psp_memory_hle.h"
+#include "loader/psp_io_hle.h"
 
 #include <string.h>
 
@@ -608,7 +610,7 @@ void psp_core_unmount_iso(PSP_Core *core)
 
     core->iso_data = NULL;
     core->iso_size = 0;
-    core->iso_mounted = false;
+    core->iso_mounted = false;\n    psp_io_service_set_fs(&core->io_service, NULL);
 }
 
 void psp_core_unload_executable(PSP_Core *core)
@@ -681,7 +683,7 @@ bool psp_core_mount_iso(
     core->iso_fs = fs;
     core->iso_data = data;
     core->iso_size = size;
-    core->iso_mounted = true;
+    core->iso_mounted = true;\n    psp_io_service_set_fs(&core->io_service, &core->iso_fs);
 
     return true;
 }
