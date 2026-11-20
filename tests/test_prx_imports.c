@@ -15,7 +15,7 @@ int main(void) {
     w32(elf+52,1);w32(elf+60,0x08800000);w32(elf+68,4);w32(elf+72,4);
     /* Section table: null, .lib.stub, string table. */
     w32(elf+32,128);w16(elf+46,40);w16(elf+48,3);w16(elf+50,2);
-    memcpy(elf+300,"\\0.lib.stub\\0.shstrtab\\0",23);
+    memcpy(elf+300,"\0.lib.stub\0.shstrtab\0",21);
     unsigned char *s1=elf+168;w32(s1,1);w32(s1+4,1);w32(s1+16,240);w32(s1+20,20);
     unsigned char *s2=elf+208;w32(s2,11);w32(s2+4,3);w32(s2+16,300);w32(s2+20,21);
     /* Import descriptor: len=5 words, one function, NID/stub virtual addresses. */
