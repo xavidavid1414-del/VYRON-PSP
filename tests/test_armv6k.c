@@ -127,10 +127,23 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(code[1] == 0xE3813080u); /* ORR r3, r1, #128 */
 
-    /* An immediate not representable in ARM's rotated imm8 falls back. */
+    /* A full 16-bit ANDI immediate is synthesized from two ARM immediates. */
+    psp_armv6k_emitter_init(&out, code, 16);
     uint32_t andi_wide = (12u << 26) | (3u << 21) | (4u << 16) | 0x1234u;
     assert(psp_armv6k_translate_allegrex(&out, andi_wide) ==
-           PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+           PSP_ARMv6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[3] == 0xE0013002u); /* AND r3, r1, r2 */
+
+    /* LUI r4, 0x1234 constructs 0x12340000. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t lui = (15u << 26) | (4u << 16) | 0x1234u;
+    assert(psp_armv6k_translate_allegrex(&out, lui) ==
+           PSP_ARMv6K_TRANSLATE_OK);
+    assert(out.count == 3);
+    assert(code[0] == 0xE3A03412u); /* MOV r3, #0x12000000 */
+    assert(code[1] == 0xE3833634u); /* ORR r3, r3, #0x00340000 */
+    assert(code[2] == 0xE5803010u); /* STR r3, [r0, #16] */
 
     /* Unsupported branches must be handed to the interpreter. */
     assert(psp_armv6k_translate_allegrex(&out, 0x10000001u) ==
