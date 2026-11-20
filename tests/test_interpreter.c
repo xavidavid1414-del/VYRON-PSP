@@ -29,6 +29,20 @@ int main(void)
     assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
     assert(cpu.gpr[2] == 0xA5A5A5A5u);
 
+    /* SW r2, 0(r1): an invalid four-byte write must raise ADES. */
+    const uint32_t sw_r2_r1 = (0x2Bu << 26) | (1u << 21) | (2u << 16);
+    memcpy(ram, &sw_r2_r1, sizeof(sw_r2_r1));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = PSP_RAM_BASE + 16u;
+    cpu.gpr[2] = 0x12345678u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (5u << 2));
+    assert(cpu.cop0[COP0_BADVADDR] == PSP_RAM_BASE + 16u);
+
     /* Fetching an instruction beyond RAM must raise ADEL as well. */
     psp_cpu_reset(&cpu);
     cpu.pc = PSP_RAM_BASE + 16u;
