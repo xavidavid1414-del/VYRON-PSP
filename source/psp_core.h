@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 #include "cpu/psp_cpu.h"
+#include "cpu/psp_dynarec.h"
 #include "memory/psp_memory.h"
 #include "memory/psp_memory_blocks.h"
 #include "loader/psp_io_hle.h"
@@ -20,6 +21,7 @@
 
 typedef struct {
     PSP_CPU cpu;
+    PSP_Dynarec dynarec;
     PSP_Memory memory;
     PSP_MemoryBlocks memory_blocks;
     PSP_IO_Service io_service;
