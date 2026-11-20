@@ -121,6 +121,24 @@ static bool emit_store_gpr(PSP_ARMv6KEmitter *emitter, uint8_t mips_reg,
         (int32_t)(offsetof(PSP_CPU, gpr) + (size_t)mips_reg * sizeof(uint32_t)));
 }
 
+static bool emit_set_less(PSP_ARMv6KEmitter *emitter, bool is_unsigned,
+                            uint8_t rd, uint8_t rn, uint8_t rm)
+{
+    if (rd > 15u || rn > 15u || rm > 15u)
+        return false;
+    /* CMP rn, rm; MOV{LT/LO} rd,#1; MOV{GE/HS} rd,#0. */
+    uint32_t cmp = ARM_COND_AL | (10u << 21) | (1u << 20) |
+                   ((uint32_t)rn << 16) | rm;
+    uint8_t true_cond = is_unsigned ? 3u : 11u;  /* LO / LT */
+    uint8_t false_cond = is_unsigned ? 2u : 10u; /* HS / GE */
+    uint32_t mov_true = ((uint32_t)true_cond << 28) | (13u << 21) |
+                        ((uint32_t)rd << 12) | 1u;
+    uint32_t mov_false = ((uint32_t)false_cond << 28) | (13u << 21) |
+                         ((uint32_t)rd << 12);
+    return emit_word(emitter, cmp) && emit_word(emitter, mov_true) &&
+           emit_word(emitter, mov_false);
+}
+
 PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     PSP_ARMv6KEmitter *emitter, uint32_t instruction)
 {
@@ -141,6 +159,14 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
                                  (function == 0x02u ? 1u : 2u);
             if (!emit_load_gpr(emitter, 1, rt) ||
                 !emit_shift_imm(emitter, 3, 1, shift_type, sa) ||
+                !emit_store_gpr(emitter, rd, 3))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
+        }
+        if (function == 0x2Au || function == 0x2Bu) { /* SLT / SLTU */
+            if (!emit_load_gpr(emitter, 1, rs) ||
+                !emit_load_gpr(emitter, 2, rt) ||
+                !emit_set_less(emitter, function == 0x2Bu, 3, 1, 2) ||
                 !emit_store_gpr(emitter, rd, 3))
                 return PSP_ARMV6K_TRANSLATE_ERROR;
             return PSP_ARMV6K_TRANSLATE_OK;
