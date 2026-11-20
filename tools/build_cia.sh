@@ -45,7 +45,7 @@ guard = "#define MBEDTLS_CONFIG_H"
 if guard in content:
     content = content.replace(guard, guard + "\n#define MBEDTLS_NO_PLATFORM_ENTROPY", 1)
 else:
-    content = "#define MBEDTLS_NO_PLATFORM_ENTROPY\\n" + content
+    content = "#define MBEDTLS_NO_PLATFORM_ENTROPY\n" + content
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(content)
 PY
