@@ -1230,11 +1230,11 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 ge->blend_fixed_b = value;
                 break;
             case GE_CMD_CLUTADDR:
-                ge->clut_address = (ge->clut_address & 0xFF000000u) |
-                    (value & 0x00FFFFFFu);
+                ge->clut_address = ge_resolve_address(ge, value);
                 break;
             case GE_CMD_CLUTADDRUPPER:
-                ge->clut_address = ((value & 0x000F0000u) << 8) |
+                ge->clut_address =
+                    ((value & 0x000F0000u) << 8) |
                     (ge->clut_address & 0x00FFFFFFu);
                 break;
             case GE_CMD_CLUTFORMAT:
