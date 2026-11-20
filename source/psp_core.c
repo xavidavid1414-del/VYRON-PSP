@@ -418,6 +418,10 @@ static bool load_elf_segments(
                             uint32_t lo_offset =
                                 read_le32(lo_rel);
 
+                            if (segment_size[lo_write] < 4 ||
+                                lo_offset > segment_size[lo_write] - 4)
+                                return false;
+
                             uint64_t lo_address =
                                 (uint64_t)segment_base[lo_write] +
                                 lo_offset;
