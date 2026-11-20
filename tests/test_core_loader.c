@@ -104,14 +104,14 @@ static void make_test_prx(uint8_t *elf, size_t size)
 
     /* Data PRX segment, virtual address 0x2000. */
     write_le32(elf + 84, 1);
-    write_le32(elf + 88, 0x11C);
+    write_le32(elf + 88, 0x120);
     write_le32(elf + 92, 0x2000);
     write_le32(elf + 100, 8);
     write_le32(elf + 104, 8);
     write_le32(elf + 108, 6);
     write_le32(elf + 112, 4);
-    write_le32(elf + 0x118, 0xAABBCCDD);
-    write_le32(elf + 0x11C, 0);
+    write_le32(elf + 0x120, 0xAABBCCDD);
+    write_le32(elf + 0x124, 0);
 
     /* PSP relocation table: R_MIPS_32, R_MIPS_16 and R_MIPS_26. */
     write_le32(elf + 116, 0x700000A0);
