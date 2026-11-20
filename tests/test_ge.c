@@ -41,13 +41,6 @@ int main(void)
     assert(psp_video_init(&video));
     assert(psp_ge_init(&ge, &memory, &video));
 
-    /* Unsupported GE primitive modes must fail explicitly, not report a
-       successful no-op display-list execution. */
-    const uint32_t invalid_primitive_list = PSP_RAM_BASE + 0x80u;
-    command(&memory, invalid_primitive_list, 0x04u, (7u << 16) | 1u);
-    command(&memory, invalid_primitive_list + 4u, 0x0Cu, 0u);
-    assert(!psp_ge_execute_list(&ge, invalid_primitive_list, 2u));
-
     const uint32_t list = PSP_RAM_BASE + 0x100;
     const uint32_t vertices = PSP_RAM_BASE + 0x1000;
     const uint32_t vtype = (7u << 2) | (2u << 7) | (1u << 23);
@@ -68,6 +61,14 @@ int main(void)
 
     assert(psp_ge_execute_list(&ge, list, 8));
     assert(ge.commands_executed == 5);
+
+    /* Unsupported GE primitive modes must fail explicitly, not report a
+       successful no-op display-list execution. */
+    const uint32_t invalid_primitive_list = PSP_RAM_BASE + 0x80u;
+    command(&memory, invalid_primitive_list, 0x04u, (7u << 16) | 1u);
+    command(&memory, invalid_primitive_list + 4u, 0x0Cu, 0u);
+    assert(!psp_ge_execute_list(&ge, invalid_primitive_list, 2u));
+
     assert(ge.primitives_drawn == 1);
     uint32_t interpolated = psp_video_get_pixel(&video, 15, 15);
     assert((interpolated >> 24) == 0xFFu);
