@@ -95,6 +95,11 @@
 #define GE_CMD_ZTEST 0xDEu
 #define GE_CMD_ZWRITEDISABLE 0xE7u
 #define GE_CMD_PRIM    0x04u
+#define GE_CMD_BEZIER  0x05u
+#define GE_CMD_SPLINE  0x06u
+#define GE_CMD_PATCHDIVISION 0x36u
+#define GE_CMD_PATCHPRIMITIVE 0x37u
+#define GE_CMD_PATCHFACING 0x38u
 #define GE_CMD_JUMP    0x08u
 #define GE_CMD_CALL    0x0Au
 #define GE_CMD_RET     0x0Bu
@@ -1631,6 +1636,125 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
         ge_rasterize_triangle(ge, &input[0], &input[i], &input[i + 1u]);
 }
 
+
+static uint32_t ge_patch_parameter(uint32_t i, uint32_t divisions)
+{
+    if (i == 0u) return 0u;
+    if (i >= divisions) return 256u;
+    if (2u * i <= divisions)
+        return (256u * i) / divisions;
+    return 256u - (256u * (divisions - i)) / divisions;
+}
+
+static GE_Vertex ge_evaluate_bezier_patch(const GE_Vertex control[4][4],
+                                          uint32_t u, uint32_t v)
+{
+    GE_Vertex rows[4];
+    for (unsigned int row = 0; row < 4u; row++) {
+        GE_Vertex column[4];
+        for (unsigned int col = 0; col < 4u; col++)
+            column[col] = control[row][col];
+        for (unsigned int level = 3u; level > 0u; level--)
+            for (unsigned int i = 0u; i < level; i++)
+                column[i] = ge_lerp_vertex(&column[i], &column[i + 1u],
+                                            (float)v / 256.0f);
+        rows[row] = column[0];
+    }
+    for (unsigned int level = 3u; level > 0u; level--)
+        for (unsigned int i = 0u; i < level; i++)
+            rows[i] = ge_lerp_vertex(&rows[i], &rows[i + 1u],
+                                      (float)u / 256.0f);
+    return rows[0];
+}
+
+static void ge_draw_patch_point(PSP_GE *ge, const GE_Vertex *vertex)
+{
+    int x = (int)lroundf(vertex->x);
+    int y = (int)lroundf(vertex->y);
+    uint32_t color = ge_shade_fragment(ge, vertex->color,
+                                       vertex->u, vertex->v, 0.0f);
+    ge_put_pixel(ge, x, y,
+        ge_apply_fog(ge, color, vertex->fog_factor), vertex->z);
+}
+
+static bool ge_draw_bezier_surface(PSP_GE *ge, uint32_t value)
+{
+    uint32_t points_u = value & 0xFFu;
+    uint32_t points_v = (value >> 8) & 0xFFu;
+    uint32_t patches_u, patches_v;
+    if (points_u < 4u || points_v < 4u ||
+        points_u > 64u || points_v > 64u ||
+        (points_u - 1u) % 3u != 0u ||
+        (points_v - 1u) % 3u != 0u ||
+        ge->patch_division_u == 0u || ge->patch_division_v == 0u ||
+        ge->patch_division_u > 64u || ge->patch_division_v > 64u ||
+        (uint64_t)points_u * points_v > 4096u ||
+        (ge->patch_primitive != 0u && ge->patch_primitive != 1u &&
+         ge->patch_primitive != 3u))
+        return false;
+
+    patches_u = (points_u - 1u) / 3u;
+    patches_v = (points_v - 1u) / 3u;
+    uint32_t emitted = 0u;
+    for (uint32_t py = 0u; py < patches_v; py++) {
+        for (uint32_t px = 0u; px < patches_u; px++) {
+            GE_Vertex control[4][4];
+            for (uint32_t y = 0u; y < 4u; y++) {
+                for (uint32_t x = 0u; x < 4u; x++) {
+                    uint32_t index = (py * 3u + y) * points_u +
+                        (px * 3u + x);
+                    if (!ge_read_primitive_vertex(ge, index,
+                                                   &control[y][x]))
+                        return false;
+                }
+            }
+
+            uint32_t du = ge->patch_division_u;
+            uint32_t dv = ge->patch_division_v;
+            if (ge->patch_primitive == 0u) {
+                for (uint32_t y = 0u; y <= dv; y++) {
+                    uint32_t tv = ge_patch_parameter(y, dv);
+                    for (uint32_t x = 0u; x <= du; x++) {
+                        uint32_t tu = ge_patch_parameter(x, du);
+                        GE_Vertex p = ge_evaluate_bezier_patch(
+                            control, tu, tv);
+                        ge_draw_patch_point(ge, &p);
+                        emitted++;
+                    }
+                }
+            } else {
+                for (uint32_t y = 0u; y < dv; y++) {
+                    uint32_t v0 = ge_patch_parameter(y, dv);
+                    uint32_t v1 = ge_patch_parameter(y + 1u, dv);
+                    for (uint32_t x = 0u; x < du; x++) {
+                        uint32_t u0 = ge_patch_parameter(x, du);
+                        uint32_t u1 = ge_patch_parameter(x + 1u, du);
+                        GE_Vertex a = ge_evaluate_bezier_patch(control,u0,v0);
+                        GE_Vertex b = ge_evaluate_bezier_patch(control,u1,v0);
+                        GE_Vertex c = ge_evaluate_bezier_patch(control,u0,v1);
+                        GE_Vertex d = ge_evaluate_bezier_patch(control,u1,v1);
+                        if (ge->patch_facing) {
+                            GE_Vertex swap = b; b = c; c = swap;
+                        }
+                        if (ge->patch_primitive == 1u) {
+                            ge_draw_line(ge, &a, &c);
+                            ge_draw_line(ge, &c, &b);
+                            ge_draw_line(ge, &b, &d);
+                            emitted += 3u;
+                        } else {
+                            ge_draw_triangle(ge, &a, &b, &c);
+                            ge_draw_triangle(ge, &b, &d, &c);
+                            emitted += 2u;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ge->primitives_drawn += emitted;
+    return true;
+}
+
 static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                               uint32_t count)
 {
@@ -1905,6 +2029,10 @@ void psp_ge_reset(PSP_GE *ge)
     ge->vertex_address = 0;
     ge->index_address = 0;
     ge->vertex_type = (2u << 7) | (1u << 23);
+    ge->patch_division_u = 1u;
+    ge->patch_division_v = 1u;
+    ge->patch_primitive = 3u;
+    ge->patch_facing = false;
     ge->draw_color = 0xFFFFFFFFu;
     ge->lighting_enabled = false;
     ge->light0_enabled = false;
@@ -2074,6 +2202,31 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_VTYPE:
                 ge->vertex_type = value;
                 break;
+            case GE_CMD_PATCHDIVISION:
+                ge->patch_division_u = value & 0xFFu;
+                ge->patch_division_v = (value >> 8) & 0xFFu;
+                if (ge->patch_division_u == 0u ||
+                    ge->patch_division_v == 0u ||
+                    ge->patch_division_u > 64u ||
+                    ge->patch_division_v > 64u)
+                    return false;
+                break;
+            case GE_CMD_PATCHPRIMITIVE:
+                ge->patch_primitive = value & 3u;
+                if (ge->patch_primitive != 0u &&
+                    ge->patch_primitive != 1u &&
+                    ge->patch_primitive != 3u)
+                    return false;
+                break;
+            case GE_CMD_PATCHFACING:
+                ge->patch_facing = (value & 1u) != 0u;
+                break;
+            case GE_CMD_BEZIER:
+                if (!ge_draw_bezier_surface(ge, value))
+                    return false;
+                break;
+            case GE_CMD_SPLINE:
+                return false;
             case GE_CMD_WORLDMATRIXNUMBER:
                 ge->world_matrix_index = value & 0xFu;
                 break;
