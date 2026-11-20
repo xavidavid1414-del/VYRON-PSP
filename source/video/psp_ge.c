@@ -47,7 +47,7 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t transform_2d = (type >> 23) & 1u;
 
     if (normal_type != 0 || weight_type != 0 ||
-        weight_count != 1 || morph_count != 1 ||
+        weight_count != 1 || morph_count != 1 || !transform_2d ||
         (position_type != 2 && position_type != 3) ||
         color_type > 4 || (ge->texture_enabled && texture_type == 0))
         return false;
@@ -137,10 +137,6 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
         fabsf(vertex->x) > 32768.0f || fabsf(vertex->y) > 32768.0f ||
         fabsf(vertex->u) > 65536.0f || fabsf(vertex->v) > 65536.0f)
         return false;
-    if (!transform_2d) {
-        vertex->x = (vertex->x + 1.0f) * (PSP_VIDEO_WIDTH / 2.0f);
-        vertex->y = (1.0f - vertex->y) * (PSP_VIDEO_HEIGHT / 2.0f);
-    }
     return true;
 }
 
