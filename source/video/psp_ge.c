@@ -602,7 +602,7 @@ static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
             ((packed >> (((uint32_t)x & 1u) * 4u)) & 0xFu) : packed;
         index = ((index >> ge->clut_shift) & ge->clut_mask) +
             (ge->clut_start << 4);
-        if (index >= ge->clut_entries_loaded || index >= 256u)
+        if (index >= ge->clut_entries_loaded || index >= 1024u)
             return false;
         *color = ge->clut[index];
         return true;
@@ -1245,7 +1245,6 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_CLUTLOAD: {
                 uint32_t entries = (value & 0x3Fu) * 8u;
-                if (entries > 256u) entries = 256u;
                 uint32_t bytes_per_entry = ge->clut_format == 3u ? 4u : 2u;
                 if (entries && (ge->clut_address > UINT32_MAX -
                     entries * bytes_per_entry ||
