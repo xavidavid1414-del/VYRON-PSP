@@ -136,6 +136,15 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
         return false;
 
     const uint32_t pc = cpu->pc;
+
+    /* MIPS instruction fetches must be word-aligned. */
+    if ((pc & 3u) != 0) {
+        enter_exception(
+            cpu, pc, cpu->branch_pending,
+            EXC_ADEL, pc, true);
+        return true;
+    }
+
     const uint32_t instruction =
         psp_memory_read32(memory, pc);
 
