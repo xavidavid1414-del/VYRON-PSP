@@ -7,6 +7,8 @@
 
 #include "cpu/psp_cpu.h"
 #include "memory/psp_memory.h"
+#include "memory/psp_memory_blocks.h"
+#include "loader/psp_io_hle.h"
 #include "loader/psp_iso.h"
 #include "loader/psp_iso_fs.h"
 #include "loader/psp_loader.h"
@@ -16,6 +18,8 @@
 typedef struct {
     PSP_CPU cpu;
     PSP_Memory memory;
+    PSP_MemoryBlocks memory_blocks;
+    PSP_IO_Service io_service;
     PSP_Video video;
     PSP_Controller controller;
 
