@@ -49,7 +49,6 @@
 #define GE_CMD_LSC0 0x98u
 #define GE_CMD_LSC1 0x99u
 #define GE_CMD_LSC2 0x9Au
-#define GE_CMD_LSC3 0x9Bu
 #define GE_CMD_AMBIENTCOLOR 0x5Cu
 #define GE_CMD_LIGHTTYPE0 0x5Fu
 #define GE_CMD_LDX0 0x6Fu
@@ -1764,9 +1763,6 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_LSC2:
                 ge->light_specular[2] = value & 0x00FFFFFFu;
-                break;
-            case GE_CMD_LSC3:
-                ge->light_specular[3] = value & 0x00FFFFFFu;
                 break;
             case GE_CMD_MATERIALSPECULAR:
                 ge->material_specular = value & 0x00FFFFFFu;
