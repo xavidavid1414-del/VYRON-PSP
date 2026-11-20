@@ -95,6 +95,8 @@
 #define GE_CMD_ZTEST 0xDEu
 #define GE_CMD_ZWRITEDISABLE 0xE7u
 #define GE_CMD_PRIM    0x04u
+#define GE_CMD_BBOX    0x07u
+#define GE_CMD_BJUMP   0x09u
 #define GE_CMD_BEZIER  0x05u
 #define GE_CMD_SPLINE  0x06u
 #define GE_CMD_PATCHDIVISION 0x36u
