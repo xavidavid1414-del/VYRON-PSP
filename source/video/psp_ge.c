@@ -722,6 +722,60 @@ static void ge_store_framebuffer_pixel(PSP_GE *ge, int x, int y,
                       (uint8_t)(packed >> 8));
 }
 
+void psp_ge_present_framebuffer(PSP_GE *ge)
+{
+    if (ge == NULL || !ge->initialized || ge->memory == NULL ||
+        ge->video == NULL || ge->framebuffer_stride < PSP_VIDEO_WIDTH ||
+        ge->framebuffer_format > 3u)
+        return;
+
+    const uint32_t bpp = ge->framebuffer_format == 3u ? 4u : 2u;
+    for (uint32_t y = 0; y < PSP_VIDEO_HEIGHT; y++) {
+        for (uint32_t x = 0; x < PSP_VIDEO_WIDTH; x++) {
+            uint64_t address = (uint64_t)ge->framebuffer_address +
+                ((uint64_t)y * ge->framebuffer_stride + x) * bpp;
+            if (address > UINT32_MAX ||
+                !psp_memory_is_valid(ge->memory, (uint32_t)address, bpp))
+                return;
+
+            uint32_t color;
+            if (bpp == 4u) {
+                color = psp_memory_read32(ge->memory, (uint32_t)address);
+            } else {
+                uint32_t packed = psp_memory_read8(
+                    ge->memory, (uint32_t)address);
+                packed |= (uint32_t)psp_memory_read8(
+                    ge->memory, (uint32_t)address + 1u) << 8;
+                uint32_t red, green, blue, alpha = 0xFFu;
+                if (ge->framebuffer_format == 0u) {
+                    red = (packed >> 11) & 31u;
+                    green = (packed >> 5) & 63u;
+                    blue = packed & 31u;
+                    red = (red << 3) | (red >> 2);
+                    green = (green << 2) | (green >> 4);
+                    blue = (blue << 3) | (blue >> 2);
+                } else if (ge->framebuffer_format == 1u) {
+                    red = (packed >> 11) & 31u;
+                    green = (packed >> 6) & 31u;
+                    blue = (packed >> 1) & 31u;
+                    alpha = (packed & 1u) ? 0xFFu : 0u;
+                    red = (red << 3) | (red >> 2);
+                    green = (green << 3) | (green >> 2);
+                    blue = (blue << 3) | (blue >> 2);
+                } else {
+                    red = ((packed >> 12) & 15u) * 17u;
+                    green = ((packed >> 8) & 15u) * 17u;
+                    blue = ((packed >> 4) & 15u) * 17u;
+                    alpha = (packed & 15u) * 17u;
+                }
+                color = (alpha << 24) | (red << 16) |
+                        (green << 8) | blue;
+            }
+            psp_video_put_pixel(ge->video, (int)x, (int)y, color);
+        }
+    }
+}
+
 static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
                           float depth)
 {
