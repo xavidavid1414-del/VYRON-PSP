@@ -4,8 +4,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#define TEST_ELF_SIZE 0x84u
+#define TEST_ELF_SIZE 0xA4u
 #define TEST_ENTRY PSP_RAM_BASE
+#define TEST_DATA_ENTRY (PSP_RAM_BASE + 0x100u)
 
 static void write_le16(uint8_t *p, uint16_t value)
 {
@@ -40,17 +41,27 @@ static void make_test_elf(uint8_t *elf)
     write_le32(elf + 28, 52);
     write_le16(elf + 40, 52);
     write_le16(elf + 42, 32);
-    write_le16(elf + 44, 1);
+    write_le16(elf + 44, 2);
 
+    /* Executable segment: addiu t0, zero, 42; then four BSS bytes. */
     write_le32(elf + 52, 1); /* PT_LOAD */
-    write_le32(elf + 56, 0x80);
+    write_le32(elf + 56, 0xA0);
     write_le32(elf + 60, TEST_ENTRY);
     write_le32(elf + 68, 4); /* filesz */
     write_le32(elf + 72, 8); /* memsz */
     write_le32(elf + 76, 5); /* PF_R | PF_X */
     write_le32(elf + 80, 4);
+    write_le32(elf + 0xA0, 0x2408002A);
 
-    write_le32(elf + 0x80, 0); /* MIPS NOP */
+    /* Separate writable data segment with its own BSS tail. */
+    write_le32(elf + 84, 1); /* PT_LOAD */
+    write_le32(elf + 88, 0xA0 + 4);
+    write_le32(elf + 92, TEST_DATA_ENTRY);
+    write_le32(elf + 100, 4); /* filesz */
+    write_le32(elf + 104, 8); /* memsz */
+    write_le32(elf + 108, 6); /* PF_R | PF_W */
+    write_le32(elf + 112, 4);
+    write_le32(elf + 0xA4 - 4, 0x12345678);
 }
 
 int main(void)
@@ -69,18 +80,22 @@ int main(void)
         &core, elf, sizeof(elf)));
     assert(core.image_loaded);
     assert(core.cpu.pc == TEST_ENTRY);
-    assert(psp_memory_read32(&core.memory, TEST_ENTRY) == 0);
-    assert(psp_memory_read8(&core.memory, TEST_ENTRY + 4) == 0);
-    assert(psp_memory_read8(&core.memory, TEST_ENTRY + 5) == 0);
-    assert(psp_memory_read8(&core.memory, TEST_ENTRY + 6) == 0);
-    assert(psp_memory_read8(&core.memory, TEST_ENTRY + 7) == 0);
+    assert(psp_memory_read32(&core.memory, TEST_ENTRY) == 0x2408002A);
+    assert(psp_memory_read32(&core.memory, TEST_DATA_ENTRY) == 0x12345678);
 
-    /* The loaded entry point must execute a MIPS instruction. */
+    /* Both PT_LOAD segments must have zero-filled BSS tails. */
+    for (uint32_t i = 4; i < 8; i++) {
+        assert(psp_memory_read8(&core.memory, TEST_ENTRY + i) == 0);
+        assert(psp_memory_read8(&core.memory, TEST_DATA_ENTRY + i) == 0);
+    }
+
+    /* Execute a real arithmetic instruction from the loaded segment. */
     assert(psp_core_run(&core, 1));
+    assert(core.cpu.gpr[8] == 42);
     assert(core.cpu.pc == TEST_ENTRY + 4);
 
     /* An entry point outside executable memory must be rejected. */
-    write_le32(elf + 24, TEST_ENTRY + 0x100);
+    write_le32(elf + 24, TEST_DATA_ENTRY);
     core.cpu.pc = 0x12345678;
     assert(!psp_core_load_executable_data(
         &core, elf, sizeof(elf)));
