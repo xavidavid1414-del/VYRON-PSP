@@ -164,7 +164,7 @@ int main(void)
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 8) ==
            0x00001004);
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 12) ==
-           0x08001000);
+           0x0A000400);
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x1000) ==
            0xAABBCCDD);
 
