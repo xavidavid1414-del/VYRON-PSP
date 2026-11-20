@@ -138,9 +138,18 @@ int main(void)
     uint8_t prx[0x160];
 
     memset(&core, 0, sizeof(core));
-    assert(psp_memory_init(&core.memory));
-    psp_cpu_init(&core.cpu);
-    core.initialized = true;
+    assert(psp_core_init(&core));
+
+    /* Core startup must register controller, memory, and file HLE NIDs. */
+    uint32_t service_code = 0;
+    assert(psp_nid_resolve(0x1C90B00Bu, &service_code) == false);
+    assert(psp_nid_resolve(0x237DBD4Fu, &service_code));
+    assert(psp_nid_resolve(0xB6D61D02u, &service_code));
+    assert(psp_nid_resolve(0x9D9A5BA1u, &service_code));
+    assert(psp_nid_resolve(0x109F50BCu, &service_code));
+    assert(psp_nid_resolve(0x810C4BC3u, &service_code));
+    assert(psp_nid_resolve(0x6A638D83u, &service_code));
+    assert(psp_nid_resolve(0x27EB27B8u, &service_code));
 
     make_test_elf(elf);
 
@@ -203,7 +212,6 @@ int main(void)
     assert(!core.image_loaded);
     assert(core.cpu.pc == 0x12345678);
 
-    psp_core_unload_executable(&core);
-    psp_memory_destroy(&core.memory);
+    psp_core_destroy(&core);
     return 0;
 }
