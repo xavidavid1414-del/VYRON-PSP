@@ -128,5 +128,6 @@ void psp_ge_destroy(PSP_GE *ge);
 void psp_ge_reset(PSP_GE *ge);
 bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                          uint32_t max_commands);
+void psp_ge_present_framebuffer(PSP_GE *ge);
 
 #endif
