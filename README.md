@@ -8,6 +8,12 @@ Experimental PSP emulator for the Nintendo 3DS family, targeting the New Nintend
 
 The project builds a Nintendo 3DS `.3dsx` application and an installable homebrew `.cia` package with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO, PBP, PRX, and ELF files, plus an experimental MIPS execution core.
 
+### Phase 6 — PSP audio output
+
+**Implementation milestone: complete for the documented PCM output subset.** The emulator now has eight independently reserved PSP audio channels, mono PCM16 input, per-channel left/right volume and panning, saturated stereo mixing, bounded sample queues, 11.025/22.05/44.1 kHz conversion to the 3DS 44.1 kHz output clock, four audio HLE imports (channel reserve/release, blocking output, and panned blocking output), and a frontend path that submits mixed audio to Nintendo 3DS NDSP. Audio HLE and mixer behavior are covered by host regression tests.
+
+This is not a complete PSP audio stack: compressed audio codecs, sceSas/ATRAC, output2/VAUDIO APIs, accurate blocking/wait timing, streaming callbacks, and per-game audio compatibility remain unsupported. Silence is submitted when no PSP samples are queued; real-hardware sound quality and timing still need testing on the New Nintendo 2DS XL.
+
 ### Phase 5 — PSP graphics renderer
 
 **Implementation milestone: complete for the documented software-renderer subset.** The renderer decodes the implemented GE display-list commands, transforms and clips primitives, rasterizes supported primitive types, handles textures/CLUT/mipmaps, depth and alpha/color/stencil tests, blending, lighting/fog, patch tessellation, block transfers, and PSP EDRAM framebuffer presentation. GE address control (BASE/OFFSET/ORIGIN), bounded JUMP/BJUMP/CALL/RET flow, and separate draw/display framebuffers are covered by automated tests.
@@ -22,7 +28,7 @@ The full PSP GE is not claimed to be cycle-accurate or fully compatible. Unsuppo
 - ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading, including PSPREL1 and compressed PSPREL2 relocation streams.
 - A partial MIPS interpreter with delay-slot handling and exception basics.
 - Experimental PSP GE software-renderer subset: display-list decoding with bounded jump/call/return flow, 2D points/lines/line strips/triangles/triangle strips/triangle fans/sprites, 8-bit/16-bit/32-bit indexed vertices, interpolated vertex colors, world/view/projection transforms, viewport mapping, depth testing, configurable basic alpha blending and alpha testing, nearest-neighbor and bilinear 5650/5551/4444/8888 texture sampling with MODULATE/DECAL/BLEND/REPLACE/ADD texture functions, up to four directional diffuse lights, experimental point/spot lights with distance/spot attenuation, experimental Blinn-Phong specular materials, view-space fog, clear-mode color/depth writes, masked RGB color testing, face culling, perspective-correct texture interpolation, mipmap selection and filtering, Bezier and B-spline patch tessellation with configurable U/V subdivision and point/line/triangle output, and homogeneous frustum plus framebuffer/scissor clipping, plus experimental stencil tests/operations and 16-bit/32-bit GE block transfers between mapped PSP RAM buffers, rendered into the emulator framebuffer.
-- Experimental framebuffer output with a separate PSP display framebuffer, `sceDisplaySetFrameBuf` HLE, mapped 2 MiB PSP EDRAM/VRAM, framebuffer pixel-format conversion (5650/5551/4444/8888), and Nintendo 3DS audio output plumbing.
+- Experimental framebuffer output with a separate PSP display framebuffer, `sceDisplaySetFrameBuf` HLE, mapped 2 MiB PSP EDRAM/VRAM, framebuffer pixel-format conversion (5650/5551/4444/8888), and Nintendo 3DS NDSP audio output.
 - Synchronous PSP GE HLE for display-list enqueue/dequeue and list/draw synchronization queries; nonzero stall addresses, callbacks, and asynchronous scheduling are not implemented.
 - HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.
 - Experimental PSP user-partition memory blocks with allocation, release, and block-head lookup HLE calls.
