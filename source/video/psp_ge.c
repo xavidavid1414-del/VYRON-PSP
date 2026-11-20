@@ -135,8 +135,11 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     float inv_w = 1.0f / cw;
     vertex->reciprocal_w = inv_w;
     float nx = cx * inv_w, ny = cy * inv_w, nz = cz * inv_w;
+    /* Keep finite off-screen coordinates: triangle clipping happens
+       before rasterization, so crossing primitives are not discarded. */
     if (!isfinite(nx) || !isfinite(ny) || !isfinite(nz) ||
-        fabsf(nx) > 128.0f || fabsf(ny) > 128.0f || fabsf(nz) > 128.0f)
+        fabsf(nx) > 1000000.0f || fabsf(ny) > 1000000.0f ||
+        fabsf(nz) > 1000000.0f)
         return false;
 
     vertex->x = ge->viewport_center[0] +
@@ -770,8 +773,89 @@ static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
     }
 }
 
-static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
-                             const GE_Vertex *b, const GE_Vertex *c)
+static GE_Vertex ge_lerp_vertex(const GE_Vertex *a,
+                                  const GE_Vertex *b, float t)
+{
+    GE_Vertex out = *a;
+#define GE_LERP_FIELD(field) out.field = a->field + (b->field - a->field) * t
+    GE_LERP_FIELD(x); GE_LERP_FIELD(y); GE_LERP_FIELD(z);
+    GE_LERP_FIELD(nx); GE_LERP_FIELD(ny); GE_LERP_FIELD(nz);
+    GE_LERP_FIELD(reciprocal_w);
+#undef GE_LERP_FIELD
+    /* Preserve perspective-correct texture attributes across generated
+       clip vertices by interpolating u/w and v/w, then restoring u and v. */
+    float rw = out.reciprocal_w;
+    float uow = a->u * a->reciprocal_w +
+        (b->u * b->reciprocal_w - a->u * a->reciprocal_w) * t;
+    float vow = a->v * a->reciprocal_w +
+        (b->v * b->reciprocal_w - a->v * a->reciprocal_w) * t;
+    if (fabsf(rw) > 0.000001f) {
+        out.u = uow / rw;
+        out.v = vow / rw;
+    } else {
+        out.u = a->u + (b->u - a->u) * t;
+        out.v = a->v + (b->v - a->v) * t;
+    }
+    uint32_t color = 0;
+    for (unsigned int shift = 0; shift <= 24; shift += 8) {
+        float av = (float)((a->color >> shift) & 0xFFu);
+        float bv = (float)((b->color >> shift) & 0xFFu);
+        float value = av + (bv - av) * t;
+        if (value < 0.0f) value = 0.0f;
+        if (value > 255.0f) value = 255.0f;
+        color |= (uint32_t)(value + 0.5f) << shift;
+    }
+    out.color = color;
+    return out;
+}
+
+static float ge_clip_distance(const GE_Vertex *v, unsigned int plane,
+                              float left, float top, float right, float bottom)
+{
+    switch (plane) {
+        case 0: return v->x - left;
+        case 1: return right - v->x;
+        case 2: return v->y - top;
+        default: return bottom - v->y;
+    }
+}
+
+static unsigned int ge_clip_polygon(const GE_Vertex *input,
+                                    unsigned int input_count,
+                                    GE_Vertex *output,
+                                    unsigned int plane,
+                                    float left, float top,
+                                    float right, float bottom)
+{
+    if (input_count == 0) return 0;
+    unsigned int output_count = 0;
+    const GE_Vertex *previous = &input[input_count - 1u];
+    float previous_distance = ge_clip_distance(
+        previous, plane, left, top, right, bottom);
+    bool previous_inside = previous_distance >= 0.0f;
+    for (unsigned int i = 0; i < input_count; i++) {
+        const GE_Vertex *current = &input[i];
+        float current_distance = ge_clip_distance(
+            current, plane, left, top, right, bottom);
+        bool current_inside = current_distance >= 0.0f;
+        if (current_inside != previous_inside) {
+            float denominator = previous_distance - current_distance;
+            if (fabsf(denominator) > 0.000001f && output_count < 12u) {
+                float t = previous_distance / denominator;
+                output[output_count++] = ge_lerp_vertex(previous, current, t);
+            }
+        }
+        if (current_inside && output_count < 12u)
+            output[output_count++] = *current;
+        previous = current;
+        previous_distance = current_distance;
+        previous_inside = current_inside;
+    }
+    return output_count;
+}
+
+static void ge_rasterize_triangle(PSP_GE *ge, const GE_Vertex *a,
+                                  const GE_Vertex *b, const GE_Vertex *c)
 {
     int min_x = (int)floorf(fminf(a->x, fminf(b->x, c->x)));
     int max_x = (int)ceilf(fmaxf(a->x, fmaxf(b->x, c->x)));
@@ -800,9 +884,7 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
             float w2 = ge_edge(a->x, a->y, b->x, b->y, px, py);
             if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
                 (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0)) {
-                float wa = w0 / area;
-                float wb = w1 / area;
-                float wc = w2 / area;
+                float wa = w0 / area, wb = w1 / area, wc = w2 / area;
                 uint32_t color = ge_interpolate_color(
                     a->color, b->color, c->color, wa, wb, wc);
                 float depth = a->z * wa + b->z * wb + c->z * wc;
@@ -822,6 +904,32 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
             }
         }
     }
+}
+
+static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
+                             const GE_Vertex *b, const GE_Vertex *c)
+{
+    GE_Vertex first[12], second[12];
+    first[0] = *a; first[1] = *b; first[2] = *c;
+    unsigned int count = 3u;
+    GE_Vertex *input = first, *output = second;
+    float left = (float)(ge->scissor_left > 0 ? ge->scissor_left : 0);
+    float top = (float)(ge->scissor_top > 0 ? ge->scissor_top : 0);
+    int clip_right = ge->scissor_right < PSP_VIDEO_WIDTH - 1 ?
+        ge->scissor_right : PSP_VIDEO_WIDTH - 1;
+    int clip_bottom = ge->scissor_bottom < PSP_VIDEO_HEIGHT - 1 ?
+        ge->scissor_bottom : PSP_VIDEO_HEIGHT - 1;
+    float right = (float)clip_right + 1.0f;
+    float bottom = (float)clip_bottom + 1.0f;
+    if (clip_right < left || clip_bottom < top) return;
+    for (unsigned int plane = 0; plane < 4u && count; plane++) {
+        count = ge_clip_polygon(input, count, output, plane,
+                                left, top, right, bottom);
+        GE_Vertex *swap = input; input = output; output = swap;
+    }
+    if (count < 3u) return;
+    for (unsigned int i = 1u; i + 1u < count; i++)
+        ge_rasterize_triangle(ge, &input[0], &input[i], &input[i + 1u]);
 }
 
 static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
