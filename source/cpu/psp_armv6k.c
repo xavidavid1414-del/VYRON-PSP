@@ -285,6 +285,35 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         return PSP_ARMV6K_TRANSLATE_OK;
     }
 
+    if (opcode == 0x1Cu && (function == 0x00u || function == 0x04u)) {
+        /* MADD/MSUB accumulate a signed 64-bit product into HI:LO. */
+        if (!emit_load_gpr(emitter, 1, rs) ||
+            !emit_load_gpr(emitter, 2, rt) ||
+            !psp_armv6k_emit_ldr_str(
+                emitter, true, 5, 0, (int32_t)offsetof(PSP_CPU, lo)) ||
+            !psp_armv6k_emit_ldr_str(
+                emitter, true, 6, 0, (int32_t)offsetof(PSP_CPU, hi)))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+
+        uint32_t smull = ARM_COND_AL | (1u << 23) | (1u << 22) |
+                         (4u << 16) | (3u << 12) | (2u << 8) |
+                         0x90u | 1u;
+        uint8_t low_op = function == 0x00u ? 4u : 2u;  /* ADDS / SUBS */
+        uint8_t high_op = function == 0x00u ? 5u : 6u; /* ADC / SBC */
+        uint32_t low = ARM_COND_AL | ((uint32_t)low_op << 21) |
+                       (1u << 20) | (3u << 16) | (3u << 12) | 5u;
+        uint32_t high = ARM_COND_AL | ((uint32_t)high_op << 21) |
+                        (4u << 16) | (4u << 12) | 6u;
+        if (!emit_word(emitter, smull) || !emit_word(emitter, low) ||
+            !emit_word(emitter, high) ||
+            !psp_armv6k_emit_ldr_str(
+                emitter, false, 3, 0, (int32_t)offsetof(PSP_CPU, lo)) ||
+            !psp_armv6k_emit_ldr_str(
+                emitter, false, 4, 0, (int32_t)offsetof(PSP_CPU, hi)))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        return PSP_ARMV6K_TRANSLATE_OK;
+    }
+
     if (opcode == 0x1Cu && function == 0x02u) { /* SPECIAL2 MUL */
         if (!emit_load_gpr(emitter, 1, rs) ||
             !emit_load_gpr(emitter, 2, rt))
