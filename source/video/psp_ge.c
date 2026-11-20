@@ -5,6 +5,8 @@
 #include <string.h>
 
 #define GE_CMD_VADDR   0x01u
+#define GE_CMD_OFFSETADDR 0x13u
+#define GE_CMD_ORIGIN 0x14u
 #define GE_CMD_IADDR   0x02u
 #define GE_CMD_WORLDMATRIXNUMBER 0x3Au
 #define GE_CMD_WORLDMATRIXDATA 0x3Bu
@@ -174,7 +176,18 @@ typedef struct {
 
 static uint32_t ge_resolve_address(const PSP_GE *ge, uint32_t address)
 {
-    return (ge->base_address & 0xFF000000u) | (address & 0x00FFFFFFu);
+    return (ge->base_address & 0x0F000000u) | (address & 0x00FFFFFFu);
+}
+
+static bool ge_resolve_list_address(const PSP_GE *ge, uint32_t address,
+                                    uint32_t *resolved)
+{
+    uint64_t value = (uint64_t)ge_resolve_address(ge, address) +
+        ge->address_offset;
+    if (value > UINT32_MAX)
+        return false;
+    *resolved = (uint32_t)value;
+    return true;
 }
 
 static float ge_decode_float24(uint32_t value)
@@ -2195,6 +2208,7 @@ void psp_ge_reset(PSP_GE *ge)
 {
     if (ge == NULL || !ge->initialized) return;
     ge->base_address = 0;
+    ge->address_offset = 0;
     ge->framebuffer_address = PSP_VRAM_BASE;
     ge->framebuffer_stride = PSP_VIDEO_STRIDE;
     ge->framebuffer_format = 3u;
@@ -2346,7 +2360,8 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
         max_commands > 100000)
         return false;
 
-    uint32_t return_stack[16];
+    uint32_t return_stack[2];
+    uint32_t offset_stack[2];
     uint32_t stack_depth = 0;
     uint64_t pc64 = list_address;
     for (uint32_t i = 0; i < max_commands; i++, pc64 += 4u) {
@@ -2360,13 +2375,17 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
 
         switch (command) {
             case GE_CMD_BASE:
-                ge->base_address = (value & 0x00FF0000u) << 8;
+                ge->base_address = (value & 0x000F0000u) << 8;
                 break;
             case GE_CMD_VADDR:
-                ge->vertex_address = ge_resolve_address(ge, value);
+                if (!ge_resolve_list_address(ge, value,
+                                             &ge->vertex_address))
+                    return false;
                 break;
             case GE_CMD_IADDR:
-                ge->index_address = ge_resolve_address(ge, value);
+                if (!ge_resolve_list_address(ge, value,
+                                             &ge->index_address))
+                    return false;
                 break;
             case GE_CMD_FRAMEBUFPTR:
                 ge->framebuffer_address = ge_resolve_address(ge, value);
@@ -2822,35 +2841,54 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_OFFSET:
                 /* Offset is used by transformed 3D vertices; unsupported here. */
                 break;
+            case GE_CMD_OFFSETADDR:
+                ge->address_offset = (value & 0x00FFFFFFu) << 8;
+                break;
+            case GE_CMD_ORIGIN:
+                ge->address_offset = pc;
+                break;
             case GE_CMD_BBOX:
                 if (!ge_test_bounding_box(ge, value & 0xFFFFu))
                     return false;
                 break;
             case GE_CMD_BJUMP:
                 if (ge->bounding_box_outside) {
-                    uint32_t target = ge_resolve_address(ge, value);
-                    if (target < 4u) return false;
+                    uint32_t target;
+                    if (!ge_resolve_list_address(ge, value, &target) ||
+                        target < 4u)
+                        return false;
                     pc64 = (uint64_t)target - 4u;
                 }
                 break;
             case GE_CMD_JUMP: {
-                uint32_t target = ge_resolve_address(ge, value);
-                if (target < 4u) return false;
+                uint32_t target;
+                if (!ge_resolve_list_address(ge, value, &target) ||
+                    target < 4u)
+                    return false;
                 pc64 = (uint64_t)target - 4u;
                 break;
             }
             case GE_CMD_CALL: {
-                if (stack_depth >= 16u) return false;
-                uint32_t target = ge_resolve_address(ge, value);
-                if (target < 4u || pc > UINT32_MAX - 4u) return false;
-                return_stack[stack_depth++] = pc + 4u;
+                /* The PSP GE has two return-address slots. A deeper CALL
+                   is ignored by hardware rather than creating a larger stack. */
+                if (stack_depth >= 2u)
+                    break;
+                uint32_t target;
+                if (!ge_resolve_list_address(ge, value, &target) ||
+                    target < 4u || pc > UINT32_MAX - 4u)
+                    return false;
+                return_stack[stack_depth] = pc + 4u;
+                offset_stack[stack_depth] = ge->address_offset;
+                stack_depth++;
                 pc64 = (uint64_t)target - 4u;
                 break;
             }
             case GE_CMD_RET:
                 if (stack_depth == 0 || return_stack[stack_depth - 1] < 4u)
                     return false;
-                pc64 = (uint64_t)return_stack[--stack_depth] - 4u;
+                stack_depth--;
+                ge->address_offset = offset_stack[stack_depth];
+                pc64 = (uint64_t)return_stack[stack_depth] - 4u;
                 break;
             case GE_CMD_SCISSOR1:
                 ge->scissor_left = (int)(value & 0x3FFu);
