@@ -332,6 +332,11 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
 {
     if (count == 0 || count > 4096)
         return count == 0;
+    if (ge->texture_enabled &&
+        (ge->texture_width == 0 || ge->texture_height == 0 ||
+         ge->texture_buffer_width < ge->texture_width ||
+         ge->texture_format > 3u))
+        return false;
     GE_Vertex vertices[3];
     uint32_t drawn = 0;
     if (primitive == 0) {
