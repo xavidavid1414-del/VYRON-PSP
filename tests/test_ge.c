@@ -103,6 +103,43 @@ int main(void)
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
     assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
 
+    /* Minification selects the matching PSP mip level (LOD 2). */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    for (uint32_t i = 0; i < 16u; i++)
+        psp_memory_write32(&memory, PSP_RAM_BASE + 0x2800u + i * 4u,
+                           0xFFFF0000u);
+    for (uint32_t i = 0; i < 4u; i++)
+        psp_memory_write32(&memory, PSP_RAM_BASE + 0x2840u + i * 4u,
+                           0xFF00FF00u);
+    psp_memory_write32(&memory, PSP_RAM_BASE + 0x2850u, 0xFF0000FFu);
+    put_float(&memory, textured_vertices, 0.0f);
+    put_float(&memory, textured_vertices + 4u, 0.0f);
+    put_float(&memory, textured_vertices + 16u, 128.0f);
+    put_float(&memory, textured_vertices + 20u, 0.0f);
+    put_float(&memory, textured_vertices + 32u, 0.0f);
+    put_float(&memory, textured_vertices + 36u, 128.0f);
+    command(&memory, list + 1400u, 0x10, 0x00080000u);
+    command(&memory, list + 1404u, 0xA0, 0x2800u);
+    command(&memory, list + 1408u, 0xA8, 0x00080004u);
+    command(&memory, list + 1412u, 0xB8, 0x00000202u);
+    command(&memory, list + 1416u, 0xA9, 0x2840u);
+    command(&memory, list + 1420u, 0xB0, 0x00080002u);
+    command(&memory, list + 1424u, 0xB9, 0x00000101u);
+    command(&memory, list + 1428u, 0xAA, 0x2850u);
+    command(&memory, list + 1432u, 0xB1, 0x00080001u);
+    command(&memory, list + 1436u, 0xBA, 0u);
+    command(&memory, list + 1440u, 0xC3, 3u);
+    command(&memory, list + 1444u, 0xC6, 2u);
+    command(&memory, list + 1448u, 0xC7, 0x00000101u);
+    command(&memory, list + 1452u, 0x1E, 1u);
+    command(&memory, list + 1456u, 0x01, 0x1400u);
+    command(&memory, list + 1460u, 0x12, textured_vtype);
+    command(&memory, list + 1464u, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 1468u, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1400u, 18u));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0xFF0000FFu);
+
     /* 5650 textures decode to opaque RGB pixels as well. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
