@@ -52,16 +52,6 @@ static u64 fps_window_start;
 static unsigned int fps_frame_count;
 static unsigned int displayed_fps;
 
-static uint8_t clamp_analog_axis(int16_t value)
-{
-    if (value < -156)
-        value = -156;
-    if (value > 156)
-        value = 156;
-
-    return (uint8_t)(128 + ((int)value * 127) / 156);
-}
-
 static void update_controller_input(void)
 {
     u32 keys = hidKeysHeld();
@@ -97,8 +87,8 @@ static void update_controller_input(void)
     );
     psp_controller_set_analog(
         &core.controller,
-        clamp_analog_axis(stick.dx),
-        clamp_analog_axis(-stick.dy)
+        psp_controller_normalize_axis(stick.dx),
+        psp_controller_normalize_axis(-stick.dy)
     );
 }
 
