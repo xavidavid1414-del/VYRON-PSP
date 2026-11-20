@@ -271,6 +271,23 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     }
 
     if (opcode == 0u) {
+        /* MULT/MULTU produce a full 64-bit result in HI:LO. */
+        if (function == 0x18u || function == 0x19u) {
+            if (!emit_load_gpr(emitter, 1, rs) ||
+                !emit_load_gpr(emitter, 2, rt))
+                return PSP_ARMv6K_TRANSLATE_ERROR;
+            /* ARM SMULL/UMULL: RdHi=r4, RdLo=r3, Rs=r2, Rm=r1. */
+            uint32_t long_mul = ARM_COND_AL | (1u << 23) |
+                (function == 0x18u ? (1u << 22) : 0u) |
+                (4u << 16) | (3u << 12) | (2u << 8) | 0x90u | 1u;
+            if (!emit_word(emitter, long_mul) ||
+                !psp_armv6k_emit_ldr_str(
+                    emitter, false, 3, 0, (int32_t)offsetof(PSP_CPU, lo)) ||
+                !psp_armv6k_emit_ldr_str(
+                    emitter, false, 4, 0, (int32_t)offsetof(PSP_CPU, hi)))
+                return PSP_ARMv6K_TRANSLATE_ERROR;
+            return PSP_ARMv6K_TRANSLATE_OK;
+        }
         /* HI/LO transfers use the architectural fields in PSP_CPU. */
         if (function == 0x10u || function == 0x12u) { /* MFHI / MFLO */
             size_t offset = function == 0x10u ? offsetof(PSP_CPU, hi) :
