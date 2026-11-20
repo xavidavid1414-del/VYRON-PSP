@@ -40,6 +40,10 @@ typedef struct {
     uint32_t light_type[4];
     float light_direction[4][3];
     uint32_t light_diffuse[4];
+    bool fog_enabled;
+    float fog_end;
+    float fog_slope;
+    uint32_t fog_color;
     uint32_t texture_address;
     uint32_t texture_level_address[8];
     uint32_t texture_level_buffer_width[8];
