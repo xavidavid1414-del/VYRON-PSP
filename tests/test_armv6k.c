@@ -247,16 +247,16 @@ int main(void)
 
     /* SLTI compares against a sign-extended immediate. */
     psp_armv6k_emitter_init(&out, code, 16);
-    uint32_t slti = (10u << 26) | (3u << 21) | (4u << 16) | 1u;
-    assert(psp_armv6k_translate_allegrex(&out, slti) ==
+    uint32_t slti_signed_case = (10u << 26) | (3u << 21) | (4u << 16) | 1u;
+    assert(psp_armv6k_translate_allegrex(&out, slti_signed_case) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 5);
     assert(code[1] == 0xE3510001u); /* CMP r1, #1 */
 
     /* SLTIU uses an unsigned comparison after sign extension. */
     psp_armv6k_emitter_init(&out, code, 16);
-    uint32_t sltiu = (11u << 26) | (3u << 21) | (4u << 16) | 1u;
-    assert(psp_armv6k_translate_allegrex(&out, sltiu) ==
+    uint32_t sltiu_unsigned_case = (11u << 26) | (3u << 21) | (4u << 16) | 1u;
+    assert(psp_armv6k_translate_allegrex(&out, sltiu_unsigned_case) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 5);
     assert(code[1] == 0xE3510001u); /* CMP r1, #1 */
