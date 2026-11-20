@@ -103,6 +103,22 @@ int main(void)
     assert(ge.primitives_drawn == 8u);
     assert(psp_video_get_pixel(&video, 115, 115) != 0u);
 
+
+    /* A clamped 4x4 B-spline surface uses the same patch tessellator. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    command(&memory, patch_list + 64u, 0x10u, 0x00080000u);
+    command(&memory, patch_list + 68u, 0x01u, 0x3000u);
+    command(&memory, patch_list + 72u, 0x12u, vtype);
+    command(&memory, patch_list + 76u, 0x36u, (2u << 8) | 2u);
+    command(&memory, patch_list + 80u, 0x37u, 3u);
+    command(&memory, patch_list + 84u, 0x06u,
+            (3u << 18) | (3u << 16) | (4u << 8) | 4u);
+    command(&memory, patch_list + 88u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, patch_list + 64u, 7u));
+    assert(ge.primitives_drawn == 8u);
+    assert(psp_video_get_pixel(&video, 115, 115) != 0u);
+
     /* Invalid patch dimensions are rejected without reading a partial grid. */
     command(&memory, patch_list + 32u, 0x05u, (5u << 8) | 4u);
     command(&memory, patch_list + 36u, 0x0Cu, 0u);
