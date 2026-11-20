@@ -95,7 +95,7 @@ bool psp_audio_submit(
         memset(wave, 0, sizeof(ndspWaveBuf));
 
         wave->data_pcm16 = audio_buffers[i];
-        wave->nsamples = sample_count;
+        wave->nsamples = frames;
         wave->looping = false;
 
         ndspChnWaveBufAdd(AUDIO_CHANNEL, wave);
