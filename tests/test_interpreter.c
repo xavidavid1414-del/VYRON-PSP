@@ -165,5 +165,40 @@ int main(void)
     assert(cpu.pc == PSP_RAM_BASE + 12u);
     assert(!cpu.branch_pending);
 
+
+    /* A not-taken BEQ still executes its delay slot, then continues. */
+    const uint32_t beq_not_taken =
+        (0x04u << 26) | (1u << 21) | (2u << 16) | 2u;
+    memcpy(ram, &beq_not_taken, sizeof(beq_not_taken));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 7u;
+    cpu.gpr[2] = 8u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(!cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 8u);
+
+    /* An exception in a branch delay slot sets BD and EPC to the branch. */
+    memcpy(ram, &beq_r1_r1, sizeof(beq_r1_r1));
+    memcpy(ram + 4, &reserved_special, sizeof(reserved_special));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 7u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.branch_pending);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == EXCEPTION_VECTOR);
+    assert((cpu.cop0[COP0_CAUSE] & 0x80000000u) != 0);
+    assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (10u << 2));
+    assert(cpu.cop0[14] == PSP_RAM_BASE);
+
     return 0;
 }
