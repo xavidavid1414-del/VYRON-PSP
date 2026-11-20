@@ -114,6 +114,11 @@ bool psp_dynarec_run(PSP_Dynarec *dynarec, PSP_CPU *cpu,
             executed++;
             dynarec->executed_instructions++;
 
+            /* Stores may modify code in this translated page. */
+            if (psp_memory_page_generation(memory, block->start_pc) !=
+                block->page_generation)
+                break;
+
             /* A branch target is committed after its delay-slot instruction. */
             if (was_delay_slot || cpu->pc != current_pc + 4u)
                 break;
