@@ -90,8 +90,8 @@ static void make_test_prx(uint8_t *elf, size_t size)
     write_le32(elf + 52, 1);
     write_le32(elf + 56, 0x100);
     write_le32(elf + 60, 0x1000);
-    write_le32(elf + 68, 24);
-    write_le32(elf + 72, 24);
+    write_le32(elf + 68, 28);
+    write_le32(elf + 72, 28);
     write_le32(elf + 76, 5);
     write_le32(elf + 80, 4);
     write_le32(elf + 0x100, 0x2408002A);
@@ -100,10 +100,11 @@ static void make_test_prx(uint8_t *elf, size_t size)
     write_le32(elf + 0x10C, 0x08000800); /* J, R_MIPS_26 */
     write_le32(elf + 0x110, 0x3C080000); /* LUI, R_MIPS_HI16 */
     write_le32(elf + 0x114, 0x25082000); /* ADDIU, R_MIPS_LO16 */
+    write_le32(elf + 0x118, 0x3C090000); /* second LUI, shared LO16 */
 
     /* Data PRX segment, virtual address 0x2000. */
     write_le32(elf + 84, 1);
-    write_le32(elf + 88, 0x118);
+    write_le32(elf + 88, 0x11C);
     write_le32(elf + 92, 0x2000);
     write_le32(elf + 100, 8);
     write_le32(elf + 104, 8);
@@ -114,25 +115,27 @@ static void make_test_prx(uint8_t *elf, size_t size)
 
     /* PSP relocation table: R_MIPS_32, R_MIPS_16 and R_MIPS_26. */
     write_le32(elf + 116, 0x700000A0);
-    write_le32(elf + 120, 0x128);
-    write_le32(elf + 132, 40);
-    write_le32(elf + 0x128, 4);
-    write_le32(elf + 0x12C, (1u << 16) | 2u);
-    write_le32(elf + 0x130, 8);
-    write_le32(elf + 0x134, (1u << 16) | 1u);
-    write_le32(elf + 0x138, 12);
-    write_le32(elf + 0x13C, (1u << 16) | 4u);
-    write_le32(elf + 0x140, 16);
-    write_le32(elf + 0x144, (1u << 16) | 5u);
-    write_le32(elf + 0x148, 20);
-    write_le32(elf + 0x14C, (1u << 16) | 6u);
+    write_le32(elf + 120, 0x130);
+    write_le32(elf + 132, 48);
+    write_le32(elf + 0x130, 4);
+    write_le32(elf + 0x134, (1u << 16) | 2u);
+    write_le32(elf + 0x138, 8);
+    write_le32(elf + 0x13C, (1u << 16) | 1u);
+    write_le32(elf + 0x140, 12);
+    write_le32(elf + 0x144, (1u << 16) | 4u);
+    write_le32(elf + 0x148, 16);
+    write_le32(elf + 0x14C, (1u << 16) | 5u);
+    write_le32(elf + 0x150, 24);
+    write_le32(elf + 0x154, (1u << 16) | 5u);
+    write_le32(elf + 0x158, 20);
+    write_le32(elf + 0x15C, (1u << 16) | 6u);
 }
 
 int main(void)
 {
     PSP_Core core;
     uint8_t elf[TEST_ELF_SIZE];
-    uint8_t prx[0x150];
+    uint8_t prx[0x160];
 
     memset(&core, 0, sizeof(core));
     assert(psp_memory_init(&core.memory));
@@ -177,9 +180,11 @@ int main(void)
            0x3C080800);
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 20) ==
            0x25081000);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 24) ==
+           0x3C090800);
 
     /* A paired LO16 relocation outside its write segment must be rejected. */
-    write_le32(prx + 0x148, 24);
+    write_le32(prx + 0x158, 28);
     assert(!psp_core_load_executable_data(
         &core, prx, sizeof(prx)));
     /* Failed PRX loading must leave the previously loaded RAM intact. */
