@@ -561,6 +561,8 @@ int main(void)
             execute_cpu_frame();
             if (!execution_active)
                 draw_interface(&core.video);
+            if (execution_active)
+                psp_ge_present_framebuffer(&core.ge);
             psp_video_present(&core.video);
             update_fps_display();
             continue;
