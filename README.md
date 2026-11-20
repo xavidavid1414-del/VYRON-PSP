@@ -28,7 +28,7 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - Encrypted PSP `~PSP` executables are not decrypted.
 - CSO-compressed images are not supported; use an uncompressed `.iso` image.
 - PRX relocation support includes bounded `PT_PSPREL1` and compressed `PT_PSPREL2` handling for the implemented MIPS relocation types; uncommon relocation variants and complete kernel-module loading remain unsupported.
-- HLE coverage is limited to the currently registered controller, user-memory block, and read-only ISO file NIDs; most PSP kernel/HLE modules and SDK services remain unimplemented.
+- HLE coverage is limited to the currently registered controller, user-memory block, read-only ISO file, and basic synchronous GE list NIDs; most PSP kernel/HLE modules and SDK services remain unimplemented.
 - Memory block allocation currently supports user partition ID 2 only; kernel partitions and broader heap APIs are not implemented.
 - ISO file writes and removable-memory-stick (`ms0:`) access are not implemented. File access is limited to the mounted ISO image.
 - CPU instruction coverage and timing are incomplete.
