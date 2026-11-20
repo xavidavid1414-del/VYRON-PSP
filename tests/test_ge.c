@@ -1091,6 +1091,24 @@ int main(void)
     assert(psp_memory_read32(&memory, ge_display_target +
         ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u) == 0xFF123456u);
 
+    /* Clear-mode color masking reads the prior draw-target pixel, not
+       the unrelated host/display framebuffer contents. */
+    psp_ge_reset(&ge);
+    ge.framebuffer_address = ge_draw_target;
+    ge.framebuffer_stride = PSP_VIDEO_STRIDE;
+    ge.framebuffer_format = 3u;
+    ge.display_address = ge_display_target;
+    ge.display_stride = PSP_VIDEO_STRIDE;
+    ge.display_format = 3u;
+    const uint32_t draw_pixel_address = ge_draw_target +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u;
+    psp_memory_write32(&memory, draw_pixel_address, 0xFF0000FFu);
+    psp_video_clear(&video, 0xFF000000u);
+    ge.clear_mode = true;
+    ge.clear_mode_mask = 0x100u; /* Preserve RGB; write alpha. */
+    assert(psp_ge_execute_list(&ge, list, 8u));
+    assert(psp_memory_read32(&memory, draw_pixel_address) == 0xFF0000FFu);
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
