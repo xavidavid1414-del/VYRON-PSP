@@ -16,14 +16,18 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading.
 - A partial MIPS interpreter with delay-slot handling and exception basics.
 - Experimental framebuffer output and Nintendo 3DS audio output plumbing.
-- HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.\n- Unit and integration tests for memory, interpreter, loader, PRX imports, controller HLE dispatch, and ELF loading.
+- HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.
+- Experimental PSP user-partition memory blocks with allocation, release, and block-head lookup HLE calls.
+- Read-only ISO file services for `disc0:/` and `umd0:/`: open, read, seek, and close, including nested directory paths.\n- Unit and integration tests for memory, interpreter, loader, PRX imports, controller HLE dispatch, and ELF loading.
 
 ### Known limitations
 
 - Encrypted PSP `~PSP` executables are not decrypted.
 - CSO-compressed images are not supported; use an uncompressed `.iso` image.
 - PRX relocation support is partial; `PT_PSPREL2` is unsupported.
-- Only the currently registered PSP controller read/peek NIDs are resolved; broad PSP kernel/HLE modules, system services, and the SDK environment remain unimplemented.
+- HLE coverage is limited to the currently registered controller, user-memory block, and read-only ISO file NIDs; most PSP kernel/HLE modules and SDK services remain unimplemented.
+- Memory block allocation currently supports user partition ID 2 only; kernel partitions and broader heap APIs are not implemented.
+- ISO file writes and removable-memory-stick (`ms0:`) access are not implemented. File access is limited to the mounted ISO image.
 - CPU instruction coverage and timing are incomplete.
 - PSP GPU command processing, display lists, textures, frame synchronization, and audio decoding/mixing are not implemented as a complete PSP graphics/audio pipeline.
 - Commercial game compatibility is unknown and should not be assumed.
