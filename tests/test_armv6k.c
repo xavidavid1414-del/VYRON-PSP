@@ -53,6 +53,13 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(code[1] == 0xE1A031C2u); /* MOV r3, r2, ASR #3 */
 
+    /* A zero shift amount is a MIPS no-op for SRL/SRA. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t srl_zero = (2u << 16) | (3u << 11) | 0x02u;
+    assert(psp_armv6k_translate_allegrex(&out, srl_zero) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[1] == 0xE1A03002u); /* MOV r3, r2 */
+
     /* SLT r3, r1, r2: signed comparison. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t slt = (1u << 21) | (2u << 16) | (3u << 11) | 0x2Au;
