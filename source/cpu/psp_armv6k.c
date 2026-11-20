@@ -188,6 +188,9 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
 
     if (opcode == 0x0Au || opcode == 0x0Bu) { /* SLTI / SLTIU */
         int32_t signed_imm = (int16_t)(instruction & 0xFFFFu);
+        uint32_t ignored_operand;
+        if (!encode_imm8((uint32_t)signed_imm, &ignored_operand))
+            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
         if (!emit_load_gpr(emitter, 1, rs) ||
             !emit_set_less_imm(emitter, opcode == 0x0Bu, 3, 1,
                                (uint32_t)signed_imm) ||
