@@ -131,7 +131,7 @@ int main(void)
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t andi_wide = (12u << 26) | (3u << 21) | (4u << 16) | 0x1234u;
     assert(psp_armv6k_translate_allegrex(&out, andi_wide) ==
-           PSP_ARMv6K_TRANSLATE_OK);
+           PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 5);
     assert(code[3] == 0xE0013002u); /* AND r3, r1, r2 */
 
@@ -139,7 +139,7 @@ int main(void)
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t lui = (15u << 26) | (4u << 16) | 0x1234u;
     assert(psp_armv6k_translate_allegrex(&out, lui) ==
-           PSP_ARMv6K_TRANSLATE_OK);
+           PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 3);
     assert(code[0] == 0xE3A03412u); /* MOV r3, #0x12000000 */
     assert(code[1] == 0xE3833634u); /* ORR r3, r3, #0x00340000 */
