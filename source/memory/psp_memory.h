@@ -12,7 +12,8 @@ typedef struct {
     uint32_t size;
 } PSP_Memory;
 
-bool psp_memory_is_valid(PSP_Memory *memory, uint32_t address, uint32_t length);\nbool psp_memory_init(PSP_Memory *memory);
+bool psp_memory_is_valid(PSP_Memory *memory, uint32_t address, uint32_t length);
+bool psp_memory_init(PSP_Memory *memory);
 void psp_memory_destroy(PSP_Memory *memory);
 
 uint8_t psp_memory_read8(PSP_Memory *memory, uint32_t address);
