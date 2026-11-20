@@ -93,6 +93,17 @@ static void update_controller_input(void)
     );
 }
 
+static int16_t audio_output_buffer[735u * 2u];
+
+static void update_audio_output(void)
+{
+    if (!audio_ready)
+        return;
+
+    (void)psp_audio_hle_read(&core.audio, audio_output_buffer, 735u);
+    (void)psp_audio_submit(audio_output_buffer, 735u);
+}
+
 static void update_fps_display(void)
 {
     if (!settings.show_fps) {
@@ -559,6 +570,7 @@ int main(void)
             }
 
             execute_cpu_frame();
+            update_audio_output();
             if (!execution_active)
                 draw_interface(&core.video);
             if (execution_active)
@@ -605,6 +617,7 @@ int main(void)
         }
 
         execute_cpu_frame();
+        update_audio_output();
 
         if (!execution_active)
             draw_interface(&core.video);
