@@ -13,6 +13,30 @@ void psp_controller_reset(PSP_Controller *controller)
     controller->analog_y = 128u;
 }
 
+uint8_t psp_controller_normalize_axis(int16_t value)
+{
+    const int16_t deadzone = 8;
+    const int16_t maximum = 156;
+
+    if (value > maximum)
+        value = maximum;
+    if (value < -maximum)
+        value = -maximum;
+
+    if (value >= -deadzone && value <= deadzone)
+        return 128u;
+
+    if (value > 0) {
+        int16_t adjusted = value - deadzone;
+        int16_t range = maximum - deadzone;
+        return (uint8_t)(128 + ((int32_t)adjusted * 127) / range);
+    }
+
+    int16_t adjusted = -value - deadzone;
+    int16_t range = maximum - deadzone;
+    return (uint8_t)(128 - ((int32_t)adjusted * 128) / range);
+}
+
 void psp_controller_set_analog(
     PSP_Controller *controller,
     uint8_t x,
