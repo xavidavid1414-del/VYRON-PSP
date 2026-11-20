@@ -131,31 +131,31 @@ static void save_settings(void)
 static void print_settings_menu(void)
 {
     consoleClear();
-    printf("\\x1b[1;1HVYRON PSP | SETTINGS");
-    printf("\\x1b[3;1HUP/DOWN: Select  A: Change");
-    printf("\\x1b[4;1HB: Back  START: Exit");
-    printf("\\x1b[6;1H%s FPS counter: %s",
+    printf("\x1b[1;1HVYRON PSP | SETTINGS");
+    printf("\x1b[3;1HUP/DOWN: Select  A: Change");
+    printf("\x1b[4;1HB: Back  START: Exit");
+    printf("\x1b[6;1H%s FPS counter: %s",
            settings_selected == 0 ? ">" : " ",
            settings.show_fps ? "ON" : "OFF");
-    printf("\\x1b[8;1H%s Stylus menu: %s",
+    printf("\x1b[8;1H%s Stylus menu: %s",
            settings_selected == 1 ? ">" : " ",
            settings.stylus_menu ? "ON" : "OFF");
-    printf("\\x1b[10;1H%s C-Stick: %s",
+    printf("\x1b[10;1H%s C-Stick: %s",
            settings_selected == 2 ? ">" : " ",
            settings.cstick_enabled ? "ON" : "OFF");
-    printf("\\x1b[12;1H%s Video fit: %s",
+    printf("\x1b[12;1H%s Video fit: %s",
            settings_selected == 3 ? ">" : " ",
            settings.video_fit ? "STRETCH" : "FIT");
-    printf("\\x1b[14;1H%s Swap A/B: %s",
+    printf("\x1b[14;1H%s Swap A/B: %s",
            settings_selected == 4 ? ">" : " ",
            settings.swap_ab ? "ON" : "OFF");
-    printf("\\x1b[16;1H%s Swap X/Y: %s",
+    printf("\x1b[16;1H%s Swap X/Y: %s",
            settings_selected == 5 ? ">" : " ",
            settings.swap_xy ? "ON" : "OFF");
-    printf("\\x1b[19;1HSaved in /PSP/CONFIG/settings.ini");
-    printf("\\x1b[21;1HNote: game input/video options");
-    printf("\\x1b[22;1Hare stored; runtime support is");
-    printf("\\x1b[23;1Hbeing implemented.");
+    printf("\x1b[19;1HSaved in /PSP/CONFIG/settings.ini");
+    printf("\x1b[21;1HNote: game input/video options");
+    printf("\x1b[22;1Hare stored; runtime support is");
+    printf("\x1b[23;1Hbeing implemented.");
 }
 
 static void change_selected_setting(void)
@@ -452,10 +452,8 @@ int main(void)
             if (down & KEY_TOUCH) {
                 touchPosition touch;
                 hidTouchRead(&touch);
-                unsigned int row = touch.py / 16;
-
-                if (row >= 3 && row <= 14) {
-                    unsigned int index = (row - 3) / 2;
+                if (touch.py >= 40 && touch.py < 136) {
+                    unsigned int index = (touch.py - 40) / 16;
                     if (index < SETTINGS_COUNT) {
                         settings_selected = index;
                         change_selected_setting();
