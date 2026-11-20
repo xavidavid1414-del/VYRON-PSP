@@ -162,12 +162,20 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
     int dy = y1 >= y0 ? y0 - y1 : y1 - y0;
     int sy = y0 < y1 ? 1 : -1;
     int error = dx + dy;
+    int total_steps = dx > -dy ? dx : -dy;
+    int step = 0;
     for (;;) {
-        ge_put_pixel(ge, x0, y0, a->color);
+        float t = total_steps ? (float)step / (float)total_steps : 0.0f;
+        uint32_t color = ge_interpolate_color(
+            a->color, b->color, b->color, 1.0f - t, t, 0.0f);
+        float u = a->u + (b->u - a->u) * t;
+        float v = a->v + (b->v - a->v) * t;
+        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v));
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
         if (twice >= dy) { error += dy; x0 += sx; }
         if (twice <= dx) { error += dx; y0 += sy; }
+        step++;
     }
 }
 
@@ -303,9 +311,15 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
             float w2 = ge_edge(a->x, a->y, b->x, b->y, px, py);
             if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
                 (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
+                float wa = w0 / area;
+                float wb = w1 / area;
+                float wc = w2 / area;
+                uint32_t color = ge_interpolate_color(
+                    a->color, b->color, c->color, wa, wb, wc);
+                float u = a->u * wa + b->u * wb + c->u * wc;
+                float v = a->v * wa + b->v * wb + c->v * wc;
                 ge_put_pixel(ge, x, y,
-                    ge_interpolate_color(a->color, b->color, c->color,
-                        w0 / area, w1 / area, w2 / area));
+                    ge_shade_fragment(ge, color, u, v));
         }
     }
 }
@@ -321,7 +335,9 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
         for (uint32_t i = 0; i < count; i++) {
             if (!ge_read_vertex(ge, i, &vertices[0])) return false;
             ge_put_pixel(ge, (int)lroundf(vertices[0].x),
-                         (int)lroundf(vertices[0].y), vertices[0].color);
+                         (int)lroundf(vertices[0].y),
+                         ge_shade_fragment(ge, vertices[0].color,
+                                           vertices[0].u, vertices[0].v));
             drawn++;
         }
     } else if (primitive == 1) {
@@ -390,9 +406,26 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             if (right >= PSP_VIDEO_WIDTH) right = PSP_VIDEO_WIDTH - 1;
             if (bottom >= PSP_VIDEO_HEIGHT) bottom = PSP_VIDEO_HEIGHT - 1;
             if (right >= left && bottom >= top) {
-                for (int y = top; y <= bottom; y++)
-                    for (int x = left; x <= right; x++)
-                        ge_put_pixel(ge, x, y, vertices[0].color);
+                for (int y = top; y <= bottom; y++) {
+                    float ty = vertices[1].y != vertices[0].y ?
+                        ((float)y - vertices[0].y) /
+                        (vertices[1].y - vertices[0].y) : 0.0f;
+                    if (ty < 0.0f) ty = 0.0f;
+                    if (ty > 1.0f) ty = 1.0f;
+                    for (int x = left; x <= right; x++) {
+                        float tx = vertices[1].x != vertices[0].x ?
+                            ((float)x - vertices[0].x) /
+                            (vertices[1].x - vertices[0].x) : 0.0f;
+                        if (tx < 0.0f) tx = 0.0f;
+                        if (tx > 1.0f) tx = 1.0f;
+                        float u = vertices[0].u +
+                            (vertices[1].u - vertices[0].u) * tx;
+                        float v = vertices[0].v +
+                            (vertices[1].v - vertices[0].v) * ty;
+                        ge_put_pixel(ge, x, y,
+                            ge_shade_fragment(ge, vertices[0].color, u, v));
+                    }
+                }
             }
             drawn++;
         }
