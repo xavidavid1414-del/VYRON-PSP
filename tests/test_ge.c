@@ -164,6 +164,28 @@ int main(void)
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
     assert(psp_video_get_pixel(&video, 35, 10) == 0xFF00FF00u);
 
+    /* Texture REPLACE ignores the interpolated vertex RGB when TCC is RGBA. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_memory_write32(&memory, texture, 0xFFFF0000u);
+    for (uint32_t i = 0; i < 3; i++)
+        psp_memory_write32(&memory, textured_vertices + i * 16u + 8u,
+                           0xFF000000u);
+    command(&memory, list + 480, 0x10, 0x00080000u);
+    command(&memory, list + 484, 0xA0, 0x2000u);
+    command(&memory, list + 488, 0xA8, 0x00080002u);
+    command(&memory, list + 492, 0xB8, 0x00000101u);
+    command(&memory, list + 496, 0xC3, 3u);
+    command(&memory, list + 500, 0xC7, 0x00000101u);
+    command(&memory, list + 504, 0xC9, 3u | (1u << 8));
+    command(&memory, list + 508, 0x1E, 1u);
+    command(&memory, list + 512, 0x01, 0x1400u);
+    command(&memory, list + 516, 0x12, textured_vtype);
+    command(&memory, list + 520, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 524, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 480, 12));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
+
     /* Sprite primitives obey the configured scissor rectangle. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
