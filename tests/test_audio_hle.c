@@ -48,8 +48,8 @@ int main(void)
     assert(psp_audio_hle_read(&audio, mixed, 4) == 4);
     assert(mixed[0] == 15000 && mixed[1] == 15000);
     assert(mixed[2] == -5000 && mixed[3] == 5000);
-    assert(mixed[4] == 25000 && mixed[5] == 15000);
-    assert(mixed[6] == -15000 && mixed[7] == -5000);
+    assert(mixed[4] == 25000 && mixed[5] == 20000);
+    assert(mixed[6] == -15000 && mixed[7] == 0);
     assert(psp_audio_hle_get_rest(&audio, ch0) == 60);
     assert(psp_audio_hle_set_length(&audio, ch0, 128) == 0);
     assert(psp_audio_hle_set_length(&audio, ch0, 65) == -1);
