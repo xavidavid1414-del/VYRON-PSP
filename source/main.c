@@ -52,6 +52,32 @@ static u64 fps_window_start;
 static unsigned int fps_frame_count;
 static unsigned int displayed_fps;
 
+static void update_controller_input(void)
+{
+    u32 keys = hidKeysHeld();
+    uint32_t host_buttons = 0;
+
+    if (keys & KEY_A) host_buttons |= PSP_HOST_A;
+    if (keys & KEY_B) host_buttons |= PSP_HOST_B;
+    if (keys & KEY_X) host_buttons |= PSP_HOST_X;
+    if (keys & KEY_Y) host_buttons |= PSP_HOST_Y;
+    if (keys & KEY_UP) host_buttons |= PSP_HOST_UP;
+    if (keys & KEY_DOWN) host_buttons |= PSP_HOST_DOWN;
+    if (keys & KEY_LEFT) host_buttons |= PSP_HOST_LEFT;
+    if (keys & KEY_RIGHT) host_buttons |= PSP_HOST_RIGHT;
+    if (keys & KEY_L) host_buttons |= PSP_HOST_L;
+    if (keys & KEY_R) host_buttons |= PSP_HOST_R;
+    if (keys & KEY_START) host_buttons |= PSP_HOST_START;
+    if (keys & KEY_SELECT) host_buttons |= PSP_HOST_SELECT;
+
+    psp_controller_update(
+        &core.controller,
+        host_buttons,
+        settings.swap_ab != 0,
+        settings.swap_xy != 0
+    );
+}
+
 static void update_fps_display(void)
 {
     if (!settings.show_fps) {
@@ -448,6 +474,7 @@ int main(void)
 
     while (aptMainLoop()) {
         hidScanInput();
+        update_controller_input();
 
         u32 down = hidKeysDown();
 
