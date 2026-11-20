@@ -17,6 +17,7 @@
 typedef struct {
     uint32_t *framebuffer;
     uint32_t frame_count;
+    bool stretch;
     bool initialized;
 } PSP_Video;
 
