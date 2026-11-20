@@ -28,8 +28,10 @@ int main(void)
     /* Capacity exhaustion is sticky and never writes out of bounds. */
     assert(psp_armv6k_emit_mov_imm(&out, 5, 7));
     assert(psp_armv6k_emit_mov_imm(&out, 6, 8));
-    assert(!psp_armv6k_emit_mov_imm(&out, 7, 9));
-    assert(out.count == 7);
+    assert(psp_armv6k_emit_mov_imm(&out, 7, 9));
+    assert(out.count == 8);
+    assert(!psp_armv6k_emit_mov_imm(&out, 8, 10));
+    assert(out.count == 8);
     assert(out.failed);
     return 0;
 }
