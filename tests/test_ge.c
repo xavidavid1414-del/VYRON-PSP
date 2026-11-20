@@ -1019,33 +1019,33 @@ int main(void)
     /* Framebuffer VRAM decoding covers all PSP pixel formats. */
     psp_ge_reset(&ge);
     const uint32_t display_fb = PSP_VRAM_BASE + 0x100u;
-    ge.framebuffer_address = display_fb;
-    ge.framebuffer_stride = PSP_VIDEO_STRIDE;
-    ge.framebuffer_format = 3u;
+    ge.display_address = display_fb;
+    ge.display_stride = PSP_VIDEO_STRIDE;
+    ge.display_format = 3u;
     psp_memory_write32(&memory, display_fb + (7u * 4u),
                        0xFF123456u);
     psp_ge_present_framebuffer(&ge);
     assert(psp_video_get_pixel(&video, 7, 0) == 0xFF123456u);
 
-    ge.framebuffer_format = 0u; /* 5650 */
+    ge.display_format = 0u; /* 5650 */
     put16(&memory, display_fb + 2u, 0xF800u);
     psp_ge_present_framebuffer(&ge);
     assert(psp_video_get_pixel(&video, 1, 0) == 0xFFFF0000u);
 
-    ge.framebuffer_format = 1u; /* 5551: opaque red */
+    ge.display_format = 1u; /* 5551: opaque red */
     put16(&memory, display_fb + 4u, 0xF801u);
     psp_ge_present_framebuffer(&ge);
     assert(psp_video_get_pixel(&video, 2, 0) == 0xFFFF0000u);
 
-    ge.framebuffer_format = 2u; /* 4444: opaque green */
+    ge.display_format = 2u; /* 4444: opaque green */
     put16(&memory, display_fb + 6u, 0x0F0Fu);
     psp_ge_present_framebuffer(&ge);
     assert(psp_video_get_pixel(&video, 3, 0) == 0xFF00FF00u);
 
     /* An invalid full framebuffer range must not partially overwrite video. */
     psp_video_clear(&video, 0xFFABCDEFu);
-    ge.framebuffer_address = PSP_VRAM_BASE + PSP_VRAM_SIZE - 16u;
-    ge.framebuffer_format = 3u;
+    ge.display_address = PSP_VRAM_BASE + PSP_VRAM_SIZE - 16u;
+    ge.display_format = 3u;
     psp_ge_present_framebuffer(&ge);
     assert(psp_video_get_pixel(&video, 0, 0) == 0xFFABCDEFu);
 
