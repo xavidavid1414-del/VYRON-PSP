@@ -145,5 +145,25 @@ int main(void)
     assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (10u << 2));
     assert(cpu.cop0[14] == PSP_RAM_BASE);
 
+
+    /* BEQ executes its delay-slot instruction before jumping. */
+    const uint32_t beq_r1_r1 =
+        (0x04u << 26) | (1u << 21) | (1u << 16) | 2u;
+    const uint32_t nop = 0u;
+    memcpy(ram, &beq_r1_r1, sizeof(beq_r1_r1));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 7u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.branch_pending);
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 12u);
+    assert(!cpu.branch_pending);
+
     return 0;
 }
