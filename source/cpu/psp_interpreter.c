@@ -145,8 +145,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
         return true;
     }
 
-    const uint32_t instruction =
-        psp_memory_read32(memory, pc);
+    if (!psp_memory_is_valid(memory, pc, 4)) {\n        enter_exception(\n            cpu, pc, cpu->branch_pending,\n            EXC_ADEL, pc, true);\n        return true;\n    }\n\n    const uint32_t instruction =\n        psp_memory_read32(memory, pc);
 
     const uint32_t opcode = instruction >> 26;
     const uint32_t rs = (instruction >> 21) & 31u;
@@ -173,6 +172,14 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
     {
         case 0x22: { /* LWL */
             uint32_t address = a + sign_extend_16(immediate);
+            uint32_t aligned_address = address & ~3u;
+
+            if (!psp_memory_is_valid(memory, aligned_address, 4)) {
+                enter_exception(
+                    cpu, pc, had_pending_branch,
+                    EXC_ADEL, address, true);
+                return true;
+            }
             uint32_t shift = (address & 3u) * 8u;
             uint32_t word = psp_memory_read32(
                 memory, address & ~3u);
@@ -186,6 +193,14 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
 
         case 0x26: { /* LWR */
             uint32_t address = a + sign_extend_16(immediate);
+            uint32_t aligned_address = address & ~3u;
+
+            if (!psp_memory_is_valid(memory, aligned_address, 4)) {
+                enter_exception(
+                    cpu, pc, had_pending_branch,
+                    EXC_ADEL, address, true);
+                return true;
+            }
             uint32_t shift = (address & 3u) * 8u;
             uint32_t word = psp_memory_read32(
                 memory, address & ~3u);
@@ -199,6 +214,14 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
 
         case 0x2A: { /* SWL */
             uint32_t address = a + sign_extend_16(immediate);
+            uint32_t aligned_address = address & ~3u;
+
+            if (!psp_memory_is_valid(memory, aligned_address, 4)) {
+                enter_exception(
+                    cpu, pc, had_pending_branch,
+                    EXC_ADES, address, true);
+                return true;
+            }
             uint32_t shift = (address & 3u) * 8u;
             uint32_t mask = 0xFFFFFFFFu >> (24u - shift);
             uint32_t aligned = address & ~3u;
@@ -213,6 +236,14 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
 
         case 0x2E: { /* SWR */
             uint32_t address = a + sign_extend_16(immediate);
+            uint32_t aligned_address = address & ~3u;
+
+            if (!psp_memory_is_valid(memory, aligned_address, 4)) {
+                enter_exception(
+                    cpu, pc, had_pending_branch,
+                    EXC_ADES, address, true);
+                return true;
+            }
             uint32_t shift = (address & 3u) * 8u;
             uint32_t mask = 0xFFFFFFFFu << shift;
             uint32_t aligned = address & ~3u;
@@ -640,7 +671,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                 return true;
             }
 
-            uint32_t loaded = read16(memory, address);
+            if (!psp_memory_is_valid(memory, address, 2)) {\n                enter_exception(cpu, pc, had_pending_branch, EXC_ADEL, address, true);\n                return true;\n            }\n\n            uint32_t loaded = read16(memory, address);
 
             if (opcode == 0x21)
                 loaded = (uint32_t)(int32_t)(int16_t)loaded;
@@ -692,7 +723,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                 return true;
             }
 
-            write16(memory, address, b);
+            if (!psp_memory_is_valid(memory, address, 2)) {\n                enter_exception(cpu, pc, had_pending_branch, EXC_ADES, address, true);\n                return true;\n            }\n\n            write16(memory, address, b);
             break;
         }
 
@@ -706,7 +737,7 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                 return true;
             }
 
-            psp_memory_write32(memory, address, b);
+            if (!psp_memory_is_valid(memory, address, 4)) {\n                enter_exception(cpu, pc, had_pending_branch, EXC_ADES, address, true);\n                return true;\n            }\n\n            psp_memory_write32(memory, address, b);
             break;
         }
 
