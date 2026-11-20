@@ -619,7 +619,8 @@ void psp_core_unmount_iso(PSP_Core *core)
 
     core->iso_data = NULL;
     core->iso_size = 0;
-    core->iso_mounted = false;\n    psp_io_service_set_fs(&core->io_service, NULL);
+    core->iso_mounted = false;
+    psp_io_service_set_fs(&core->io_service, NULL);
 }
 
 void psp_core_unload_executable(PSP_Core *core)
@@ -694,7 +695,8 @@ bool psp_core_mount_iso(
     core->iso_fs = fs;
     core->iso_data = data;
     core->iso_size = size;
-    core->iso_mounted = true;\n    psp_io_service_set_fs(&core->io_service, &core->iso_fs);
+    core->iso_mounted = true;
+    psp_io_service_set_fs(&core->io_service, &core->iso_fs);
 
     return true;
 }
