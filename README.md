@@ -59,7 +59,10 @@ At this stage, loading an ISO or ELF does **not** guarantee that the game can bo
 - Use **UP/DOWN** and **A**, or tap a setting with the stylus, to change an option.
 - Press **B** to return to the game list.
 - Settings are stored in `/PSP/CONFIG/settings.ini`.
-- The current menu stores preferences for the FPS counter, stylus menu, C-Stick, video fit mode, and A/B and X/Y swaps. These are configuration foundations; the corresponding in-game overlay, FPS measurement, video scaling, and remapped PSP input are not yet fully connected to the emulator runtime.
+- The menu stores preferences for the FPS counter, stylus menu, C-Stick, video fit mode, and A/B and X/Y swaps.
+- The FPS counter displays the frontend frame rate when enabled. FIT and STRETCH are connected to the top-screen framebuffer presentation.
+- The 3DS frontend now samples held buttons and maps them to PSP controller bit values. A/B and X/Y swaps are applied, and the controller module tracks pressed/released transitions.
+- **Input limitation:** this controller state is not yet exposed to PSP software. PSP imports such as `sceCtrlReadBufferPositive` and `sceCtrlPeekBufferPositive` plus their HLE/NID resolution are still missing. C-Stick analog input and the stylus overlay are also not implemented.
 
 ## Project goal
 
