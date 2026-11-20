@@ -48,6 +48,11 @@ void psp_controller_set_analog(
     uint8_t x,
     uint8_t y
 );
+void psp_controller_update_mapped(
+    PSP_Controller *controller,
+    uint32_t host_buttons,
+    const uint8_t face_mapping[4]
+);
 void psp_controller_update(
     PSP_Controller *controller,
     uint32_t host_buttons,
