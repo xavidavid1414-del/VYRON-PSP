@@ -8,6 +8,12 @@ Experimental PSP emulator for the Nintendo 3DS family, targeting the New Nintend
 
 The project builds a Nintendo 3DS `.3dsx` application and an installable homebrew `.cia` package with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO, PBP, PRX, and ELF files, plus an experimental MIPS execution core.
 
+### Phase 7 — Allegrex CPU optimization
+
+**Translated-block milestone: implemented and under automated validation.** The core now translates sequential MIPS instruction words into cached basic blocks, executes cached instructions without repeating memory fetches, preserves the interpreter's delay-slot and exception behavior, and falls back to the interpreter when a block cannot be cached. A per-RAM-page write generation invalidates stale translated blocks when guest code modifies memory. The core run loop now uses this block translator; host tests compare it with the reference interpreter and cover branches, delay slots, execution budgets, and self-modifying code.
+
+This is a portable cached-block translator, **not yet a native ARM machine-code JIT**. ARMv6K code emission, executable-memory permissions/cache synchronization, and performance benchmarking on the New Nintendo 2DS XL remain for the next CPU-optimization milestone. Unsupported instructions continue through the existing interpreter.
+
 ### Phase 6 — PSP audio output
 
 **Implementation milestone: complete for the documented PCM output subset.** The emulator now has eight independently reserved PSP audio channels, mono/stereo PCM16 input, per-channel format, sample-length and volume controls, left/right panning, saturated stereo mixing, bounded sample queues, and ten audio HLE imports (channel reserve/release, blocking and nonblocking output, panned and standard output, rest-length query, data-length update, format change, and volume change), and a frontend path that submits mixed audio to Nintendo 3DS NDSP. Audio HLE and mixer behavior are covered by host regression tests.
@@ -26,7 +32,7 @@ The full PSP GE is not claimed to be cycle-accurate or fully compatible. Unsuppo
 - PSP ISO9660 image inspection and extraction of `PSP_GAME/SYSDIR/EBOOT.BIN`.
 - PBP executable-region extraction.
 - ELF `ET_EXEC` loading and partial unencrypted PSP PRX loading, including PSPREL1 and compressed PSPREL2 relocation streams.
-- A partial MIPS interpreter with delay-slot handling and exception basics.
+- A partial MIPS interpreter with delay-slot handling and exception basics, plus a cached MIPS basic-block translator with page-write invalidation and interpreter fallback.
 - Experimental PSP GE software-renderer subset: display-list decoding with bounded jump/call/return flow, 2D points/lines/line strips/triangles/triangle strips/triangle fans/sprites, 8-bit/16-bit/32-bit indexed vertices, interpolated vertex colors, world/view/projection transforms, viewport mapping, depth testing, configurable basic alpha blending and alpha testing, nearest-neighbor and bilinear 5650/5551/4444/8888 texture sampling with MODULATE/DECAL/BLEND/REPLACE/ADD texture functions, up to four directional diffuse lights, experimental point/spot lights with distance/spot attenuation, experimental Blinn-Phong specular materials, view-space fog, clear-mode color/depth writes, masked RGB color testing, face culling, perspective-correct texture interpolation, mipmap selection and filtering, Bezier and B-spline patch tessellation with configurable U/V subdivision and point/line/triangle output, and homogeneous frustum plus framebuffer/scissor clipping, plus experimental stencil tests/operations and 16-bit/32-bit GE block transfers between mapped PSP RAM buffers, rendered into the emulator framebuffer.
 - Experimental framebuffer output with a separate PSP display framebuffer, `sceDisplaySetFrameBuf` HLE, mapped 2 MiB PSP EDRAM/VRAM, framebuffer pixel-format conversion (5650/5551/4444/8888), and Nintendo 3DS NDSP audio output.
 - Synchronous PSP GE HLE for display-list enqueue/dequeue and list/draw synchronization queries; nonzero stall addresses, callbacks, and asynchronous scheduling are not implemented.
@@ -44,7 +50,7 @@ The full PSP GE is not claimed to be cycle-accurate or fully compatible. Unsuppo
 - HLE coverage is limited to the currently registered controller, user-memory block, read-only ISO file, and basic synchronous GE list NIDs; most PSP kernel/HLE modules and SDK services remain unimplemented.
 - Memory block allocation currently supports user partition ID 2 only; kernel partitions and broader heap APIs are not implemented.
 - ISO file writes and removable-memory-stick (`ms0:`) access are not implemented. File access is limited to the mounted ISO image.
-- CPU instruction coverage and timing are incomplete.
+- CPU instruction coverage and timing are incomplete. Phase 7 currently uses a portable translated-block cache; native ARMv6K machine-code generation and hardware benchmarking are not yet implemented.
 - PSP GE support is an early software subset: point/spot lights and Blinn-Phong specular materials are experimental software-renderer implementations and are not yet validated against a broad PSP graphics test suite. The 2 MiB PSP EDRAM/VRAM region is mapped, GE framebuffer commands can target VRAM, and the display HLE can select a separate framebuffer for presentation; complete PSP GE register behavior and hardware timing are not implemented. Asynchronous GE scheduling, callback interrupts, resumable stall lists, and many display-list commands remain unsupported. Bezier and B-spline patch tessellation are newly implemented experimental paths; their floating-point evaluation and edge-case behavior still need comparison against PSP hardware/reference output. GE block transfers and fog/mipmap behavior are partial implementations. The PSP audio implementation is limited to PCM16 channel output and selected sceAudio HLE calls; ATRAC/SAS codecs, output2/VAUDIO, accurate blocking/wait timing, and full PSP audio compatibility remain unsupported.
 - Commercial game compatibility is unknown and should not be assumed.
 
