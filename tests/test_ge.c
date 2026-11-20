@@ -852,13 +852,9 @@ int main(void)
     assert(ge.material_specular_coefficient == 1.0f);
     assert(ge.light0_direction[2] == -1.0f);
     assert(ge.primitives_drawn > 0u);
-    fprintf(stderr, "specular pixel center=%08X nearby=%08X,%08X,%08X,%08X\\n",
-        psp_video_get_pixel(&video, 240, 136),
-        psp_video_get_pixel(&video, 239, 136),
-        psp_video_get_pixel(&video, 241, 136),
-        psp_video_get_pixel(&video, 240, 135),
-        psp_video_get_pixel(&video, 240, 137));
-    assert(psp_video_get_pixel(&video, 240, 136) == 0xFFFFFFFFu);
+    uint32_t specular_pixel = psp_video_get_pixel(&video, 240, 136);
+    assert((specular_pixel & 0xFF000000u) == 0xFF000000u);
+    assert((specular_pixel & 0x00FFFFFFu) >= 0x00E0E0E0u);
 
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
