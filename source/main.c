@@ -11,8 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 
-#define ISO_DIRECTORY "sdmc:/PSP/ISO"
+#define ISO_DIRECTORY "sdmc:/PSP/GAMES"
+#define PSP_ROOT_DIRECTORY "sdmc:/PSP"
 #define MAX_ISO_FILES 32
 #define ISO_NAME_LENGTH 128
 #define CPU_CYCLES_PER_FRAME 250
@@ -32,6 +34,34 @@ static bool audio_ready;
 static bool execution_active;
 
 static char status_message[96];
+
+static bool ensure_storage_layout(void)
+{
+    static const char *directories[] = {
+        PSP_ROOT_DIRECTORY,
+        ISO_DIRECTORY,
+        PSP_ROOT_DIRECTORY "/SAVES",
+        PSP_ROOT_DIRECTORY "/CONFIG",
+        PSP_ROOT_DIRECTORY "/SYSTEM"
+    };
+
+    bool ready = true;
+
+    for (size_t i = 0;
+         i < sizeof(directories) / sizeof(directories[0]);
+         i++) {
+        if (mkdir(directories[i], 0777) != 0) {
+            struct stat info;
+
+            if (stat(directories[i], &info) != 0 ||
+                (info.st_mode & S_IFDIR) == 0) {
+                ready = false;
+            }
+        }
+    }
+
+    return ready;
+}
 
 static bool has_iso_extension(const char *name)
 {
@@ -218,7 +248,7 @@ static void print_file_list(void)
     printf("\x1b[5;1H");
 
     if (!scan_ok) {
-        printf("Folder not found. Create /PSP/ISO.\n");
+        printf("Folder not found. Check /PSP/GAMES.\n");
     } else if (iso_count == 0) {
         printf("No ISO files found.\n");
         printf("Copy your PSP images into this folder.\n");
@@ -263,6 +293,11 @@ int main(void)
     }
 
     audio_ready = psp_audio_init();
+
+    if (!ensure_storage_layout()) {
+        snprintf(status_message, sizeof(status_message),
+                 "SD folder setup incomplete");
+    }
 
     scan_iso_directory();
     print_file_list();
