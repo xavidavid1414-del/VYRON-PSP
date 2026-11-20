@@ -154,8 +154,8 @@ int main(void)
     assert(core.image_loaded);
     assert(core.cpu.pc == PSP_RAM_BASE);
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 4) ==
-           PSP_RAM_BASE + 0x104);
-    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x100) ==
+           PSP_RAM_BASE + 0x1004);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x1000) ==
            0xAABBCCDD);
 
     /* An entry point outside executable memory must be rejected. */
