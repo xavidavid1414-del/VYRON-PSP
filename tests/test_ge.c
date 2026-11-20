@@ -595,6 +595,52 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 1600, 16u));
     assert(psp_video_get_pixel(&video, 40, 40) == 0xFF00FF00u);
 
+    /* Third directional light is decoded and contributes to shading. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    command(&memory, list + 1680, 0x10, 0x00080000u);
+    command(&memory, list + 1684, 0x17, 1u);
+    command(&memory, list + 1688, 0x1A, 1u);
+    command(&memory, list + 1692, 0x61, 0u);
+    command(&memory, list + 1696, 0x75, encode_float24(0.0f));
+    command(&memory, list + 1700, 0x76, encode_float24(0.0f));
+    command(&memory, list + 1704, 0x77, encode_float24(-1.0f));
+    command(&memory, list + 1708, 0x92, 0x000000FFu);
+    command(&memory, list + 1712, 0x42, encode_float24(20.0f));
+    command(&memory, list + 1716, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 1720, 0x45, encode_float24(40.0f));
+    command(&memory, list + 1724, 0x46, encode_float24(40.0f));
+    command(&memory, list + 1728, 0x01, 0x3400u);
+    command(&memory, list + 1732, 0x12,
+            (7u << 2) | (3u << 5) | (3u << 7));
+    command(&memory, list + 1736, 0x04, 1u);
+    command(&memory, list + 1740, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1680, 16u));
+    assert(psp_video_get_pixel(&video, 40, 40) == 0xFF0000FFu);
+
+    /* Fourth directional light is decoded and contributes to shading. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    command(&memory, list + 1760, 0x10, 0x00080000u);
+    command(&memory, list + 1764, 0x17, 1u);
+    command(&memory, list + 1768, 0x1B, 1u);
+    command(&memory, list + 1772, 0x62, 0u);
+    command(&memory, list + 1776, 0x78, encode_float24(0.0f));
+    command(&memory, list + 1780, 0x79, encode_float24(0.0f));
+    command(&memory, list + 1784, 0x7A, encode_float24(-1.0f));
+    command(&memory, list + 1788, 0x93, 0x00FFFF00u);
+    command(&memory, list + 1792, 0x42, encode_float24(20.0f));
+    command(&memory, list + 1796, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 1800, 0x45, encode_float24(40.0f));
+    command(&memory, list + 1804, 0x46, encode_float24(40.0f));
+    command(&memory, list + 1808, 0x01, 0x3400u);
+    command(&memory, list + 1812, 0x12,
+            (7u << 2) | (3u << 5) | (3u << 7));
+    command(&memory, list + 1816, 0x04, 1u);
+    command(&memory, list + 1820, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 1760, 16u));
+    assert(psp_video_get_pixel(&video, 40, 40) == 0xFFFFFF00u);
+
     /* GE clear mode bypasses fragment blending and honors color/depth masks. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0xFF0000FFu);
