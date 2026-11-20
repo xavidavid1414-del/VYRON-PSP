@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "psp_memory.h"
+#include "../memory/psp_memory.h"
 #include "psp_video.h"
 
 typedef struct {
