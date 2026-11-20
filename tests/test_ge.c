@@ -77,6 +77,47 @@ int main(void)
     assert((interpolated & 0xFFu) > 25u);
     assert(psp_video_get_pixel(&video, 35, 35) == 0);
 
+    /* BBOX marks a set of 3D vertices outside when all lie beyond one
+       homogeneous clip plane; BJUMP then skips the following state change. */
+    psp_ge_reset(&ge);
+    const uint32_t bbox_vertices = PSP_RAM_BASE + 0x2000u;
+    const uint32_t bbox_list = PSP_RAM_BASE + 0x4000u;
+    const uint32_t bbox_vtype = (7u << 2) | (3u << 7);
+    for (uint32_t i = 0u; i < 8u; i++) {
+        uint32_t address = bbox_vertices + i * 16u;
+        psp_memory_write32(&memory, address, 0xFFFFFFFFu);
+        put_float(&memory, address + 4u, 3.0f);
+        put_float(&memory, address + 8u, (i & 1u) ? 0.5f : -0.5f);
+        put_float(&memory, address + 12u, (i & 2u) ? 0.5f : -0.5f);
+    }
+    command(&memory, bbox_list, 0x10u, 0x00080000u);
+    command(&memory, bbox_list + 4u, 0x01u, 0x2000u);
+    command(&memory, bbox_list + 8u, 0x12u, bbox_vtype);
+    command(&memory, bbox_list + 12u, 0x07u, 8u);
+    command(&memory, bbox_list + 16u, 0x09u,
+            (bbox_list + 28u) & 0x00FFFFFFu);
+    command(&memory, bbox_list + 20u, 0xD4u, 123u | (45u << 10));
+    command(&memory, bbox_list + 24u, 0x00u, 0u);
+    command(&memory, bbox_list + 28u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, bbox_list, 8u));
+    assert(ge.bounding_box_outside);
+    assert(ge.scissor_left == 0);
+
+    /* A zero-count BBOX clears the previous result, so BJUMP is not taken. */
+    psp_ge_reset(&ge);
+    command(&memory, bbox_list + 64u, 0x10u, 0x00080000u);
+    command(&memory, bbox_list + 68u, 0x01u, 0x2000u);
+    command(&memory, bbox_list + 72u, 0x12u, bbox_vtype);
+    command(&memory, bbox_list + 76u, 0x07u, 0u);
+    command(&memory, bbox_list + 80u, 0x09u,
+            (bbox_list + 92u) & 0x00FFFFFFu);
+    command(&memory, bbox_list + 84u, 0xD4u, 123u | (45u << 10));
+    command(&memory, bbox_list + 88u, 0x00u, 0u);
+    command(&memory, bbox_list + 92u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, bbox_list + 64u, 8u));
+    assert(!ge.bounding_box_outside);
+    assert(ge.scissor_left == 123);
+
 
     /* A 4x4 control grid exercises the PSP BEZIER surface command.
        The flat patch should tessellate into visible triangles. */
