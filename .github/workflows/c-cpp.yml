@@ -21,6 +21,9 @@ jobs:
       - name: Build VYRON PSP
         run: make
 
+      - name: Build installable CIA package
+        run: make cia
+
       - name: Run memory unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/memory source/memory/psp_memory.c tests/test_memory.c -o /tmp/vyron-memory-tests
@@ -96,12 +99,13 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/loader/psp_io_hle.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c source/video/psp_ge.c source/video/psp_ge_hle.c tests/test_video_stub.c tests/test_core_loader.c -lm -o /tmp/vyron-core-loader-tests
           /tmp/vyron-core-loader-tests
 
-      - name: Upload Nintendo 3DS build
+      - name: Upload Nintendo 3DS builds
         uses: actions/upload-artifact@v4
         with:
-          name: VYRON-PSP-3DSX
+          name: VYRON-PSP-3DS-BUILDS
           path: |
             vyron_psp.3dsx
             vyron_psp.smdh
+            vyron_psp.cia
           if-no-files-found: error
           retention-days: 14
