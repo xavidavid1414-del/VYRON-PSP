@@ -24,6 +24,8 @@ typedef struct {
     float viewport_offset[2];
     uint16_t *depth_buffer;
     bool depth_test_enabled;
+    bool cull_enabled;
+    uint32_t cull_mode;
     bool depth_write_disabled;
     uint32_t depth_function;
     uint32_t vertex_type;
