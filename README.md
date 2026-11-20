@@ -6,7 +6,7 @@ Experimental PSP emulator for the Nintendo 3DS family, targeting the New Nintend
 
 ## Current build
 
-The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO, PBP, PRX, and ELF files, plus an experimental MIPS execution core.
+The project builds a Nintendo 3DS `.3dsx` application and an installable homebrew `.cia` package with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO, PBP, PRX, and ELF files, plus an experimental MIPS execution core.
 
 ### Current capabilities
 
@@ -43,13 +43,19 @@ Build with a devkitPro environment configured for Nintendo 3DS:
 make
 ```
 
-The build produces `vyron_psp.3dsx` and its `.smdh` metadata.
+The build produces `vyron_psp.3dsx` and its `.smdh` metadata. To also package an installable CIA, run:
 
-GitHub Actions also builds the application and runs the host-side unit/integration tests on pushes to `main`.
+```sh
+make cia
+```
+
+This creates `vyron_psp.cia` using the project's ELF, SMDH icon, banner, and homebrew RSF metadata. The CIA is a homebrew build for installation with a compatible title installer; it is not a Nintendo-signed commercial title.
+
+GitHub Actions builds both `.3dsx` and `.cia` outputs and runs the host-side unit/integration tests on pushes to `main`. The combined artifact is named `VYRON-PSP-3DS-BUILDS`.
 
 ## Install and use
 
-1. Copy `vyron_psp.3dsx` to the 3DS SD card and launch it with Homebrew Launcher or an equivalent homebrew method.
+1. For Homebrew Launcher, copy `vyron_psp.3dsx` to the SD card and launch it there. Alternatively, install `vyron_psp.cia` with FBI or another compatible homebrew title installer and launch VYRON PSP from the HOME Menu.
 2. Launch VYRON-PSP once; it creates the storage folders automatically:
    - `/PSP/GAMES` for uncompressed PSP `.iso` images.
    - `/PSP/SAVES` for future save data.
