@@ -582,7 +582,7 @@ int main(void)
     command(&memory, list + 1616, 0x72, encode_float24(0.0f));
     command(&memory, list + 1620, 0x73, encode_float24(0.0f));
     command(&memory, list + 1624, 0x74, encode_float24(-1.0f));
-    command(&memory, list + 1628, 0x91, 0x0000FF00u);
+    command(&memory, list + 1628, 0x93, 0x0000FF00u);
     command(&memory, list + 1632, 0x42, encode_float24(20.0f));
     command(&memory, list + 1636, 0x43, encode_float24(-20.0f));
     command(&memory, list + 1640, 0x45, encode_float24(40.0f));
@@ -605,7 +605,7 @@ int main(void)
     command(&memory, list + 1696, 0x75, encode_float24(0.0f));
     command(&memory, list + 1700, 0x76, encode_float24(0.0f));
     command(&memory, list + 1704, 0x77, encode_float24(-1.0f));
-    command(&memory, list + 1708, 0x92, 0x000000FFu);
+    command(&memory, list + 1708, 0x96, 0x000000FFu);
     command(&memory, list + 1712, 0x42, encode_float24(20.0f));
     command(&memory, list + 1716, 0x43, encode_float24(-20.0f));
     command(&memory, list + 1720, 0x45, encode_float24(40.0f));
@@ -628,7 +628,7 @@ int main(void)
     command(&memory, list + 1776, 0x78, encode_float24(0.0f));
     command(&memory, list + 1780, 0x79, encode_float24(0.0f));
     command(&memory, list + 1784, 0x7A, encode_float24(-1.0f));
-    command(&memory, list + 1788, 0x93, 0x00FFFF00u);
+    command(&memory, list + 1788, 0x99, 0x00FFFF00u);
     command(&memory, list + 1792, 0x42, encode_float24(20.0f));
     command(&memory, list + 1796, 0x43, encode_float24(-20.0f));
     command(&memory, list + 1800, 0x45, encode_float24(40.0f));
