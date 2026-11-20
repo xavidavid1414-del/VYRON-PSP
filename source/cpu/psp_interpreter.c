@@ -456,17 +456,20 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
             break;
 
         case 0x01:
-            if ((rt == 0u && (int32_t)a < 0) ||
+            bool branch_condition =
+                (rt == 0u && (int32_t)a < 0) ||
                 (rt == 1u && (int32_t)a >= 0) ||
                 (rt == 16u && (int32_t)a < 0) ||
-                (rt == 17u && (int32_t)a >= 0)) {
+                (rt == 17u && (int32_t)a >= 0);
+
+            if (branch_condition) {
                 schedule_branch = true;
                 scheduled_target =
                     pc + 4u + (sign_extend_16(immediate) << 2);
-            }
 
-            if (rt == 16u || rt == 17u)
-                set_register(cpu, 31u, pc + 8u);
+                if (rt == 16u || rt == 17u)
+                    set_register(cpu, 31u, pc + 8u);
+            }
 
             if (rt != 0u && rt != 1u &&
                 rt != 16u && rt != 17u) {
