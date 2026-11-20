@@ -31,6 +31,21 @@ static bool translate_address(
     return true;
 }
 
+bool psp_memory_is_valid(
+    PSP_Memory *memory,
+    uint32_t address,
+    uint32_t length
+)
+{
+    uint32_t offset;
+
+    if (length == 0 ||
+        !translate_address(memory, address, &offset))
+        return false;
+
+    return length <= memory->size - offset;
+}
+
 bool psp_memory_init(PSP_Memory *memory)
 {
     if (memory == NULL)
