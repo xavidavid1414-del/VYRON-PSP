@@ -1132,7 +1132,7 @@ int main(void)
     psp_video_clear(&video, 0xFF000000u);
     ge.clear_mode = true;
     ge.clear_mode_mask = 0x100u; /* Preserve RGB; write alpha. */
-    assert(psp_ge_execute_list(&ge, list, 8u));
+    assert(psp_ge_execute_list(&ge, ge_draw_list, 8u));
     assert(psp_memory_read32(&memory, draw_pixel_address) == 0xFF0000FFu);
 
     psp_ge_destroy(&ge);
