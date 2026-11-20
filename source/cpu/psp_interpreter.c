@@ -429,6 +429,16 @@ bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
                     set_register(cpu, rd, a < b);
                     break;
 
+                case 0x2C: /* Allegrex MAX */
+                    set_register(cpu, rd,
+                        (int32_t)a > (int32_t)b ? a : b);
+                    break;
+
+                case 0x2D: /* Allegrex MIN */
+                    set_register(cpu, rd,
+                        (int32_t)a < (int32_t)b ? a : b);
+                    break;
+
                 default:
                     enter_exception(
                         cpu, pc, had_pending_branch,
