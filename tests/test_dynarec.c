@@ -70,6 +70,19 @@ int main(void)
     assert(dynarec.translated_blocks >= 2u);
     assert(dynarec.executed_instructions == 2u);
 
+    /* Re-entering a cached loop must hit the existing block. */
+    psp_dynarec_reset(&dynarec);
+    psp_cpu_reset(&translated);
+    uint32_t loop_pc = CODE + 0x200u;
+    psp_memory_write32(&memory, loop_pc, addiu(6, 6, 1));
+    psp_memory_write32(&memory, loop_pc + 4u,
+        (0x02u << 26) | ((loop_pc >> 2) & 0x03FFFFFFu));
+    psp_memory_write32(&memory, loop_pc + 8u, 0u);
+    translated.pc = loop_pc;
+    assert(psp_dynarec_run(&dynarec, &translated, &memory, 6));
+    assert(translated.gpr[6] == 2u);
+    assert(dynarec.cache_hits >= 1u);
+
     psp_memory_destroy(&memory);
     return 0;
 }
