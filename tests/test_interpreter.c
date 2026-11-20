@@ -679,5 +679,21 @@ int main(void)
         assert((cpu.cop0[13] & 0x7Cu) == (10u << 2));
     }
 
+    /* SLL and SRA require rs=0; malformed encodings raise RI. */
+    const uint32_t invalid_fixed_shifts[] = {
+        (2u << 21) | (3u << 11) | 4u,
+        (2u << 21) | (3u << 11) | (4u << 6) | 0x03u
+    };
+    for (size_t i = 0; i < sizeof(invalid_fixed_shifts) /
+                            sizeof(invalid_fixed_shifts[0]); ++i) {
+        memcpy(ram, &invalid_fixed_shifts[i], sizeof(invalid_fixed_shifts[i]));
+        psp_cpu_reset(&cpu);
+        cpu.pc = PSP_RAM_BASE;
+        cpu.gpr[2] = 0x12345678u;
+        assert(psp_interpreter_step(&cpu, &memory));
+        assert(cpu.pc == PSP_RAM_BASE + 0x180u);
+        assert((cpu.cop0[13] & 0x7Cu) == (10u << 2));
+    }
+
     return 0;
 }
