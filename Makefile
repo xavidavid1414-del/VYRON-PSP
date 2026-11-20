@@ -24,9 +24,9 @@ LDFLAGS := -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(TARGET).map
 LIBS := -lctru -lm
 LIBDIRS := $(CTRULIB)
 
-APP_TITLE := XAVRX PSP
+APP_TITLE := VYRON PSP
 APP_DESCRIPTION := Experimental PSP emulator for Nintendo 3DS
-APP_AUTHOR := XAVRX PSP Project
+APP_AUTHOR := VYRON PSP Project
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
@@ -66,7 +66,7 @@ $(BUILD):
 	@mkdir -p $@
 
 clean:
-	@echo "Cleaning XAVRX PSP..."
+	@echo "Cleaning VYRON PSP..."
 	@rm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf $(TARGET).map $(TARGET).cia $(TARGET).icn $(TARGET).bnr
 
 else
