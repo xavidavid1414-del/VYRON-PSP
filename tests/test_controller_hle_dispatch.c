@@ -1,5 +1,6 @@
 #include "psp_controller_hle.h"
 #include "../cpu/psp_syscall.h"
+#include "../cpu/psp_interpreter.h"
 #include "../loader/psp_nid.h"
 #include <assert.h>
 #include <string.h>
@@ -13,13 +14,23 @@ int main(void) {
     assert(psp_nid_resolve(PSP_NID_CTRL_READ_BUFFER_POSITIVE,&code));
     assert(code==PSP_SYSCALL_CTRL_READ_BUFFER_POSITIVE);
     cpu.gpr[4]=PSP_RAM_BASE+0x100u; cpu.gpr[5]=1;
-    assert(psp_syscall_dispatch(&cpu,&memory,code));
+    cpu.gpr[31]=PSP_RAM_BASE+0x300u; cpu.pc=PSP_RAM_BASE+0x200u;
+    psp_memory_write32(&memory,cpu.pc,0x03E00008u); /* jr ra */
+    psp_memory_write32(&memory,cpu.pc+4u,(code<<6)|0x0Cu);
+    assert(psp_interpreter_step(&cpu,&memory));
+    assert(psp_interpreter_step(&cpu,&memory));
+    assert(cpu.pc==PSP_RAM_BASE+0x300u);
     assert(cpu.gpr[2]==1u);
     assert(psp_memory_read32(&memory,cpu.gpr[4]+4u)==(PSP_CTRL_CROSS|PSP_CTRL_RIGHT));
     assert(psp_nid_resolve(PSP_NID_CTRL_PEEK_BUFFER_POSITIVE,&code));
     assert(code==PSP_SYSCALL_CTRL_PEEK_BUFFER_POSITIVE);
     cpu.gpr[4]=PSP_RAM_BASE+0x120u; cpu.gpr[5]=1;
-    assert(psp_syscall_dispatch(&cpu,&memory,code));
+    cpu.pc=PSP_RAM_BASE+0x220u;
+    psp_memory_write32(&memory,cpu.pc,0x03E00008u);
+    psp_memory_write32(&memory,cpu.pc+4u,(code<<6)|0x0Cu);
+    assert(psp_interpreter_step(&cpu,&memory));
+    assert(psp_interpreter_step(&cpu,&memory));
+    assert(cpu.pc==PSP_RAM_BASE+0x300u);
     assert(cpu.gpr[2]==1u);
     psp_controller_hle_unregister();
     assert(!psp_nid_resolve(PSP_NID_CTRL_READ_BUFFER_POSITIVE,&code));
