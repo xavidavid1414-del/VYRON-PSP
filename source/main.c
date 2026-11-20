@@ -559,7 +559,8 @@ int main(void)
             }
 
             execute_cpu_frame();
-            draw_interface(&core.video);
+            if (!execution_active)
+                draw_interface(&core.video);
             psp_video_present(&core.video);
             update_fps_display();
             continue;
@@ -603,7 +604,8 @@ int main(void)
 
         execute_cpu_frame();
 
-        draw_interface(&core.video);
+        if (!execution_active)
+            draw_interface(&core.video);
         psp_video_present(&core.video);
         update_fps_display();
     }
