@@ -500,5 +500,29 @@ int main(void)
     assert(cpu.lo == 0x80000000u);
     assert(cpu.hi == 0u);
 
+    /* DIV by zero preserves the previous HI:LO values. */
+    memcpy(ram, &div_signed, sizeof(div_signed));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 123u;
+    cpu.gpr[2] = 0u;
+    cpu.hi = 0x13579BDFu;
+    cpu.lo = 0x2468ACE0u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == 0x2468ACE0u);
+    assert(cpu.hi == 0x13579BDFu);
+
+    /* DIVU by zero also preserves HI:LO. */
+    memcpy(ram, &div_unsigned, sizeof(div_unsigned));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 123u;
+    cpu.gpr[2] = 0u;
+    cpu.hi = 0x89ABCDEFu;
+    cpu.lo = 0x01234567u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.lo == 0x01234567u);
+    assert(cpu.hi == 0x89ABCDEFu);
+
     return 0;
 }
