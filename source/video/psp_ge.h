@@ -98,6 +98,14 @@ typedef struct {
     uint32_t alpha_test_function;
     uint32_t alpha_test_reference;
     uint32_t alpha_test_mask;
+    bool stencil_test_enabled;
+    uint32_t stencil_test_function;
+    uint32_t stencil_reference;
+    uint32_t stencil_mask;
+    uint32_t stencil_fail_operation;
+    uint32_t stencil_depth_fail_operation;
+    uint32_t stencil_pass_operation;
+    uint32_t alpha_write_mask;
     uint32_t blend_operation;
     uint32_t blend_source_factor;
     uint32_t blend_destination_factor;
