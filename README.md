@@ -10,9 +10,9 @@ The project builds a Nintendo 3DS `.3dsx` application and an installable homebre
 
 ### Phase 7 — Allegrex CPU optimization
 
-**Translated-block milestone: implemented and under automated validation.** The core now translates sequential MIPS instruction words into cached basic blocks, executes cached instructions without repeating memory fetches, preserves the interpreter's delay-slot and exception behavior, and falls back to the interpreter when a block cannot be cached. A per-RAM-page write generation invalidates stale translated blocks when guest code modifies memory. The core run loop now uses this block translator; host tests compare it with the reference interpreter and cover branches, delay slots, execution budgets, and self-modifying code.
+**Translated-block milestone: implemented and under automated validation.** The core now caches sequential MIPS instruction words in bounded basic blocks, reuses cached blocks without repeating instruction-memory fetches, preserves the interpreter's delay-slot and exception behavior, and falls back to the interpreter when a block cannot be cached. A per-RAM-page write generation invalidates stale translated blocks when guest code modifies memory. The core run loop now uses this block translator; host tests compare it with the reference interpreter and cover branches, delay slots, execution budgets, and self-modifying code.
 
-This is a portable cached-block translator, **not yet a native ARM machine-code JIT**. ARMv6K code emission, executable-memory permissions/cache synchronization, and performance benchmarking on the New Nintendo 2DS XL remain for the next CPU-optimization milestone. Unsupported instructions continue through the existing interpreter.
+This is a portable cached-block interpreter/translator foundation, **not yet a native ARM machine-code JIT**. ARMv6K code emission, executable-memory permissions/cache synchronization, and performance benchmarking on the New Nintendo 2DS XL remain for the next CPU-optimization milestone. Unsupported instructions continue through the existing interpreter.
 
 ### Phase 6 — PSP audio output
 
