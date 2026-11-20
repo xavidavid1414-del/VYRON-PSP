@@ -320,9 +320,11 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
             return PSP_ARMV6K_TRANSLATE_OK;
         }
         if (function == 0x04u || function == 0x06u || function == 0x07u) {
-            /* SLLV/SRLV/SRAV: MIPS masks the shift amount to five bits. */
+            /* SLLV/SRLV/SRAV and Allegrex ROTRV. */
             uint8_t shift_type = function == 0x04u ? 0u :
-                                 (function == 0x06u ? 1u : 2u);
+                                 (function == 0x06u ?
+                                  ( ((instruction >> 6) & 31u) == 1u ? 3u : 1u )
+                                  : 2u);
             if (!emit_load_gpr(emitter, 2, rs) ||
                 !psp_armv6k_emit_dp_imm(emitter, 0u, false, 2, 2, 31u) ||
                 !emit_load_gpr(emitter, 1, rt) ||
@@ -334,7 +336,8 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         if (function == 0x00u || function == 0x02u || function == 0x03u) {
             uint8_t sa = (uint8_t)((instruction >> 6) & 31u);
             uint8_t shift_type = function == 0x00u ? 0u :
-                                 (function == 0x02u ? 1u : 2u);
+                                 (function == 0x02u ?
+                                  (rs == 1u ? 3u : 1u) : 2u);
             if (!emit_load_gpr(emitter, 1, rt) ||
                 !emit_shift_imm(emitter, 3, 1, shift_type, sa) ||
                 !emit_store_gpr(emitter, rd, 3))
