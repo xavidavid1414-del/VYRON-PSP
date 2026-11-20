@@ -737,17 +737,17 @@ void psp_ge_present_framebuffer(PSP_GE *ge)
     /* Validate the complete visible rectangle before touching the host
        framebuffer. This prevents partially presented frames on bad FBP/FBW. */
     uint64_t last_pixel = (uint64_t)(PSP_VIDEO_HEIGHT - 1u) *
-        ge->framebuffer_stride + (PSP_VIDEO_WIDTH - 1u);
+        ge->display_stride + (PSP_VIDEO_WIDTH - 1u);
     uint64_t byte_span = (last_pixel + 1u) * bpp;
     if (byte_span > UINT32_MAX ||
-        (uint64_t)ge->framebuffer_address + byte_span > UINT32_MAX + 1ull ||
-        !psp_memory_is_valid(ge->memory, ge->framebuffer_address,
+        (uint64_t)ge->display_address + byte_span > UINT32_MAX + 1ull ||
+        !psp_memory_is_valid(ge->memory, ge->display_address,
                              (uint32_t)byte_span))
         return;
 
     for (uint32_t y = 0; y < PSP_VIDEO_HEIGHT; y++) {
-        uint64_t row_address = (uint64_t)ge->framebuffer_address +
-            (uint64_t)y * ge->framebuffer_stride * bpp;
+        uint64_t row_address = (uint64_t)ge->display_address +
+            (uint64_t)y * ge->display_stride * bpp;
         for (uint32_t x = 0; x < PSP_VIDEO_WIDTH; x++) {
             uint32_t address = (uint32_t)(row_address + (uint64_t)x * bpp);
             uint32_t color;
@@ -758,14 +758,14 @@ void psp_ge_present_framebuffer(PSP_GE *ge)
                 packed |= (uint32_t)psp_memory_read8(
                     ge->memory, address + 1u) << 8;
                 uint32_t red, green, blue, alpha = 0xFFu;
-                if (ge->framebuffer_format == 0u) {
+                if (ge->display_format == 0u) {
                     red = (packed >> 11) & 31u;
                     green = (packed >> 5) & 63u;
                     blue = packed & 31u;
                     red = (red << 3) | (red >> 2);
                     green = (green << 2) | (green >> 4);
                     blue = (blue << 3) | (blue >> 2);
-                } else if (ge->framebuffer_format == 1u) {
+                } else if (ge->display_format == 1u) {
                     red = (packed >> 11) & 31u;
                     green = (packed >> 6) & 31u;
                     blue = (packed >> 1) & 31u;
