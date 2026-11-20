@@ -180,7 +180,8 @@ static bool apply_psprel2(
             return false;
         uint64_t patch_address = (uint64_t)segment_base[offset_segment] +
             (uint32_t)relative_base;
-        if (patch_address > UINT32_MAX) return false;
+        if (patch_address > UINT32_MAX || (patch_address & 3u) != 0)
+            return false;
         uint32_t patch_offset;
         if (!elf_memory_range(&core->memory, (uint32_t)patch_address, 4,
                               &patch_offset))
