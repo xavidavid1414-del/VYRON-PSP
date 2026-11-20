@@ -357,6 +357,27 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 608, 8));
     assert(psp_video_get_pixel(&video, 15, 15) != 0);
 
+    /* PSP GE vertex color formats 5650, 5551, and 4444 decode correctly. */
+    const uint32_t vertex_color_address = PSP_RAM_BASE + 0x1600;
+    const uint32_t color_types[3] = {4u, 5u, 6u};
+    const uint16_t packed_colors[3] = {0xF800u, 0xFC00u, 0xFF00u};
+    for (uint32_t i = 0; i < 3; i++) {
+        psp_ge_reset(&ge);
+        psp_video_clear(&video, 0);
+        put16(&memory, vertex_color_address, packed_colors[i]);
+        put16(&memory, vertex_color_address + 2u, 16u);
+        put16(&memory, vertex_color_address + 4u, 16u);
+        uint32_t list_base = list + 640u + i * 32u;
+        command(&memory, list_base, 0x10, 0x00080000u);
+        command(&memory, list_base + 4u, 0x01, 0x1600u);
+        command(&memory, list_base + 8u, 0x12,
+                (color_types[i] << 2) | (2u << 7) | (1u << 23));
+        command(&memory, list_base + 12u, 0x04, 1u);
+        command(&memory, list_base + 16u, 0x0C, 0);
+        assert(psp_ge_execute_list(&ge, list_base, 6));
+        assert(psp_video_get_pixel(&video, 16, 16) == 0xFFFF0000u);
+    }
+
     /* 3D vertices use world/view/projection and viewport state with depth testing. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
