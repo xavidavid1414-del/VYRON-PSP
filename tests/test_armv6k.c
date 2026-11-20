@@ -143,7 +143,7 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 3);
     assert(code[0] == 0xE3A03412u); /* MOV r3, #0x12000000 */
-    assert(code[1] == 0xE3803834u); /* ORR r3, r3, #0x00340000 */
+    assert(code[1] == 0xE3833634u); /* ORR r3, r3, #0x00340000 */
     assert(code[2] == 0xE5803010u); /* STR r3, [r0, #16] */
 
     /* Unsupported branches must be handed to the interpreter. */
