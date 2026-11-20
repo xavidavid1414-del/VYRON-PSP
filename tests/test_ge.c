@@ -73,6 +73,8 @@ int main(void)
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
     psp_video_put_pixel(&video, 15, 15, 0xFF112233u);
+    psp_memory_write32(&memory, PSP_VRAM_BASE +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u, 0xFF112233u);
     command(&memory, list + 64, 0x10, 0x00080000u);
     command(&memory, list + 68, 0x01, 0x1000u);
     command(&memory, list + 72, 0x12, vtype);
@@ -87,6 +89,8 @@ int main(void)
     /* Passing stencil can replace alpha with the reference value. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
+    psp_memory_write32(&memory, PSP_VRAM_BASE +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u, 0u);
     command(&memory, list + 1280, 0x10, 0x00080000u);
     command(&memory, list + 1284, 0x01, 0x1000u);
     command(&memory, list + 1288, 0x12, vtype);
@@ -357,6 +361,8 @@ int main(void)
     /* Alpha blending combines a translucent source with the framebuffer. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, PSP_VRAM_BASE +
+        ((uint32_t)20u * PSP_VIDEO_STRIDE + 20u) * 4u, 0xFF0000FFu);
     psp_memory_write32(&memory, vertices, 0x80FF0000u);
     put16(&memory, vertices + 4, 20);
     put16(&memory, vertices + 6, 20);
@@ -673,6 +679,8 @@ int main(void)
     /* GE clear mode bypasses fragment blending and honors color/depth masks. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, PSP_VRAM_BASE +
+        ((uint32_t)25u * PSP_VIDEO_STRIDE + 25u) * 4u, 0xFF0000FFu);
     psp_memory_write32(&memory, vertices, 0x80FF0000u);
     put16(&memory, vertices + 4u, 25u);
     put16(&memory, vertices + 6u, 25u);
@@ -690,6 +698,8 @@ int main(void)
     /* Clear-mode masks preserve color, alpha, and depth when requested. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, PSP_VRAM_BASE +
+        ((uint32_t)25u * PSP_VIDEO_STRIDE + 25u) * 4u, 0xFF0000FFu);
     command(&memory, list + 912, 0x10, 0x00080000u);
     command(&memory, list + 916, 0x01, 0x1000u);
     command(&memory, list + 920, 0x12, vtype);
