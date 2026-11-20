@@ -135,6 +135,16 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     uint8_t arm_opcode;
 
     if (opcode == 0u) {
+        if (function == 0x00u || function == 0x02u || function == 0x03u) {
+            uint8_t sa = (uint8_t)((instruction >> 6) & 31u);
+            uint8_t shift_type = function == 0x00u ? 0u :
+                                 (function == 0x02u ? 1u : 2u);
+            if (!emit_load_gpr(emitter, 1, rt) ||
+                !emit_shift_imm(emitter, 3, 1, shift_type, sa) ||
+                !emit_store_gpr(emitter, rd, 3))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
+        }
         switch (function) {
         case 0x21: arm_opcode = 4; break;  /* ADDU */
         case 0x23: arm_opcode = 2; break;  /* SUBU */
