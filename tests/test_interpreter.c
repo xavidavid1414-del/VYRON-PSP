@@ -695,6 +695,27 @@ int main(void)
         assert((cpu.cop0[13] & 0x7Cu) == (10u << 2));
     }
 
+    /* MOVZ/MOVN update rd only when their condition is satisfied. */
+    const uint32_t mov_conditional[] = {
+        (1u << 21) | (2u << 16) | (3u << 11) | 0x0Au,
+        (1u << 21) | (2u << 16) | (3u << 11) | 0x0Bu
+    };
+    const uint32_t mov_rt_values[] = {0u, 7u, 0u, 7u};
+    const uint32_t mov_expected[] = {
+        0x12345678u, 0xCAFEBABEu, 0xCAFEBABEu, 0x12345678u
+    };
+    for (size_t i = 0; i < 4u; ++i) {
+        uint32_t instruction = mov_conditional[i / 2u];
+        memcpy(ram, &instruction, sizeof(instruction));
+        psp_cpu_reset(&cpu);
+        cpu.pc = PSP_RAM_BASE;
+        cpu.gpr[1] = 0x12345678u;
+        cpu.gpr[2] = mov_rt_values[i];
+        cpu.gpr[3] = 0xCAFEBABEu;
+        assert(psp_interpreter_step(&cpu, &memory));
+        assert(cpu.gpr[3] == mov_expected[i]);
+    }
+
     /* Malformed MOVZ/MOVN instructions raise Reserved Instruction. */
     const uint32_t invalid_mov_conditional[] = {
         (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x0Au,
