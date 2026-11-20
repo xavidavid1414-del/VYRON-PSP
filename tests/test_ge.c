@@ -88,6 +88,15 @@ int main(void)
     assert(psp_video_get_pixel(&video, 20, 10) != 0);
     assert(ge.primitives_drawn == 2);
 
+    /* Nested display-list flow supports bounded CALL/RET control flow. */
+    psp_ge_reset(&ge);
+    command(&memory, list + 96, 0x10, 0x00080000u);
+    command(&memory, list + 100, 0x0A, 0x1300u);
+    command(&memory, list + 104, 0x0C, 0);
+    command(&memory, PSP_RAM_BASE + 0x1300, 0x0B, 0);
+    assert(psp_ge_execute_list(&ge, list + 96, 4));
+    assert(ge.commands_executed == 4);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
