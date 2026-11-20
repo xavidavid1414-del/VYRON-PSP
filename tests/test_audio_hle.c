@@ -102,7 +102,7 @@ int main(void)
     assert(psp_nid_resolve(PSP_NID_AUDIO_GET_REST_LENGTH, &syscall_code));
     cpu.gpr[4] = 0;
     assert(psp_syscall_dispatch(&cpu, &memory, syscall_code));
-    assert(cpu.gpr[2] == 64u);
+    assert(cpu.gpr[2] == 128u);
 
     assert(psp_nid_resolve(PSP_NID_AUDIO_SET_DATA_LENGTH, &syscall_code));
     cpu.gpr[4] = 0;
