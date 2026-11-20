@@ -149,6 +149,26 @@ static bool emit_constant16(PSP_ARMv6KEmitter *emitter,
     return initialized || psp_armv6k_emit_mov_imm(emitter, rd, 0);
 }
 
+static bool emit_constant32(PSP_ARMv6KEmitter *emitter,
+                              uint8_t rd, uint32_t value)
+{
+    bool initialized = false;
+    for (unsigned shift = 0; shift < 32u; shift += 8u) {
+        uint32_t part = value & (0xFFu << shift);
+        uint32_t operand;
+        if (part == 0u) continue;
+        if (!encode_imm8(part, &operand)) return false;
+        if (initialized) {
+            if (!psp_armv6k_emit_dp_imm(emitter, 12, false, rd, rd, part))
+                return false;
+        } else {
+            if (!psp_armv6k_emit_mov_imm(emitter, rd, part)) return false;
+            initialized = true;
+        }
+    }
+    return initialized || psp_armv6k_emit_mov_imm(emitter, rd, 0);
+}
+
 static bool emit_shift_imm(PSP_ARMv6KEmitter *emitter, uint8_t rd,
                             uint8_t rm, uint8_t shift_type,
                             uint8_t amount)
@@ -188,9 +208,12 @@ static bool emit_set_less_imm(PSP_ARMv6KEmitter *emitter,
 {
     if (rd > 15u || rn > 15u) return false;
     uint32_t operand;
-    if (!encode_imm8(immediate, &operand)) return false;
-    uint32_t cmp = ARM_COND_AL | (1u << 25) | (10u << 21) |
-                   (1u << 20) | ((uint32_t)rn << 16) | operand;
+    bool immediate_form = encode_imm8(immediate, &operand);
+    if (!immediate_form && !emit_constant32(emitter, 2, immediate))
+        return false;
+    uint32_t cmp = ARM_COND_AL | (10u << 21) | (1u << 20) |
+                   ((uint32_t)rn << 16) |
+                   (immediate_form ? ((1u << 25) | operand) : 2u);
     uint8_t true_cond = is_unsigned ? 3u : 11u;
     uint8_t false_cond = is_unsigned ? 2u : 10u;
     uint32_t mov_true = ((uint32_t)true_cond << 28) | (13u << 21) |
@@ -216,9 +239,6 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
 
     if (opcode == 0x0Au || opcode == 0x0Bu) { /* SLTI / SLTIU */
         int32_t signed_imm = (int16_t)(instruction & 0xFFFFu);
-        uint32_t ignored_operand;
-        if (!encode_imm8((uint32_t)signed_imm, &ignored_operand))
-            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
         if (!emit_load_gpr(emitter, 1, rs) ||
             !emit_set_less_imm(emitter, opcode == 0x0Bu, 3, 1,
                                (uint32_t)signed_imm) ||
