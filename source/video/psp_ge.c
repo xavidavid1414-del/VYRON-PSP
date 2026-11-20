@@ -1269,6 +1269,10 @@ void psp_ge_reset(PSP_GE *ge)
     ge->light0_diffuse = 0x00FFFFFFu;
     ge->ambient_color = 0;
     ge->texture_address = 0;
+    memset(ge->texture_level_address, 0, sizeof(ge->texture_level_address));
+    memset(ge->texture_level_buffer_width, 0, sizeof(ge->texture_level_buffer_width));
+    memset(ge->texture_level_width, 0, sizeof(ge->texture_level_width));
+    memset(ge->texture_level_height, 0, sizeof(ge->texture_level_height));
     ge->texture_address_low = 0;
     ge->texture_buffer_width_register = 0;
     ge->texture_buffer_width = 0;
@@ -1547,6 +1551,7 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 ge->texture_address =
                     ((ge->texture_buffer_width_register & 0x000F0000u) << 8) |
                     ge->texture_address_low;
+                ge->texture_level_address[0] = ge->texture_address;
                 break;
             case GE_CMD_TEXBUFWIDTH0:
                 ge->texture_buffer_width_register = value;
@@ -1554,6 +1559,8 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 ge->texture_address =
                     ((value & 0x000F0000u) << 8) |
                     ge->texture_address_low;
+                ge->texture_level_buffer_width[0] = ge->texture_buffer_width;
+                ge->texture_level_address[0] = ge->texture_address;
                 break;
             case GE_CMD_TEXSIZE0: {
                 uint32_t width_exp = value & 0xFu;
@@ -1562,6 +1569,8 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                     return false;
                 ge->texture_width = 1u << width_exp;
                 ge->texture_height = 1u << height_exp;
+                ge->texture_level_width[0] = ge->texture_width;
+                ge->texture_level_height[0] = ge->texture_height;
                 break;
             }
             case GE_CMD_TEXFORMAT:
@@ -1582,7 +1591,7 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_TEXFILTER:
                 ge->texture_min_filter = value & 0xFu;
                 ge->texture_mag_filter = (value >> 8) & 0xFu;
-                if (ge->texture_min_filter > 1u ||
+                if (ge->texture_min_filter > 5u ||
                     ge->texture_mag_filter > 1u)
                     return false;
                 break;
@@ -1636,7 +1645,38 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_END:
                 return true;
             default:
-                /* Unknown state commands are skipped without corrupting RAM. */
+                if (command >= 0xA0u && command <= 0xA7u) {
+                    uint32_t level = command - 0xA0u;
+                    ge->texture_level_address[level] =
+                        ((ge->texture_level_buffer_width[level] & 0x000F0000u) << 8) |
+                        (value & 0x00FFFFFFu);
+                    if (level == 0u) {
+                        ge->texture_address_low = value & 0x00FFFFFFu;
+                        ge->texture_address = ge->texture_level_address[0];
+                    }
+                } else if (command >= 0xA8u && command <= 0xAFu) {
+                    uint32_t level = command - 0xA8u;
+                    ge->texture_level_buffer_width[level] = value & 0x3FFu;
+                    ge->texture_level_address[level] =
+                        ((value & 0x000F0000u) << 8) |
+                        (ge->texture_level_address[level] & 0x00FFFFFFu);
+                    if (level == 0u) {
+                        ge->texture_buffer_width_register = value;
+                        ge->texture_buffer_width = value & 0x3FFu;
+                        ge->texture_address = ge->texture_level_address[0];
+                    }
+                } else if (command >= 0xB8u && command <= 0xBFu) {
+                    uint32_t level = command - 0xB8u;
+                    uint32_t width_exp = value & 0xFu;
+                    uint32_t height_exp = (value >> 8) & 0xFu;
+                    if (width_exp > 9u || height_exp > 9u) return false;
+                    ge->texture_level_width[level] = 1u << width_exp;
+                    ge->texture_level_height[level] = 1u << height_exp;
+                    if (level == 0u) {
+                        ge->texture_width = ge->texture_level_width[0];
+                        ge->texture_height = ge->texture_level_height[0];
+                    }
+                }
                 break;
         }
     }
