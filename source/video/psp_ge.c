@@ -143,15 +143,24 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     vertex->clip_z = cz;
     vertex->clip_w = cw;
     vertex->clip_valid = true;
+    if (fabsf(cw) < 0.000001f) {
+        /* Keep the homogeneous vertex for polygon clipping; its temporary
+           screen position is unused unless the primitive is a line/point. */
+        vertex->reciprocal_w = 0.0f;
+        vertex->x = vertex->y = vertex->z = 0.0f;
+        return true;
+    }
     float inv_w = 1.0f / cw;
     vertex->reciprocal_w = inv_w;
     float nx = cx * inv_w, ny = cy * inv_w, nz = cz * inv_w;
-    /* Keep finite off-screen coordinates: triangle clipping happens
-       before rasterization, so crossing primitives are not discarded. */
+    /* Homogeneous triangle clipping uses clip coordinates, not these
+       temporary projected values. Keep extreme finite vertices available. */
     if (!isfinite(nx) || !isfinite(ny) || !isfinite(nz) ||
         fabsf(nx) > 1000000.0f || fabsf(ny) > 1000000.0f ||
-        fabsf(nz) > 1000000.0f)
-        return false;
+        fabsf(nz) > 1000000.0f) {
+        vertex->x = vertex->y = vertex->z = 0.0f;
+        return true;
+    }
 
     vertex->x = ge->viewport_center[0] +
         nx * ge->viewport_scale[0] - ge->viewport_offset[0];
@@ -198,6 +207,7 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
 static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
 {
     uint32_t type = ge->vertex_type;
+    vertex->clip_valid = false;
     uint32_t color_type = (type >> 2) & 7u;
     uint32_t position_type = (type >> 7) & 3u;
     uint32_t texture_type = type & 3u;
