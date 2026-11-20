@@ -495,6 +495,30 @@ int main(void)
     assert(psp_video_get_pixel(&video, 25, 25) == 0xFF0000FFu);
     assert(ge.depth_buffer[25u * PSP_VIDEO_WIDTH + 25u] == 0xFFFFu);
 
+    /* PSP GE color test supports masked RGB equality and inequality. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, vertices, 0xFFFF0000u);
+    put16(&memory, vertices + 4u, 26u);
+    put16(&memory, vertices + 6u, 26u);
+    command(&memory, list + 944, 0x10, 0x00080000u);
+    command(&memory, list + 948, 0x01, 0x1000u);
+    command(&memory, list + 952, 0x12, vtype);
+    command(&memory, list + 956, 0xD8, 0u);
+    command(&memory, list + 960, 0xD9, 0x0000FF00u);
+    command(&memory, list + 964, 0xDA, 0x00FFFFFFu);
+    command(&memory, list + 968, 0x27, 1u);
+    command(&memory, list + 972, 0x04, 1u);
+    command(&memory, list + 976, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 944, 10));
+    assert(psp_video_get_pixel(&video, 26, 26) == 0xFF0000FFu);
+
+    command(&memory, list + 980, 0xD9, 0x00FF0000u);
+    command(&memory, list + 984, 0x04, 1u);
+    command(&memory, list + 988, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 980, 4));
+    assert(psp_video_get_pixel(&video, 26, 26) == 0xFFFF0000u);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
