@@ -186,6 +186,40 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 480, 12));
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
 
+    /* Linear filtering interpolates the four neighboring 8888 texels. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    psp_memory_write32(&memory, texture, 0xFFFF0000u);
+    psp_memory_write32(&memory, texture + 4u, 0xFF00FF00u);
+    psp_memory_write32(&memory, texture + 8u, 0xFF0000FFu);
+    psp_memory_write32(&memory, texture + 12u, 0xFFFFFFFFu);
+    for (uint32_t i = 0; i < 3; i++) {
+        put_float(&memory, textured_vertices + i * 16u, 1.0f);
+        put_float(&memory, textured_vertices + i * 16u + 4u, 1.0f);
+        psp_memory_write32(&memory, textured_vertices + i * 16u + 8u,
+                           0xFFFFFFFFu);
+    }
+    command(&memory, list + 528, 0x10, 0x00080000u);
+    command(&memory, list + 532, 0xA0, 0x2000u);
+    command(&memory, list + 536, 0xA8, 0x00080002u);
+    command(&memory, list + 540, 0xB8, 0x00000101u);
+    command(&memory, list + 544, 0xC3, 3u);
+    command(&memory, list + 548, 0xC6, 0x00000101u);
+    command(&memory, list + 552, 0xC7, 0x00000101u);
+    command(&memory, list + 556, 0x1E, 1u);
+    command(&memory, list + 560, 0x01, 0x1400u);
+    command(&memory, list + 564, 0x12, textured_vtype);
+    command(&memory, list + 568, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 572, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 528, 12));
+    uint32_t filtered = psp_video_get_pixel(&video, 15, 15);
+    assert(((filtered >> 16) & 0xFFu) >= 126u &&
+           ((filtered >> 16) & 0xFFu) <= 129u);
+    assert(((filtered >> 8) & 0xFFu) >= 126u &&
+           ((filtered >> 8) & 0xFFu) <= 129u);
+    assert((filtered & 0xFFu) >= 126u &&
+           (filtered & 0xFFu) <= 129u);
+
     /* Sprite primitives obey the configured scissor rectangle. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
