@@ -373,6 +373,22 @@ int main(void)
     assert(out.count == 5);
     assert(code[2] == 0xE0843291u); /* UMULL r3, r4, r2, r1 */
 
+    /* DIV/DIVU reject nonzero reserved rd and shamt fields. */
+    const uint32_t invalid_division_encodings[] = {
+        (1u << 21) | (2u << 16) | (3u << 11) | 0x1Au,
+        (1u << 21) | (2u << 16) | (1u << 6) | 0x1Au,
+        (1u << 21) | (2u << 16) | (3u << 11) | 0x1Bu,
+        (1u << 21) | (2u << 16) | (1u << 6) | 0x1Bu
+    };
+    for (size_t i = 0; i < sizeof(invalid_division_encodings) /
+                            sizeof(invalid_division_encodings[0]); ++i) {
+        psp_armv6k_emitter_init(&out, code, 16);
+        assert(psp_armv6k_translate_allegrex(
+                   &out, invalid_division_encodings[i]) ==
+               PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+        assert(out.count == 0);
+    }
+
     /* Unsupported branches must be handed to the interpreter. */
     assert(psp_armv6k_translate_allegrex(&out, 0x10000001u) ==
            PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
