@@ -83,12 +83,12 @@ int main(void)
     assert(psp_armv6k_translate_allegrex(&out, movz) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 6);
-    assert(code[0] == 0xE5903010u); /* LDR old rd */
+    assert(code[0] == 0xE590300Cu); /* LDR old rd */
     assert(code[1] == 0xE5902008u); /* LDR condition register */
     assert(code[2] == 0xE3520000u); /* CMP rt, #0 */
     assert(code[3] == 0xE5901004u); /* LDR source */
     assert(code[4] == 0x01A03001u); /* MOVEQ rd, rs */
-    assert(code[5] == 0xE5803010u); /* STR rd */
+    assert(code[5] == 0xE580300Cu); /* STR rd */
 
     /* MOVN rd, rs, rt: update rd only when rt is nonzero. */
     psp_armv6k_emitter_init(&out, code, 16);
