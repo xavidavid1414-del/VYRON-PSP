@@ -24,6 +24,7 @@
 #define GE_CMD_CULLFACEENABLE 0x1Du
 #define GE_CMD_CULL 0x9Bu
 #define GE_CMD_LIGHTINGENABLE 0x17u
+#define GE_CMD_FOGENABLE 0x1Fu
 #define GE_CMD_LIGHTENABLE0 0x18u
 #define GE_CMD_LIGHTENABLE1 0x19u
 #define GE_CMD_LIGHTENABLE2 0x1Au
@@ -85,6 +86,9 @@
 #define GE_CMD_CLUTADDRUPPER 0xB1u
 #define GE_CMD_CLUTLOAD 0xC4u
 #define GE_CMD_CLUTFORMAT 0xC5u
+#define GE_CMD_FOG1 0xCDu
+#define GE_CMD_FOG2 0xCEu
+#define GE_CMD_FOGCOLOR 0xCFu
 
 typedef struct {
     float x;
@@ -101,6 +105,7 @@ typedef struct {
     float clip_z;
     float clip_w;
     bool clip_valid;
+    uint8_t fog_factor;
     uint32_t color;
 } GE_Vertex;
 
@@ -156,6 +161,18 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     if (!isfinite(cx) || !isfinite(cy) || !isfinite(cz) ||
         !isfinite(cw))
         return false;
+    vertex->fog_factor = 255u;
+    if (ge->fog_enabled) {
+        float fog = (vz + ge->fog_end) * ge->fog_slope;
+        if (isnan(fog) || fog <= 0.0f) {
+            vertex->fog_factor = 0u;
+        } else if (fog >= 1.0f) {
+            vertex->fog_factor = 255u;
+        } else {
+            float factor = floorf(fog * 256.0f);
+            vertex->fog_factor = (uint8_t)(factor > 255.0f ? 255u : factor);
+        }
+    }
     vertex->clip_x = cx;
     vertex->clip_y = cy;
     vertex->clip_z = cz;
@@ -291,6 +308,7 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t address = (uint32_t)address64;
     vertex->u = 0.0f;
     vertex->v = 0.0f;
+    vertex->fog_factor = 255u;
     vertex->reciprocal_w = 1.0f;
     if (texture_type == 1) {
         vertex->u = (float)psp_memory_read8(ge->memory, address);
@@ -558,6 +576,22 @@ static uint32_t ge_interpolate_color(uint32_t a, uint32_t b,
 static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
                                   float u, float v, float lod);
 
+static uint32_t ge_apply_fog(const PSP_GE *ge, uint32_t color,
+                             uint8_t fog_factor)
+{
+    if (!ge->fog_enabled || ge->clear_mode || fog_factor == 255u)
+        return color;
+    uint32_t result = color & 0xFF000000u;
+    for (unsigned int shift = 0u; shift <= 16u; shift += 8u) {
+        uint32_t source = (color >> shift) & 0xFFu;
+        uint32_t fog = (ge->fog_color >> shift) & 0xFFu;
+        uint32_t channel = (source * fog_factor +
+            fog * (255u - fog_factor) + 127u) / 255u;
+        result |= channel << shift;
+    }
+    return result;
+}
+
 static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
                          const GE_Vertex *b)
 {
@@ -612,6 +646,11 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
             color |= (uint32_t)(channel + 0.5f) << shift;
         }
         v->color = color;
+        float fog = (float)a->fog_factor +
+            ((float)b->fog_factor - (float)a->fog_factor) * t;
+        if (fog < 0.0f) fog = 0.0f;
+        if (fog > 255.0f) fog = 255.0f;
+        v->fog_factor = (uint8_t)(fog + 0.5f);
     }
     int x0 = (int)lroundf(clipped_a.x), y0 = (int)lroundf(clipped_a.y);
     int x1 = (int)lroundf(clipped_b.x), y1 = (int)lroundf(clipped_b.y);
@@ -630,7 +669,13 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
         float u = clipped_a.u + (clipped_b.u - clipped_a.u) * t;
         float v = clipped_a.v + (clipped_b.v - clipped_a.v) * t;
         float depth = clipped_a.z + (clipped_b.z - clipped_a.z) * t;
-        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v, 0.0f), depth);
+        float fog = (float)clipped_a.fog_factor +
+            ((float)clipped_b.fog_factor - (float)clipped_a.fog_factor) * t;
+        if (fog < 0.0f) fog = 0.0f;
+        if (fog > 255.0f) fog = 255.0f;
+        uint32_t shaded = ge_shade_fragment(ge, color, u, v, 0.0f);
+        ge_put_pixel(ge, x0, y0,
+            ge_apply_fog(ge, shaded, (uint8_t)(fog + 0.5f)), depth);
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
         if (twice >= dy_i) { error += dy_i; x0 += sx; }
@@ -943,6 +988,11 @@ static GE_Vertex ge_lerp_vertex(const GE_Vertex *a,
     GE_LERP_FIELD(clip_x); GE_LERP_FIELD(clip_y);
     GE_LERP_FIELD(clip_z); GE_LERP_FIELD(clip_w);
 #undef GE_LERP_FIELD
+    float fog = (float)a->fog_factor +
+        ((float)b->fog_factor - (float)a->fog_factor) * t;
+    if (fog < 0.0f) fog = 0.0f;
+    if (fog > 255.0f) fog = 255.0f;
+    out.fog_factor = (uint8_t)(fog + 0.5f);
     out.clip_valid = a->clip_valid && b->clip_valid;
     /* Preserve perspective-correct texture attributes across generated
        clip vertices by interpolating u/w and v/w, then restoring u and v. */
@@ -1168,8 +1218,13 @@ static void ge_rasterize_triangle(PSP_GE *ge, const GE_Vertex *a,
                 float v = (a->v * a->reciprocal_w * wa +
                     b->v * b->reciprocal_w * wb +
                     c->v * c->reciprocal_w * wc) / perspective_weight;
+                uint32_t fog = (uint32_t)((float)a->fog_factor * wa +
+                    (float)b->fog_factor * wb +
+                    (float)c->fog_factor * wc + 0.5f);
+                if (fog > 255u) fog = 255u;
+                uint32_t shaded = ge_shade_fragment(ge, color, u, v, lod);
                 ge_put_pixel(ge, x, y,
-                    ge_shade_fragment(ge, color, u, v, lod), depth);
+                    ge_apply_fog(ge, shaded, (uint8_t)fog), depth);
             }
         }
     }
@@ -1232,9 +1287,10 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             if (!ge_read_primitive_vertex(ge, i, &vertices[0])) return false;
             ge_put_pixel(ge, (int)lroundf(vertices[0].x),
                          (int)lroundf(vertices[0].y),
-                         ge_shade_fragment(ge, vertices[0].color,
-                                           vertices[0].u, vertices[0].v, 0.0f),
-                         vertices[0].z);
+                         ge_apply_fog(ge,
+                             ge_shade_fragment(ge, vertices[0].color,
+                                 vertices[0].u, vertices[0].v, 0.0f),
+                             vertices[0].fog_factor), vertices[0].z);
             drawn++;
         }
     } else if (primitive == 1) {
@@ -1319,10 +1375,17 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                             (vertices[1].u - vertices[0].u) * tx;
                         float v = vertices[0].v +
                             (vertices[1].v - vertices[0].v) * ty;
+                        float mix = (tx + ty) * 0.5f;
+                        float fog = (float)vertices[0].fog_factor +
+                            ((float)vertices[1].fog_factor -
+                             (float)vertices[0].fog_factor) * mix;
+                        if (fog < 0.0f) fog = 0.0f;
+                        if (fog > 255.0f) fog = 255.0f;
+                        uint32_t shaded = ge_shade_fragment(
+                            ge, vertices[0].color, u, v, 0.0f);
                         ge_put_pixel(ge, x, y,
-                            ge_shade_fragment(ge, vertices[0].color, u, v, 0.0f),
-                            vertices[0].z + (vertices[1].z - vertices[0].z) *
-                            ((tx + ty) * 0.5f));
+                            ge_apply_fog(ge, shaded, (uint8_t)(fog + 0.5f)),
+                            vertices[0].z + (vertices[1].z - vertices[0].z) * mix);
                     }
                 }
             }
@@ -1376,6 +1439,10 @@ void psp_ge_reset(PSP_GE *ge)
     ge->light0_direction[2] = -1.0f;
     ge->light0_diffuse = 0x00FFFFFFu;
     ge->ambient_color = 0;
+    ge->fog_enabled = false;
+    ge->fog_end = 0.0f;
+    ge->fog_slope = 0.0f;
+    ge->fog_color = 0;
     memset(ge->light_enabled, 0, sizeof(ge->light_enabled));
     memset(ge->light_type, 0, sizeof(ge->light_type));
     memset(ge->light_direction, 0, sizeof(ge->light_direction));
@@ -1549,6 +1616,20 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_LIGHTINGENABLE:
                 ge->lighting_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_FOGENABLE:
+                ge->fog_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_FOG1:
+                ge->fog_end = ge_decode_float24(value);
+                break;
+            case GE_CMD_FOG2:
+                ge->fog_slope = ge_decode_float24(value);
+                break;
+            case GE_CMD_FOGCOLOR:
+                ge->fog_color = PSP_VIDEO_COLOR(
+                    (value >> 16) & 0xFFu, (value >> 8) & 0xFFu,
+                    value & 0xFFu, 255u);
                 break;
             case GE_CMD_LIGHTENABLE0:
                 ge->light0_enabled = (value & 1u) != 0;
