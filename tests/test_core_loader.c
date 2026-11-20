@@ -178,6 +178,11 @@ int main(void)
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 20) ==
            0x25081000);
 
+    /* A paired LO16 relocation outside its write segment must be rejected. */
+    write_le32(prx + 0x148, 24);
+    assert(!psp_core_load_executable_data(
+        &core, prx, sizeof(prx)));
+
     /* An entry point outside executable memory must be rejected. */
     write_le32(elf + 24, TEST_DATA_ENTRY);
     core.cpu.pc = 0x12345678;
