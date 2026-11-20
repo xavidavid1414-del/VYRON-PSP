@@ -882,7 +882,11 @@ int main(void)
         (uint32_t)(sizeof(point_commands) / sizeof(point_commands[0]))));
     assert(ge.light0_type == 1u);
     assert(ge.light_position[0][2] == 0.0f);
-    assert(psp_video_get_pixel(&video, 240, 136) == 0xFFFFFFFFu);
+    uint32_t point_pixel = psp_video_get_pixel(&video, 240, 136);
+    fprintf(stderr, "point pixel=%08X type=%u enabled=%u diffuse=%08X base=%08X primitives=%u\\n",
+        point_pixel, ge.light0_type, ge.light0_enabled, ge.light0_diffuse,
+        psp_memory_read32(&memory, specular_vertices), ge.primitives_drawn);
+    assert(point_pixel == 0xFFFFFFFFu);
 
     /* Spot lights additionally apply direction, cutoff and exponent. */
     psp_ge_reset(&ge);
