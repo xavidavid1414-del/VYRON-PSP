@@ -429,5 +429,19 @@ int main(void)
         assert(out.count == 0);
     }
 
+    /* MOVZ/MOVN reject nonzero reserved shamt fields. */
+    const uint32_t invalid_mov_conditional[] = {
+        (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x0Au,
+        (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x0Bu
+    };
+    for (size_t i = 0; i < sizeof(invalid_mov_conditional) /
+                            sizeof(invalid_mov_conditional[0]); ++i) {
+        psp_armv6k_emitter_init(&out, code, 16);
+        assert(psp_armv6k_translate_allegrex(
+                   &out, invalid_mov_conditional[i]) ==
+               PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+        assert(out.count == 0);
+    }
+
     return 0;
 }
