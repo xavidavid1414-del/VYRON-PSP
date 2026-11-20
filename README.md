@@ -18,7 +18,8 @@ The project builds a Nintendo 3DS `.3dsx` application with devkitPro/devkitARM. 
 - Experimental framebuffer output and Nintendo 3DS audio output plumbing.
 - HLE controller services for PSP controller read/peek calls, registered through a NID-to-syscall resolver for supported imports.
 - Experimental PSP user-partition memory blocks with allocation, release, and block-head lookup HLE calls.
-- Read-only ISO file services for `disc0:/` and `umd0:/`: open, read, seek, and close, including nested directory paths.\n- Unit and integration tests for memory, interpreter, loader, PRX imports, controller HLE dispatch, and ELF loading.
+- Read-only ISO file services for `disc0:/` and `umd0:/`: open, read, seek, and close, including nested directory paths.
+- Unit and integration tests for memory, interpreter, loader, PRX imports, controller HLE dispatch, and ELF loading.
 
 ### Known limitations
 
