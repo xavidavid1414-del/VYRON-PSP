@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "psp_core.h"
 #include "cpu/psp_interpreter.h"
+#include "cpu/psp_dynarec.h"
 #include "cpu/psp_syscall.h"
 #include "input/psp_controller_hle.h"
 #include "audio/psp_audio_hle.h"
@@ -787,6 +788,7 @@ static void set_memory_floor_from_elf(
     }
 
     psp_cpu_init(&core->cpu);
+    psp_dynarec_init(&core->dynarec);
     psp_controller_reset(&core->controller);
     psp_audio_hle_init(&core->audio);
     psp_memory_blocks_init(&core->memory_blocks, &core->memory);
@@ -822,6 +824,7 @@ void psp_core_reset(PSP_Core *core)
         return;
 
     psp_cpu_reset(&core->cpu);
+    psp_dynarec_reset(&core->dynarec);
     psp_controller_reset(&core->controller);
     psp_audio_hle_reset(&core->audio);
     psp_ge_reset(&core->ge);
@@ -851,6 +854,7 @@ void psp_core_unload_executable(PSP_Core *core)
         return;
 
     psp_loader_unload(&core->image);
+    psp_dynarec_reset(&core->dynarec);
 
     core->image_loaded = false;
 }
@@ -891,15 +895,8 @@ bool psp_core_run(PSP_Core *core, uint32_t cycles)
     if (core == NULL || !core->initialized)
         return false;
 
-    for (uint32_t i = 0; i < cycles; i++)
-    {
-        if (!psp_interpreter_step(
-                &core->cpu,
-                &core->memory))
-            return false;
-    }
-
-    return true;
+    return psp_dynarec_run(&core->dynarec, &core->cpu,
+                            &core->memory, cycles);
 }
 
 bool psp_core_mount_iso(
