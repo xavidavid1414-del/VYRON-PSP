@@ -661,5 +661,23 @@ int main(void)
     assert(psp_interpreter_step(&cpu, &memory));
     assert(cpu.gpr[3] == 0x67812345u);
 
+    /* SLLV and SRAV require the encoded shamt field to be zero. */
+    const uint32_t reserved_variable_shifts[] = {
+        (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x04u,
+        (1u << 21) | (2u << 16) | (3u << 11) | (1u << 6) | 0x07u
+    };
+    for (size_t i = 0; i < sizeof(reserved_variable_shifts) /
+                            sizeof(reserved_variable_shifts[0]); ++i) {
+        memcpy(ram, &reserved_variable_shifts[i],
+               sizeof(reserved_variable_shifts[i]));
+        psp_cpu_reset(&cpu);
+        cpu.pc = PSP_RAM_BASE;
+        cpu.gpr[1] = 4u;
+        cpu.gpr[2] = 0x12345678u;
+        assert(psp_interpreter_step(&cpu, &memory));
+        assert(cpu.pc == PSP_RAM_BASE + 0x180u);
+        assert((cpu.cop0[13] & 0x7Cu) == (10u << 2));
+    }
+
     return 0;
 }
