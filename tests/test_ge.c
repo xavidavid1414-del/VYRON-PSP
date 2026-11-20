@@ -220,6 +220,24 @@ int main(void)
     assert((filtered & 0xFFu) >= 126u &&
            (filtered & 0xFFu) <= 129u);
 
+    /* Front-face culling follows the configured clockwise/counter-clockwise mode. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    command(&memory, list + 736, 0x10, 0x00080000u);
+    command(&memory, list + 740, 0x01, 0x1000u);
+    command(&memory, list + 744, 0x12, vtype);
+    command(&memory, list + 748, 0x1D, 1u);
+    command(&memory, list + 752, 0x9B, 1u);
+    command(&memory, list + 756, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 760, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 736, 8));
+    assert(psp_video_get_pixel(&video, 15, 15) == 0);
+    command(&memory, list + 764, 0x9B, 0u);
+    command(&memory, list + 768, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 772, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 764, 4));
+    assert(psp_video_get_pixel(&video, 15, 15) != 0);
+
     /* Sprite primitives obey the configured scissor rectangle. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
