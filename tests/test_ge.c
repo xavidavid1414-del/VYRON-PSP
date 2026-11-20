@@ -222,6 +222,28 @@ int main(void)
     put16(&memory, vertices + 4, 10);
     put16(&memory, vertices + 6, 10);
 
+    /* Alpha testing rejects fragments below the configured threshold. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0xFF0000FFu);
+    psp_memory_write32(&memory, vertices, 0x40FF0000u);
+    put16(&memory, vertices + 4, 24);
+    put16(&memory, vertices + 6, 24);
+    command(&memory, list + 372, 0x10, 0x00080000u);
+    command(&memory, list + 376, 0x01, 0x1000u);
+    command(&memory, list + 380, 0x12, vtype);
+    command(&memory, list + 384, 0xDB, (0xFFu << 16) | (0x80u << 8) | 6u);
+    command(&memory, list + 388, 0x22, 1u);
+    command(&memory, list + 392, 0x04, 1u);
+    command(&memory, list + 396, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 372, 8));
+    assert(psp_video_get_pixel(&video, 24, 24) == 0xFF0000FFu);
+
+    command(&memory, list + 400, 0xDB, (0xFFu << 16) | (0x20u << 8) | 6u);
+    command(&memory, list + 404, 0x04, 1u);
+    command(&memory, list + 408, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 400, 4));
+    assert(psp_video_get_pixel(&video, 24, 24) == 0x40FF0000u);
+
     /* Indexed triangles fetch 8-bit indices from IADDR. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
