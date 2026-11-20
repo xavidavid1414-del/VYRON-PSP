@@ -148,16 +148,32 @@ void psp_video_present(PSP_Video *video)
     if (screen == NULL)
         return;
 
+    const int output_height = video->stretch ? 240 : 226;
+    const int top_offset = (240 - output_height) / 2;
+    const uint32_t bar_color = 0x00000000u;
+
+    /* Clear the top screen so FIT mode can show centered letterboxing. */
+    for (int y = 0; y < 240; y++) {
+        size_t destination = (size_t)(239 - y) * 3;
+        for (int x = 0; x < 400; x++) {
+            screen[destination] = (uint8_t)(bar_color & 0xFF);
+            screen[destination + 1] = (uint8_t)((bar_color >> 8) & 0xFF);
+            screen[destination + 2] = (uint8_t)((bar_color >> 16) & 0xFF);
+            destination += 240 * 3;
+        }
+    }
+
     int source_y = 0;
     int y_remainder = 0;
 
-    for (int y = 0; y < 240; y++)
+    for (int y = 0; y < output_height; y++)
     {
         const uint32_t *source_row =
             video->framebuffer +
             (size_t)source_y * PSP_VIDEO_STRIDE;
 
-        size_t destination = (size_t)(239 - y) * 3;
+        size_t destination =
+            (size_t)(239 - (y + top_offset)) * 3;
 
         int source_x = 0;
         int x_remainder = 0;
@@ -166,14 +182,9 @@ void psp_video_present(PSP_Video *video)
         {
             uint32_t color = source_row[source_x];
 
-            screen[destination] =
-                (uint8_t)(color & 0xFF);
-
-            screen[destination + 1] =
-                (uint8_t)((color >> 8) & 0xFF);
-
-            screen[destination + 2] =
-                (uint8_t)((color >> 16) & 0xFF);
+            screen[destination] = (uint8_t)(color & 0xFF);
+            screen[destination + 1] = (uint8_t)((color >> 8) & 0xFF);
+            screen[destination + 2] = (uint8_t)((color >> 16) & 0xFF);
 
             destination += 240 * 3;
 
@@ -188,9 +199,9 @@ void psp_video_present(PSP_Video *video)
 
         y_remainder += PSP_VIDEO_HEIGHT;
 
-        while (y_remainder >= 240)
+        while (y_remainder >= output_height)
         {
-            y_remainder -= 240;
+            y_remainder -= output_height;
             source_y++;
         }
     }
