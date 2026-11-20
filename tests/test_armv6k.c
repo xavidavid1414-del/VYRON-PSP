@@ -113,6 +113,23 @@ int main(void)
     assert(out.count == 3);
     assert(code[1] == 0xE2413004u); /* SUB r3, r1, #4 */
 
+    /* ADDIU with a wide positive immediate synthesizes the constant. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t addiu_wide = (9u << 26) | (1u << 21) | (2u << 16) | 0x1234u;
+    assert(psp_armv6k_translate_allegrex(&out, addiu_wide) ==
+           PSP_ARMv6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[3] == 0xE0813002u); /* ADD r3, r1, r2 */
+
+    /* Negative wide ADDIU uses SUB with the synthesized magnitude. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t addiu_negative_wide =
+        (9u << 26) | (1u << 21) | (2u << 16) | 0xEDCCu;
+    assert(psp_armv6k_translate_allegrex(&out, addiu_negative_wide) ==
+           PSP_ARMv6K_TRANSLATE_OK);
+    assert(out.count == 5);
+    assert(code[3] == 0xE0413002u); /* SUB r3, r1, r2 */
+
     /* ANDI r4, r3, 0x0F. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t andi = (12u << 26) | (3u << 21) | (4u << 16) | 0x000Fu;
