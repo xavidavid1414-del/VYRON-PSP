@@ -41,6 +41,11 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/input source/input/psp_controller.c tests/test_controller.c -o /tmp/vyron-controller-tests
           /tmp/vyron-controller-tests
 
+      - name: Run controller HLE unit tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/memory source/input/psp_controller.c source/input/psp_controller_hle.c source/memory/psp_memory.c tests/test_controller_hle.c -o /tmp/vyron-controller-hle-tests
+          /tmp/vyron-controller-hle-tests
+
       - name: Run loader unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/loader source/loader/psp_loader.c tests/test_loader.c -o /tmp/vyron-loader-tests
