@@ -1013,6 +1013,30 @@ int main(void)
     assert(psp_memory_read8(&memory, transfer16_dst + 2u) == 0xCDu);
     assert(psp_memory_read8(&memory, transfer16_dst + 3u) == 0xABu);
 
+    /* Overlapping transfer rectangles copy in memmove-safe row order. */
+    const uint32_t overlap_base = PSP_RAM_BASE + 0xB000u;
+    psp_memory_write32(&memory, overlap_base + 0u, 0x11111111u);
+    psp_memory_write32(&memory, overlap_base + 4u, 0x22222222u);
+    psp_memory_write32(&memory, overlap_base + 8u, 0x33333333u);
+    psp_memory_write32(&memory, overlap_base + 12u, 0x44444444u);
+    const uint32_t overlap_commands[][2] = {
+        {0xB2u, overlap_base & 0x00FFFFFFu},
+        {0xB3u, ((overlap_base >> 8) & 0x000F0000u) | 1u},
+        {0xB4u, (overlap_base + 4u) & 0x00FFFFFFu},
+        {0xB5u, (((overlap_base + 4u) >> 8) & 0x000F0000u) | 1u},
+        {0xEBu, 0u}, {0xECu, 0u}, {0xEEu, (1u << 10) | 0u},
+        {0xEAu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(overlap_commands) /
+         sizeof(overlap_commands[0]); i++)
+        command(&memory, transfer_list + i * 4u,
+            (uint8_t)overlap_commands[i][0], overlap_commands[i][1]);
+    assert(psp_ge_execute_list(&ge, transfer_list,
+        (uint32_t)(sizeof(overlap_commands) / sizeof(overlap_commands[0]))));
+    assert(psp_memory_read32(&memory, overlap_base + 4u) == 0x11111111u);
+    assert(psp_memory_read32(&memory, overlap_base + 8u) == 0x22222222u);
+    assert(psp_memory_read32(&memory, overlap_base + 12u) == 0x33333333u);
+
     /* Invalid transfer dimensions/buffer widths fail without out-of-bounds access. */
     psp_ge_reset(&ge);
     const uint32_t invalid_transfer[][2] = {
