@@ -40,6 +40,9 @@ typedef struct {
     uint32_t light_type[4];
     float light_direction[4][3];
     uint32_t light_diffuse[4];
+    uint32_t light_specular[4];
+    uint32_t material_specular;
+    float material_specular_coefficient;
     bool fog_enabled;
     float fog_end;
     float fog_slope;
