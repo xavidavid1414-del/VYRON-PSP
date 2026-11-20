@@ -160,6 +160,9 @@ int main(void)
 
     memset(&core, 0, sizeof(core));
     assert(psp_core_init(&core));
+    assert(core.ge.initialized);
+    psp_memory_write32(&core.memory, PSP_RAM_BASE + 0x400, 0x0C000000u);
+    assert(psp_core_execute_ge_list(&core, PSP_RAM_BASE + 0x400, 1));
 
     /* Core startup must register controller, memory, and file HLE NIDs. */
     uint32_t service_code = 0;
