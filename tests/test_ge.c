@@ -933,12 +933,12 @@ int main(void)
     }
     const uint32_t transfer32[][2] = {
         {0xB2u, transfer_src & 0x00FFFFFFu},
-        {0xB3u, 4u},
+        {0xB3u, ((transfer_src >> 8) & 0x000F0000u) | 4u},
         {0xB4u, transfer_dst & 0x00FFFFFFu},
-        {0xB5u, 5u},
+        {0xB5u, ((transfer_dst >> 8) & 0x000F0000u) | 5u},
         {0xEBu, (1u << 10) | 1u},
         {0xECu, 2u},
-        {0xEEu, (2u << 10) | 1u},
+        {0xEEu, (1u << 10) | 1u},
         {0xEAu, 1u},
         {0x0Cu, 0u}
     };
@@ -951,7 +951,7 @@ int main(void)
         psp_memory_read32(&memory, transfer_src + (1u * 4u + 1u) * 4u));
     assert(psp_memory_read32(&memory, transfer_dst + (2u * 4u) + 4u) ==
         psp_memory_read32(&memory, transfer_src + (1u * 4u + 2u) * 4u));
-    assert(psp_memory_read32(&memory, transfer_dst + (2u * 5u + 0u) * 4u) ==
+    assert(psp_memory_read32(&memory, transfer_dst + (1u * 5u + 2u) * 4u) ==
         psp_memory_read32(&memory, transfer_src + (2u * 4u + 1u) * 4u));
 
     psp_ge_reset(&ge);
@@ -960,8 +960,8 @@ int main(void)
     put16(&memory, transfer16_src, 0x1234u);
     put16(&memory, transfer16_src + 2u, 0xABCDu);
     const uint32_t transfer16[][2] = {
-        {0xB2u, transfer16_src & 0x00FFFFFFu}, {0xB3u, 2u},
-        {0xB4u, transfer16_dst & 0x00FFFFFFu}, {0xB5u, 2u},
+        {0xB2u, transfer16_src & 0x00FFFFFFu}, {0xB3u, ((transfer16_src >> 8) & 0x000F0000u) | 2u},
+        {0xB4u, transfer16_dst & 0x00FFFFFFu}, {0xB5u, ((transfer16_dst >> 8) & 0x000F0000u) | 2u},
         {0xEEu, 1u}, {0xEAu, 0u}, {0x0Cu, 0u}
     };
     for (uint32_t i = 0u; i < sizeof(transfer16) / sizeof(transfer16[0]); i++)
@@ -977,8 +977,8 @@ int main(void)
     /* Invalid transfer dimensions/buffer widths fail without out-of-bounds access. */
     psp_ge_reset(&ge);
     const uint32_t invalid_transfer[][2] = {
-        {0xB2u, transfer_src & 0x00FFFFFFu}, {0xB3u, 1u},
-        {0xB4u, transfer_dst & 0x00FFFFFFu}, {0xB5u, 1u},
+        {0xB2u, transfer_src & 0x00FFFFFFu}, {0xB3u, ((transfer_src >> 8) & 0x000F0000u) | 1u},
+        {0xB4u, transfer_dst & 0x00FFFFFFu}, {0xB5u, ((transfer_dst >> 8) & 0x000F0000u) | 1u},
         {0xEEu, 1u}, {0xEAu, 1u}, {0x0Cu, 0u}
     };
     for (uint32_t i = 0u; i < sizeof(invalid_transfer) / sizeof(invalid_transfer[0]); i++)
