@@ -71,6 +71,155 @@ static bool elf_memory_range(
     return true;
 }
 
+static bool apply_psprel2(
+    PSP_Core *core, const uint8_t *elf, size_t elf_size,
+    uint16_t phnum, uint16_t phentsize, uint16_t rel_segment,
+    const uint32_t *segment_base, const uint32_t *segment_size,
+    const bool *segment_loaded)
+{
+    const uint8_t *ph = elf + read_le32(elf + 28) +
+        (size_t)rel_segment * phentsize;
+    uint32_t file_offset = read_le32(ph + 4);
+    uint32_t file_size = read_le32(ph + 16);
+    if (file_offset > elf_size || file_size > elf_size - file_offset ||
+        file_size < 4)
+        return false;
+
+    const uint8_t *cursor = elf + file_offset;
+    const uint8_t *end = cursor + file_size;
+    uint32_t flag_bits = cursor[2], type_bits = cursor[3], seg_bits = 1;
+    while ((1u << seg_bits) < rel_segment)
+        seg_bits++;
+    if (!flag_bits || !type_bits ||
+        flag_bits + seg_bits + type_bits > 16u)
+        return false;
+
+    uint32_t total_bits = flag_bits + seg_bits + type_bits;
+    uint32_t flag_mask = (1u << flag_bits) - 1u;
+    uint32_t seg_mask = (1u << seg_bits) - 1u;
+    uint32_t type_mask = (1u << type_bits) - 1u;
+    cursor += 4;
+    if (cursor >= end) return false;
+    uint32_t flag_count = *cursor++;
+    if ((size_t)(end - cursor) < flag_count) return false;
+    const uint8_t *flag_table = cursor;
+    cursor += flag_count;
+    if (cursor >= end) return false;
+    uint32_t type_count = *cursor++;
+    if ((size_t)(end - cursor) < type_count) return false;
+    const uint8_t *type_table = cursor;
+    cursor += type_count;
+    if (!flag_count || !type_count) return false;
+
+    int32_t relative_base = 0, low_immediate = 0, last_type = -1;
+    uint32_t offset_segment = UINT32_MAX;
+    while (cursor < end) {
+        if ((size_t)(end - cursor) < 2) return false;
+        uint16_t command = read_le16(cursor);
+        cursor += 2;
+        uint32_t flag_index = command & flag_mask;
+        uint32_t seg = (command >> flag_bits) & seg_mask;
+        uint32_t type_index = (command >> (flag_bits + seg_bits)) & type_mask;
+        if (flag_index >= flag_count || type_index >= type_count) return false;
+        uint32_t flag = flag_table[flag_index], type = type_table[type_index];
+
+        if (!(flag & 1u)) {
+            if (seg >= phnum || !segment_loaded[seg]) return false;
+            offset_segment = seg;
+            if (!(flag & 6u)) {
+                relative_base = (int32_t)(command >> (seg_bits + flag_bits));
+            } else if ((flag & 6u) == 4u) {
+                if ((size_t)(end - cursor) < 4) return false;
+                relative_base = (int32_t)read_le32(cursor);
+                cursor += 4;
+            } else return false;
+            continue;
+        }
+
+        if (offset_segment >= phnum || !segment_loaded[offset_segment] ||
+            seg >= phnum || !segment_loaded[seg])
+            return false;
+        uint32_t relocate_to = segment_base[seg];
+        uint32_t high_bits = 16u - total_bits;
+        uint32_t encoded = command >> total_bits;
+        int32_t delta;
+        if (!(flag & 6u)) {
+            if (high_bits && (encoded & (1u << (high_bits - 1u))))
+                encoded |= ~((1u << high_bits) - 1u);
+            delta = (int32_t)encoded;
+            int64_t sum = (int64_t)relative_base + delta;
+            if (sum < INT32_MIN || sum > INT32_MAX) return false;
+            relative_base = (int32_t)sum;
+        } else if ((flag & 6u) == 2u) {
+            if (high_bits && (encoded & (1u << (high_bits - 1u))))
+                encoded |= ~((1u << high_bits) - 1u);
+            if ((size_t)(end - cursor) < 2) return false;
+            delta = (int32_t)((encoded << 16) | read_le16(cursor));
+            cursor += 2;
+            int64_t sum = (int64_t)relative_base + delta;
+            if (sum < INT32_MIN || sum > INT32_MAX) return false;
+            relative_base = (int32_t)sum;
+        } else if ((flag & 6u) == 4u) {
+            if ((size_t)(end - cursor) < 4) return false;
+            relative_base = (int32_t)read_le32(cursor);
+            cursor += 4;
+        } else return false;
+
+        if (!(flag & 0x38u)) low_immediate = 0;
+        else if ((flag & 0x38u) == 0x08u) {
+            if (last_type != 4) low_immediate = 0;
+        } else if ((flag & 0x38u) == 0x10u) {
+            if ((size_t)(end - cursor) < 2) return false;
+            low_immediate = (int16_t)read_le16(cursor);
+            cursor += 2;
+        } else return false;
+
+        if (relative_base < 0 ||
+            (uint32_t)relative_base > segment_size[offset_segment] ||
+            segment_size[offset_segment] - (uint32_t)relative_base < 4)
+            return false;
+        uint64_t patch_address = (uint64_t)segment_base[offset_segment] +
+            (uint32_t)relative_base;
+        if (patch_address > UINT32_MAX) return false;
+        uint32_t patch_offset;
+        if (!elf_memory_range(&core->memory, (uint32_t)patch_address, 4,
+                              &patch_offset))
+            return false;
+
+        uint32_t op = read_le32(core->memory.ram + patch_offset);
+        uint32_t original = op;
+        switch (type) {
+            case 0: break;
+            case 2: op += relocate_to; break;
+            case 3:
+            case 6:
+            case 7:
+                op = (op & 0xFC000000u) |
+                    (((op & 0x03FFFFFFu) + (relocate_to >> 2)) & 0x03FFFFFFu);
+                if (type == 6) op = (op & 0x03FFFFFFu) | 0x08000000u;
+                if (type == 7) op = (op & 0x03FFFFFFu) | 0x0C000000u;
+                break;
+            case 4: {
+                uint32_t address = ((op << 16) + (uint32_t)low_immediate) +
+                    relocate_to;
+                if (address & 0x8000u) address += 0x10000u;
+                op = (op & 0xFFFF0000u) | ((address >> 16) & 0xFFFFu);
+                break;
+            }
+            case 1:
+            case 5:
+                op = (op & 0xFFFF0000u) |
+                    (((op & 0xFFFFu) + relocate_to) & 0xFFFFu);
+                break;
+            default: return false;
+        }
+        if (op != original)
+            write_le32(core->memory.ram + patch_offset, op);
+        last_type = (int32_t)type;
+    }
+    return true;
+}
+
 static bool load_elf_segments_in_place(
     PSP_Core *core,
     const uint8_t *elf,
@@ -276,8 +425,7 @@ static bool load_elf_segments_in_place(
     }
 
     /*
-     * Apply PSP PT_PSPREL1 relocations.
-     * PT_PSPREL2 is intentionally rejected for now.
+     * Apply PSP PT_PSPREL1 and compressed PT_PSPREL2 relocations.
      */
     if (is_prx)
     {
@@ -288,8 +436,12 @@ static bool load_elf_segments_in_place(
 
             uint32_t type = read_le32(ph);
 
-            if (type == ELF_PT_PSPREL2)
-                return false;
+            if (type == ELF_PT_PSPREL2) {
+                if (!apply_psprel2(core, elf, elf_size, phnum, phentsize, i,
+                                   segment_base, segment_size, segment_loaded))
+                    return false;
+                continue;
+            }
 
             if (type != ELF_PT_PSPREL1)
                 continue;
