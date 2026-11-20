@@ -12,6 +12,7 @@ typedef struct {
     PSP_Video *video;
     uint32_t base_address;
     uint32_t vertex_address;
+    uint32_t index_address;
     uint32_t vertex_type;
     uint32_t draw_color;
     uint32_t texture_address;
