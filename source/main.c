@@ -220,7 +220,7 @@ static void print_file_list(void)
     if (!scan_ok) {
         printf("Folder not found. Create /PSP/ISO.\n");
     } else if (iso_count == 0) {
-        printf("No ISO or CSO files found.\n");
+        printf("No ISO files found.\n");
         printf("Copy your PSP images into this folder.\n");
     } else {
         unsigned int first = selected > 5 ? selected - 5 : 0;
