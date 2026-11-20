@@ -21,6 +21,10 @@
 #define GE_CMD_OFFSETX 0x4Cu
 #define GE_CMD_OFFSETY 0x4Du
 #define GE_CMD_ZTESTENABLE 0x23u
+#define GE_CMD_STENCILTEST 0xDCu
+#define GE_CMD_STENCILOP 0xDDu
+#define GE_CMD_PIXELMASKALPHA 0xE9u
+#define GE_CMD_STENCILTESTENABLE 0x24u
 #define GE_CMD_CULLFACEENABLE 0x1Du
 #define GE_CMD_CULL 0x9Bu
 #define GE_CMD_LIGHTINGENABLE 0x17u
@@ -659,6 +663,28 @@ static bool ge_compare_value(uint32_t function, uint32_t source,
     }
 }
 
+static uint8_t ge_apply_stencil_operation(uint32_t operation,
+                                             uint8_t current,
+                                             uint8_t reference)
+{
+    switch (operation & 7u) {
+        case 1: return 0u;
+        case 2: return reference;
+        case 3: return (uint8_t)~current;
+        case 4: return current == 0xFFu ? 0xFFu : (uint8_t)(current + 1u);
+        case 5: return current == 0u ? 0u : (uint8_t)(current - 1u);
+        case 0:
+        default: return current;
+    }
+}
+
+static uint32_t ge_merge_alpha(uint32_t destination, uint8_t alpha,
+                               uint32_t write_mask)
+{
+    uint32_t writable = (~write_mask & 0xFFu) << 24;
+    return (destination & ~writable) | (((uint32_t)alpha << 24) & writable);
+}
+
 static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
                           float depth)
 {
@@ -697,17 +723,51 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
         if (!ge_compare_value(ge->alpha_test_function, alpha, reference))
             return;
     }
+    uint32_t destination = psp_video_get_pixel(ge->video, x, y);
+    uint8_t stencil_current = (uint8_t)(destination >> 24);
+    if (ge->stencil_test_enabled) {
+        uint32_t stencil_value = stencil_current & ge->stencil_mask;
+        uint32_t stencil_reference = ge->stencil_reference & ge->stencil_mask;
+        if (!ge_compare_value(ge->stencil_test_function,
+                              stencil_value, stencil_reference)) {
+            uint8_t updated = ge_apply_stencil_operation(
+                ge->stencil_fail_operation, stencil_current,
+                (uint8_t)ge->stencil_reference);
+            psp_video_put_pixel(ge->video, x, y,
+                ge_merge_alpha(destination, updated, ge->alpha_write_mask));
+            return;
+        }
+    }
     if (ge->depth_test_enabled) {
         uint32_t current = ge->depth_buffer[depth_index];
-        if (!ge_compare_value(ge->depth_function, depth_value, current))
+        if (!ge_compare_value(ge->depth_function, depth_value, current)) {
+            if (ge->stencil_test_enabled) {
+                uint8_t updated = ge_apply_stencil_operation(
+                    ge->stencil_depth_fail_operation, stencil_current,
+                    (uint8_t)ge->stencil_reference);
+                psp_video_put_pixel(ge->video, x, y,
+                    ge_merge_alpha(destination, updated, ge->alpha_write_mask));
+            }
             return;
+        }
+    }
+    if (ge->stencil_test_enabled) {
+        uint8_t updated = ge_apply_stencil_operation(
+            ge->stencil_pass_operation, stencil_current,
+            (uint8_t)ge->stencil_reference);
+        destination = ge_merge_alpha(destination, updated,
+                                     ge->alpha_write_mask);
     }
     if (ge->depth_test_enabled && !ge->depth_write_disabled)
         ge->depth_buffer[depth_index] = (uint16_t)depth_value;
-    if (ge->alpha_blend_enabled) {
-        uint32_t destination = psp_video_get_pixel(ge->video, x, y);
+    if (ge->alpha_blend_enabled)
         color = ge_blend_color(ge, color, destination);
-    }
+    color = ge_merge_alpha(color, (uint8_t)(color >> 24),
+                           ge->alpha_write_mask);
+    /* A masked alpha channel must retain the destination stencil bits. */
+    color = (color & 0x00FFFFFFu) |
+            (destination & (ge->alpha_write_mask << 24)) |
+            (color & ~(ge->alpha_write_mask << 24));
     psp_video_put_pixel(ge->video, x, y, color);
 }
 
@@ -1704,6 +1764,14 @@ void psp_ge_reset(PSP_GE *ge)
     ge->alpha_test_function = 1u;
     ge->alpha_test_reference = 0;
     ge->alpha_test_mask = 0xFFu;
+    ge->stencil_test_enabled = false;
+    ge->stencil_test_function = 1u;
+    ge->stencil_reference = 0u;
+    ge->stencil_mask = 0xFFu;
+    ge->stencil_fail_operation = 0u;
+    ge->stencil_depth_fail_operation = 0u;
+    ge->stencil_pass_operation = 0u;
+    ge->alpha_write_mask = 0u;
     ge->blend_operation = 0;
     ge->blend_source_factor = 2;
     ge->blend_destination_factor = 3;
@@ -1829,6 +1897,9 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_ZTESTENABLE:
                 ge->depth_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_STENCILTESTENABLE:
+                ge->stencil_test_enabled = (value & 1u) != 0;
                 break;
             case GE_CMD_LIGHTINGENABLE:
                 ge->lighting_enabled = (value & 1u) != 0;
@@ -1997,6 +2068,19 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_ZTEST:
                 ge->depth_function = value & 7u;
+                break;
+            case GE_CMD_STENCILTEST:
+                ge->stencil_test_function = value & 7u;
+                ge->stencil_reference = (value >> 8) & 0xFFu;
+                ge->stencil_mask = (value >> 16) & 0xFFu;
+                break;
+            case GE_CMD_STENCILOP:
+                ge->stencil_depth_fail_operation = (value >> 16) & 7u;
+                ge->stencil_fail_operation = (value >> 8) & 7u;
+                ge->stencil_pass_operation = value & 7u;
+                break;
+            case GE_CMD_PIXELMASKALPHA:
+                ge->alpha_write_mask = value & 0xFFu;
                 break;
             case GE_CMD_ZWRITEDISABLE:
                 ge->depth_write_disabled = (value & 1u) != 0;
