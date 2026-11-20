@@ -1,10 +1,28 @@
 #include "psp_ge.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define GE_CMD_VADDR   0x01u
 #define GE_CMD_IADDR   0x02u
+#define GE_CMD_WORLDMATRIXNUMBER 0x3Au
+#define GE_CMD_WORLDMATRIXDATA 0x3Bu
+#define GE_CMD_VIEWMATRIXNUMBER 0x3Cu
+#define GE_CMD_VIEWMATRIXDATA 0x3Du
+#define GE_CMD_PROJMATRIXNUMBER 0x3Eu
+#define GE_CMD_PROJMATRIXDATA 0x3Fu
+#define GE_CMD_VIEWPORTXSCALE 0x42u
+#define GE_CMD_VIEWPORTYSCALE 0x43u
+#define GE_CMD_VIEWPORTZSCALE 0x44u
+#define GE_CMD_VIEWPORTXCENTER 0x45u
+#define GE_CMD_VIEWPORTYCENTER 0x46u
+#define GE_CMD_VIEWPORTZCENTER 0x47u
+#define GE_CMD_OFFSETX 0x4Cu
+#define GE_CMD_OFFSETY 0x4Du
+#define GE_CMD_ZTESTENABLE 0x23u
+#define GE_CMD_ZTEST 0xDEu
+#define GE_CMD_ZWRITEDISABLE 0xE7u
 #define GE_CMD_PRIM    0x04u
 #define GE_CMD_JUMP    0x08u
 #define GE_CMD_CALL    0x0Au
@@ -31,6 +49,7 @@
 typedef struct {
     float x;
     float y;
+    float z;
     float u;
     float v;
     uint32_t color;
@@ -39,6 +58,56 @@ typedef struct {
 static uint32_t ge_resolve_address(const PSP_GE *ge, uint32_t address)
 {
     return (ge->base_address & 0xFF000000u) | (address & 0x00FFFFFFu);
+}
+
+static float ge_decode_float24(uint32_t value)
+{
+    uint32_t bits = (value & 0x00FFFFFFu) << 8;
+    float result;
+    memcpy(&result, &bits, sizeof(result));
+    return result;
+}
+
+static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
+{
+    float x = vertex->x, y = vertex->y, z = vertex->z;
+    const float *w = ge->world_matrix;
+    const float *v = ge->view_matrix;
+    const float *p = ge->projection_matrix;
+
+    float wx = w[0] * x + w[1] * y + w[2] * z + w[3];
+    float wy = w[4] * x + w[5] * y + w[6] * z + w[7];
+    float wz = w[8] * x + w[9] * y + w[10] * z + w[11];
+
+    float vx = v[0] * wx + v[1] * wy + v[2] * wz + v[3];
+    float vy = v[4] * wx + v[5] * wy + v[6] * wz + v[7];
+    float vz = v[8] * wx + v[9] * wy + v[10] * wz + v[11];
+
+    float cx = p[0] * vx + p[1] * vy + p[2] * vz + p[3];
+    float cy = p[4] * vx + p[5] * vy + p[6] * vz + p[7];
+    float cz = p[8] * vx + p[9] * vy + p[10] * vz + p[11];
+    float cw = p[12] * vx + p[13] * vy + p[14] * vz + p[15];
+
+    if (!isfinite(cw) || fabsf(cw) < 0.000001f)
+        return false;
+    float inv_w = 1.0f / cw;
+    float nx = cx * inv_w, ny = cy * inv_w, nz = cz * inv_w;
+    if (!isfinite(nx) || !isfinite(ny) || !isfinite(nz) ||
+        fabsf(nx) > 128.0f || fabsf(ny) > 128.0f || fabsf(nz) > 128.0f)
+        return false;
+
+    vertex->x = ge->viewport_center[0] +
+        nx * ge->viewport_scale[0] - ge->viewport_offset[0];
+    vertex->y = ge->viewport_center[1] +
+        ny * ge->viewport_scale[1] - ge->viewport_offset[1];
+    vertex->z = ge->viewport_center[2] +
+        nz * ge->viewport_scale[2];
+    if (!isfinite(vertex->x) || !isfinite(vertex->y) ||
+        !isfinite(vertex->z))
+        return false;
+    if (vertex->z < 0.0f) vertex->z = 0.0f;
+    if (vertex->z > 65535.0f) vertex->z = 65535.0f;
+    return true;
 }
 
 static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
@@ -51,21 +120,24 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t weight_type = (type >> 9) & 3u;
     uint32_t weight_count = ((type >> 14) & 7u) + 1u;
     uint32_t morph_count = ((type >> 18) & 7u) + 1u;
-    uint32_t transform_2d = (type >> 23) & 1u;
+    bool transform_2d = ((type >> 23) & 1u) != 0;
 
     if (normal_type != 0 || weight_type != 0 ||
-        weight_count != 1 || morph_count != 1 || !transform_2d ||
-        (position_type != 2 && position_type != 3) ||
+        weight_count != 1 || morph_count != 1 ||
+        (position_type < 1 || position_type > 3) ||
         color_type > 4 || (ge->texture_enabled && texture_type == 0))
         return false;
 
+    uint32_t position_size = position_type == 1 ? 1u :
+        (position_type == 2 ? 2u : 4u);
+    uint32_t position_components = transform_2d ? 2u : 3u;
     uint32_t stride = texture_type == 1 ? 2u :
         (texture_type == 2 ? 4u : (texture_type == 3 ? 8u : 0u));
     if (color_type == 1 || color_type == 2 || color_type == 3)
         stride += 2;
     else if (color_type == 4)
         stride += 4;
-    stride += position_type == 2 ? 4u : 8u;
+    stride += position_size * position_components;
 
     uint64_t address64 = (uint64_t)ge->vertex_address +
         (uint64_t)index * stride;
@@ -78,40 +150,40 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     vertex->v = 0.0f;
     if (texture_type == 1) {
         vertex->u = (float)psp_memory_read8(ge->memory, address);
-        vertex->v = (float)psp_memory_read8(ge->memory, address + 1);
-        address += 2;
+        vertex->v = (float)psp_memory_read8(ge->memory, address + 1u);
+        address += 2u;
     } else if (texture_type == 2) {
         uint32_t uv = psp_memory_read8(ge->memory, address) |
-            ((uint32_t)psp_memory_read8(ge->memory, address + 1) << 8);
-        uint32_t vv = psp_memory_read8(ge->memory, address + 2) |
-            ((uint32_t)psp_memory_read8(ge->memory, address + 3) << 8);
+            ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
+        uint32_t vv = psp_memory_read8(ge->memory, address + 2u) |
+            ((uint32_t)psp_memory_read8(ge->memory, address + 3u) << 8);
         vertex->u = (float)uv;
         vertex->v = (float)vv;
-        address += 4;
+        address += 4u;
     } else if (texture_type == 3) {
         uint32_t ub = psp_memory_read32(ge->memory, address);
-        uint32_t vb = psp_memory_read32(ge->memory, address + 4);
+        uint32_t vb = psp_memory_read32(ge->memory, address + 4u);
         memcpy(&vertex->u, &ub, sizeof(ub));
         memcpy(&vertex->v, &vb, sizeof(vb));
-        address += 8;
+        address += 8u;
     }
 
     vertex->color = ge->draw_color;
     if (color_type == 1 || color_type == 2 || color_type == 3) {
         uint32_t packed = psp_memory_read8(ge->memory, address) |
-            ((uint32_t)psp_memory_read8(ge->memory, address + 1) << 8);
-        address += 2;
+            ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
+        address += 2u;
         if (color_type == 1) {
             vertex->color = PSP_VIDEO_COLOR(
                 ((packed >> 11) & 31u) * 255u / 31u,
                 ((packed >> 5) & 63u) * 255u / 63u,
-                (packed & 31u) * 255u / 31u, 255);
+                (packed & 31u) * 255u / 31u, 255u);
         } else if (color_type == 2) {
             vertex->color = PSP_VIDEO_COLOR(
                 ((packed >> 10) & 31u) * 255u / 31u,
                 ((packed >> 5) & 31u) * 255u / 31u,
                 (packed & 31u) * 255u / 31u,
-                (packed & 0x8000u) ? 255 : 0);
+                (packed & 0x8000u) ? 255u : 0u);
         } else {
             vertex->color = PSP_VIDEO_COLOR(
                 ((packed >> 8) & 15u) * 17u,
@@ -120,29 +192,40 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
                 ((packed >> 12) & 15u) * 17u);
         }
     } else if (color_type == 4) {
-        uint32_t packed = psp_memory_read32(ge->memory, address);
-        vertex->color = packed;
-        address += 4;
+        vertex->color = psp_memory_read32(ge->memory, address);
+        address += 4u;
     }
 
-    if (position_type == 2) {
-        int16_t x = (int16_t)(psp_memory_read8(ge->memory, address) |
-            ((uint16_t)psp_memory_read8(ge->memory, address + 1) << 8));
-        int16_t y = (int16_t)(psp_memory_read8(ge->memory, address + 2) |
-            ((uint16_t)psp_memory_read8(ge->memory, address + 3) << 8));
-        vertex->x = (float)x;
-        vertex->y = (float)y;
-    } else {
-        uint32_t xb = psp_memory_read32(ge->memory, address);
-        uint32_t yb = psp_memory_read32(ge->memory, address + 4);
-        memcpy(&vertex->x, &xb, sizeof(xb));
-        memcpy(&vertex->y, &yb, sizeof(yb));
+    float position[3] = {0.0f, 0.0f, 0.0f};
+    for (uint32_t component = 0; component < position_components;
+         component++) {
+        if (position_type == 1) {
+            position[component] =
+                (float)(int8_t)psp_memory_read8(ge->memory, address);
+            address += 1u;
+        } else if (position_type == 2) {
+            uint16_t packed = psp_memory_read8(ge->memory, address) |
+                ((uint16_t)psp_memory_read8(ge->memory, address + 1u) << 8);
+            position[component] = (float)(int16_t)packed;
+            address += 2u;
+        } else {
+            uint32_t bits = psp_memory_read32(ge->memory, address);
+            memcpy(&position[component], &bits, sizeof(bits));
+            address += 4u;
+        }
     }
+    vertex->x = position[0];
+    vertex->y = position[1];
+    vertex->z = position[2];
 
     if (!isfinite(vertex->x) || !isfinite(vertex->y) ||
-        !isfinite(vertex->u) || !isfinite(vertex->v) ||
-        fabsf(vertex->x) > 32768.0f || fabsf(vertex->y) > 32768.0f ||
+        !isfinite(vertex->z) || !isfinite(vertex->u) ||
+        !isfinite(vertex->v) || fabsf(vertex->x) > 32768.0f ||
+        fabsf(vertex->y) > 32768.0f || fabsf(vertex->z) > 32768.0f ||
         fabsf(vertex->u) > 65536.0f || fabsf(vertex->v) > 65536.0f)
+        return false;
+
+    if (!transform_2d && !ge_transform_vertex(ge, vertex))
         return false;
     return true;
 }
@@ -242,10 +325,12 @@ static bool ge_compare_value(uint32_t function, uint32_t source,
     }
 }
 
-static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color)
+static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
+                          float depth)
 {
     if (x < ge->scissor_left || x > ge->scissor_right ||
-        y < ge->scissor_top || y > ge->scissor_bottom)
+        y < ge->scissor_top || y > ge->scissor_bottom ||
+        x < 0 || y < 0 || x >= PSP_VIDEO_WIDTH || y >= PSP_VIDEO_HEIGHT)
         return;
     if (ge->alpha_test_enabled) {
         uint32_t alpha = (color >> 24) & ge->alpha_test_mask;
@@ -253,6 +338,16 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color)
         if (!ge_compare_value(ge->alpha_test_function, alpha, reference))
             return;
     }
+    uint32_t depth_value = depth <= 0.0f ? 0u :
+        (depth >= 65535.0f ? 65535u : (uint32_t)(depth + 0.5f));
+    uint32_t depth_index = (uint32_t)y * PSP_VIDEO_WIDTH + (uint32_t)x;
+    if (ge->depth_test_enabled) {
+        uint32_t current = ge->depth_buffer[depth_index];
+        if (!ge_compare_value(ge->depth_function, depth_value, current))
+            return;
+    }
+    if (ge->depth_test_enabled && !ge->depth_write_disabled)
+        ge->depth_buffer[depth_index] = (uint16_t)depth_value;
     if (ge->alpha_blend_enabled) {
         uint32_t destination = psp_video_get_pixel(ge->video, x, y);
         color = ge_blend_color(ge, color, destination);
@@ -284,7 +379,8 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
             a->color, b->color, b->color, 1.0f - t, t, 0.0f);
         float u = a->u + (b->u - a->u) * t;
         float v = a->v + (b->v - a->v) * t;
-        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v));
+        float depth = a->z + (b->z - a->z) * t;
+        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v), depth);
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
         if (twice >= dy) { error += dy; x0 += sx; }
@@ -432,8 +528,9 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
                     a->color, b->color, c->color, wa, wb, wc);
                 float u = a->u * wa + b->u * wb + c->u * wc;
                 float v = a->v * wa + b->v * wb + c->v * wc;
+                float depth = a->z * wa + b->z * wb + c->z * wc;
                 ge_put_pixel(ge, x, y,
-                    ge_shade_fragment(ge, color, u, v));
+                    ge_shade_fragment(ge, color, u, v), depth);
             }
         }
     }
@@ -457,7 +554,8 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             ge_put_pixel(ge, (int)lroundf(vertices[0].x),
                          (int)lroundf(vertices[0].y),
                          ge_shade_fragment(ge, vertices[0].color,
-                                           vertices[0].u, vertices[0].v));
+                                           vertices[0].u, vertices[0].v),
+                         vertices[0].z);
             drawn++;
         }
     } else if (primitive == 1) {
@@ -543,7 +641,9 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                         float v = vertices[0].v +
                             (vertices[1].v - vertices[0].v) * ty;
                         ge_put_pixel(ge, x, y,
-                            ge_shade_fragment(ge, vertices[0].color, u, v));
+                            ge_shade_fragment(ge, vertices[0].color, u, v),
+                            vertices[0].z + (vertices[1].z - vertices[0].z) *
+                            ((tx + ty) * 0.5f));
                     }
                 }
             }
@@ -562,11 +662,23 @@ bool psp_ge_init(PSP_GE *ge, PSP_Memory *memory, PSP_Video *video)
         memory->ram == NULL || !video->initialized)
         return false;
     memset(ge, 0, sizeof(*ge));
+    ge->depth_buffer = calloc(PSP_VIDEO_WIDTH * PSP_VIDEO_HEIGHT,
+                              sizeof(*ge->depth_buffer));
+    if (ge->depth_buffer == NULL)
+        return false;
     ge->memory = memory;
     ge->video = video;
     ge->initialized = true;
     psp_ge_reset(ge);
     return true;
+}
+
+void psp_ge_destroy(PSP_GE *ge)
+{
+    if (ge == NULL)
+        return;
+    free(ge->depth_buffer);
+    memset(ge, 0, sizeof(*ge));
 }
 
 void psp_ge_reset(PSP_GE *ge)
@@ -603,6 +715,32 @@ void psp_ge_reset(PSP_GE *ge)
     ge->scissor_bottom = PSP_VIDEO_HEIGHT - 1;
     ge->commands_executed = 0;
     ge->primitives_drawn = 0;
+    memset(ge->depth_buffer, 0xFF,
+           PSP_VIDEO_WIDTH * PSP_VIDEO_HEIGHT * sizeof(*ge->depth_buffer));
+    const float identity3x4[12] = {
+        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0
+    };
+    const float identity4x4[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 0, 0, 0, 1
+    };
+    memcpy(ge->world_matrix, identity3x4, sizeof(identity3x4));
+    memcpy(ge->view_matrix, identity3x4, sizeof(identity3x4));
+    memcpy(ge->projection_matrix, identity4x4, sizeof(identity4x4));
+    ge->world_matrix_index = 0;
+    ge->view_matrix_index = 0;
+    ge->projection_matrix_index = 0;
+    ge->viewport_scale[0] = 240.0f;
+    ge->viewport_scale[1] = -136.0f;
+    ge->viewport_scale[2] = 32767.0f;
+    ge->viewport_center[0] = 240.0f;
+    ge->viewport_center[1] = 136.0f;
+    ge->viewport_center[2] = 32767.0f;
+    ge->viewport_offset[0] = 0.0f;
+    ge->viewport_offset[1] = 0.0f;
+    ge->depth_test_enabled = false;
+    ge->depth_write_disabled = false;
+    ge->depth_function = 1u;
 }
 
 bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
@@ -636,6 +774,65 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_VTYPE:
                 ge->vertex_type = value;
+                break;
+            case GE_CMD_WORLDMATRIXNUMBER:
+                ge->world_matrix_index = value & 0xFu;
+                break;
+            case GE_CMD_WORLDMATRIXDATA:
+                if (ge->world_matrix_index < 12u)
+                    ge->world_matrix[ge->world_matrix_index++] =
+                        ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWMATRIXNUMBER:
+                ge->view_matrix_index = value & 0xFu;
+                break;
+            case GE_CMD_VIEWMATRIXDATA:
+                if (ge->view_matrix_index < 12u)
+                    ge->view_matrix[ge->view_matrix_index++] =
+                        ge_decode_float24(value);
+                break;
+            case GE_CMD_PROJMATRIXNUMBER:
+                ge->projection_matrix_index = value & 0xFu;
+                break;
+            case GE_CMD_PROJMATRIXDATA:
+                if (ge->projection_matrix_index < 16u)
+                    ge->projection_matrix[ge->projection_matrix_index++] =
+                        ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWPORTXSCALE:
+                ge->viewport_scale[0] = ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWPORTYSCALE:
+                ge->viewport_scale[1] = ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWPORTZSCALE:
+                ge->viewport_scale[2] = ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWPORTXCENTER:
+                ge->viewport_center[0] = ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWPORTYCENTER:
+                ge->viewport_center[1] = ge_decode_float24(value);
+                break;
+            case GE_CMD_VIEWPORTZCENTER:
+                ge->viewport_center[2] = ge_decode_float24(value);
+                break;
+            case GE_CMD_OFFSETX:
+                ge->viewport_offset[0] = (float)(int16_t)(value & 0xFFFFu) /
+                    16.0f;
+                break;
+            case GE_CMD_OFFSETY:
+                ge->viewport_offset[1] = (float)(int16_t)(value & 0xFFFFu) /
+                    16.0f;
+                break;
+            case GE_CMD_ZTESTENABLE:
+                ge->depth_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_ZTEST:
+                ge->depth_function = value & 7u;
+                break;
+            case GE_CMD_ZWRITEDISABLE:
+                ge->depth_write_disabled = (value & 1u) != 0;
                 break;
             case GE_CMD_TEXTUREMAPENABLE:
                 ge->texture_enabled = (value & 1u) != 0;
