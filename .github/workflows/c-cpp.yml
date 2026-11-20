@@ -106,7 +106,7 @@ jobs:
 
       - name: Run core ELF integration tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/loader/psp_io_hle.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c source/audio/psp_audio_hle.c source/video/psp_ge.c source/video/psp_ge_hle.c tests/test_video_stub.c tests/test_core_loader.c -lm -o /tmp/vyron-core-loader-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_dynarec.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/memory/psp_memory_blocks.c source/memory/psp_memory_hle.c source/loader/psp_io_hle.c source/loader/psp_loader.c source/loader/psp_nid.c source/loader/psp_prx_imports.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c source/audio/psp_audio_hle.c source/video/psp_ge.c source/video/psp_ge_hle.c tests/test_video_stub.c tests/test_core_loader.c -lm -o /tmp/vyron-core-loader-tests
           /tmp/vyron-core-loader-tests
 
       - name: Upload Nintendo 3DS builds
