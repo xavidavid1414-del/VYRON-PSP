@@ -1783,8 +1783,8 @@ static bool ge_execute_transfer(PSP_GE *ge, bool transfer_32bit)
     if (row_bytes64 > SIZE_MAX)
         return false;
     size_t row_bytes = (size_t)row_bytes64;
-    uint8_t *row = malloc(row_bytes);
-    if (row == NULL)
+    uint64_t transfer_bytes64 = row_bytes64 * height;
+    if (transfer_bytes64 > SIZE_MAX)
         return false;
 
     /* Validate every row before writing anything: a bad final row must not
@@ -1810,22 +1810,56 @@ static bool ge_execute_transfer(PSP_GE *ge, bool transfer_32bit)
     }
 
     if (success) {
-        /* Copy bottom-up when destination follows source so overlapping
-           rectangles behave like memmove rather than corrupting later rows. */
-        for (uint32_t n = 0u; n < height; n++) {
-            uint32_t y = dst_first > src_first ? height - 1u - n : n;
-            uint32_t src = (uint32_t)(src_first +
-                (uint64_t)y * src_width * bytes_per_pixel);
-            uint32_t dst = (uint32_t)(dst_first +
-                (uint64_t)y * dst_width * bytes_per_pixel);
-            for (size_t i = 0u; i < row_bytes; i++)
-                row[i] = psp_memory_read8(ge->memory, src + (uint32_t)i);
-            for (size_t i = 0u; i < row_bytes; i++)
-                psp_memory_write8(ge->memory, dst + (uint32_t)i, row[i]);
+        uint64_t src_end = src_first +
+            (uint64_t)(height - 1u) * src_width * bytes_per_pixel + row_bytes;
+        uint64_t dst_end = dst_first +
+            (uint64_t)(height - 1u) * dst_width * bytes_per_pixel + row_bytes;
+        bool ranges_overlap = src_first < dst_end && dst_first < src_end;
+
+        if (ranges_overlap) {
+            /* Different row strides can make row-by-row memmove ordering
+               unsafe. Snapshot the complete source rectangle before writes. */
+            size_t transfer_bytes = (size_t)transfer_bytes64;
+            uint8_t *snapshot = malloc(transfer_bytes);
+            if (snapshot == NULL)
+                success = false;
+            if (success) {
+                for (uint32_t y = 0u; y < height; y++) {
+                    uint32_t src = (uint32_t)(src_first +
+                        (uint64_t)y * src_width * bytes_per_pixel);
+                    for (size_t i = 0u; i < row_bytes; i++)
+                        snapshot[(size_t)y * row_bytes + i] =
+                            psp_memory_read8(ge->memory, src + (uint32_t)i);
+                }
+                for (uint32_t y = 0u; y < height; y++) {
+                    uint32_t dst = (uint32_t)(dst_first +
+                        (uint64_t)y * dst_width * bytes_per_pixel);
+                    for (size_t i = 0u; i < row_bytes; i++)
+                        psp_memory_write8(ge->memory, dst + (uint32_t)i,
+                            snapshot[(size_t)y * row_bytes + i]);
+                }
+            }
+            free(snapshot);
+        } else {
+            uint8_t *row = malloc(row_bytes);
+            if (row == NULL)
+                success = false;
+            if (success) {
+                for (uint32_t y = 0u; y < height; y++) {
+                    uint32_t src = (uint32_t)(src_first +
+                        (uint64_t)y * src_width * bytes_per_pixel);
+                    uint32_t dst = (uint32_t)(dst_first +
+                        (uint64_t)y * dst_width * bytes_per_pixel);
+                    for (size_t i = 0u; i < row_bytes; i++)
+                        row[i] = psp_memory_read8(ge->memory, src + (uint32_t)i);
+                    for (size_t i = 0u; i < row_bytes; i++)
+                        psp_memory_write8(ge->memory, dst + (uint32_t)i, row[i]);
+                }
+            }
+            free(row);
         }
     }
 
-    free(row);
     return success;
 }
 
