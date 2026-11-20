@@ -51,6 +51,27 @@ int main(void)
     assert(psp_video_get_pixel(&video, 15, 15) == 0xFFFF0000u);
     assert(psp_video_get_pixel(&video, 35, 35) == 0);
 
+    /* Sprite primitives obey the configured scissor rectangle. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const uint32_t sprite_vertices = PSP_RAM_BASE + 0x1100;
+    psp_memory_write32(&memory, sprite_vertices, 0xFF00FF00u);
+    put16(&memory, sprite_vertices + 4, 5);
+    put16(&memory, sprite_vertices + 6, 5);
+    psp_memory_write32(&memory, sprite_vertices + 8, 0xFF00FF00u);
+    put16(&memory, sprite_vertices + 12, 30);
+    put16(&memory, sprite_vertices + 14, 30);
+    command(&memory, list + 32, 0x10, 0x00080000u);
+    command(&memory, list + 36, 0x01, 0x1100u);
+    command(&memory, list + 40, 0x12, vtype);
+    command(&memory, list + 44, 0x17, (20u << 10) | 20u);
+    command(&memory, list + 48, 0x18, (25u << 10) | 25u);
+    command(&memory, list + 52, 0x04, (6u << 16) | 2u);
+    command(&memory, list + 56, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 32, 8));
+    assert(psp_video_get_pixel(&video, 22, 22) == 0xFF00FF00u);
+    assert(psp_video_get_pixel(&video, 10, 10) == 0);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
