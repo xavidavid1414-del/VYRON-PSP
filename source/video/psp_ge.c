@@ -136,7 +136,7 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     float cw = p[12] * vx + p[13] * vy + p[14] * vz + p[15];
 
     if (!isfinite(cx) || !isfinite(cy) || !isfinite(cz) ||
-        !isfinite(cw) || fabsf(cw) < 0.000001f)
+        !isfinite(cw))
         return false;
     vertex->clip_x = cx;
     vertex->clip_y = cy;
