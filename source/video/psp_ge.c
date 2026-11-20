@@ -23,6 +23,14 @@
 #define GE_CMD_ZTESTENABLE 0x23u
 #define GE_CMD_CULLFACEENABLE 0x1Du
 #define GE_CMD_CULL 0x9Bu
+#define GE_CMD_LIGHTINGENABLE 0x17u
+#define GE_CMD_LIGHTENABLE0 0x18u
+#define GE_CMD_AMBIENTCOLOR 0x5Cu
+#define GE_CMD_LIGHTTYPE0 0x5Fu
+#define GE_CMD_LDX0 0x6Fu
+#define GE_CMD_LDY0 0x70u
+#define GE_CMD_LDZ0 0x71u
+#define GE_CMD_LDC0 0x90u
 #define GE_CMD_ZTEST 0xDEu
 #define GE_CMD_ZWRITEDISABLE 0xE7u
 #define GE_CMD_PRIM    0x04u
@@ -55,6 +63,9 @@ typedef struct {
     float x;
     float y;
     float z;
+    float nx;
+    float ny;
+    float nz;
     float u;
     float v;
     uint32_t color;
@@ -88,6 +99,22 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     float vy = v[4] * wx + v[5] * wy + v[6] * wz + v[7];
     float vz = v[8] * wx + v[9] * wy + v[10] * wz + v[11];
 
+    float nwx = w[0] * vertex->nx + w[1] * vertex->ny +
+        w[2] * vertex->nz;
+    float nwy = w[4] * vertex->nx + w[5] * vertex->ny +
+        w[6] * vertex->nz;
+    float nwz = w[8] * vertex->nx + w[9] * vertex->ny +
+        w[10] * vertex->nz;
+    float nnx = v[0] * nwx + v[1] * nwy + v[2] * nwz;
+    float nny = v[4] * nwx + v[5] * nwy + v[6] * nwz;
+    float nnz = v[8] * nwx + v[9] * nwy + v[10] * nwz;
+    float normal_length = sqrtf(nnx * nnx + nny * nny + nnz * nnz);
+    if (normal_length > 0.000001f) {
+        vertex->nx = nnx / normal_length;
+        vertex->ny = nny / normal_length;
+        vertex->nz = nnz / normal_length;
+    }
+
     float cx = p[0] * vx + p[1] * vy + p[2] * vz + p[3];
     float cy = p[4] * vx + p[5] * vy + p[6] * vz + p[7];
     float cz = p[8] * vx + p[9] * vy + p[10] * vz + p[11];
@@ -115,6 +142,34 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     return true;
 }
 
+static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
+{
+    if (!ge->lighting_enabled)
+        return;
+
+    float diffuse_amount = 0.0f;
+    if (ge->light0_enabled && ge->light0_type == 0u) {
+        diffuse_amount = -(vertex->nx * ge->light0_direction[0] +
+                           vertex->ny * ge->light0_direction[1] +
+                           vertex->nz * ge->light0_direction[2]);
+        if (diffuse_amount < 0.0f) diffuse_amount = 0.0f;
+        if (diffuse_amount > 1.0f) diffuse_amount = 1.0f;
+    }
+
+    uint32_t result = vertex->color & 0xFF000000u;
+    for (unsigned int shift = 0; shift <= 16; shift += 8) {
+        float ambient = (float)((ge->ambient_color >> shift) & 0xFFu) /
+            255.0f;
+        float diffuse = (float)((ge->light0_diffuse >> shift) & 0xFFu) /
+            255.0f;
+        float factor = ambient + diffuse * diffuse_amount;
+        if (factor > 1.0f) factor = 1.0f;
+        float channel = (float)((vertex->color >> shift) & 0xFFu) * factor;
+        result |= (uint32_t)(channel + 0.5f) << shift;
+    }
+    vertex->color = result;
+}
+
 static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
 {
     uint32_t type = ge->vertex_type;
@@ -127,8 +182,7 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t morph_count = ((type >> 18) & 7u) + 1u;
     bool transform_2d = ((type >> 23) & 1u) != 0;
 
-    if (normal_type != 0 || weight_type != 0 ||
-        weight_count != 1 || morph_count != 1 ||
+    if (weight_type != 0 || weight_count != 1 || morph_count != 1 ||
         (position_type < 1 || position_type > 3) ||
         (color_type != 0u && (color_type < 4u || color_type > 7u)) ||
         (ge->texture_enabled && texture_type == 0))
@@ -143,6 +197,10 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
         stride += 2;
     else if (color_type == 7u)
         stride += 4;
+    uint32_t normal_size = normal_type == 1u ? 1u :
+        (normal_type == 2u ? 2u : 4u);
+    if (normal_type != 0u)
+        stride += normal_size * 3u;
     stride += position_size * position_components;
 
     uint64_t address64 = (uint64_t)ge->vertex_address +
@@ -202,6 +260,29 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
         address += 4u;
     }
 
+    vertex->nx = 0.0f;
+    vertex->ny = 0.0f;
+    vertex->nz = 1.0f;
+    if (normal_type != 0u) {
+        float *normal[3] = {&vertex->nx, &vertex->ny, &vertex->nz};
+        for (uint32_t component = 0; component < 3u; component++) {
+            if (normal_type == 1u) {
+                *normal[component] =
+                    (float)(int8_t)psp_memory_read8(ge->memory, address);
+                address += 1u;
+            } else if (normal_type == 2u) {
+                uint16_t packed = psp_memory_read8(ge->memory, address) |
+                    ((uint16_t)psp_memory_read8(ge->memory, address + 1u) << 8);
+                *normal[component] = (float)(int16_t)packed;
+                address += 2u;
+            } else {
+                uint32_t bits = psp_memory_read32(ge->memory, address);
+                memcpy(normal[component], &bits, sizeof(bits));
+                address += 4u;
+            }
+        }
+    }
+
     float position[3] = {0.0f, 0.0f, 0.0f};
     for (uint32_t component = 0; component < position_components;
          component++) {
@@ -225,14 +306,19 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     vertex->z = position[2];
 
     if (!isfinite(vertex->x) || !isfinite(vertex->y) ||
-        !isfinite(vertex->z) || !isfinite(vertex->u) ||
+        !isfinite(vertex->z) || !isfinite(vertex->nx) ||
+        !isfinite(vertex->ny) || !isfinite(vertex->nz) ||
+        !isfinite(vertex->u) ||
         !isfinite(vertex->v) || fabsf(vertex->x) > 32768.0f ||
         fabsf(vertex->y) > 32768.0f || fabsf(vertex->z) > 32768.0f ||
         fabsf(vertex->u) > 65536.0f || fabsf(vertex->v) > 65536.0f)
         return false;
 
-    if (!transform_2d && !ge_transform_vertex(ge, vertex))
-        return false;
+    if (!transform_2d) {
+        if (!ge_transform_vertex(ge, vertex))
+            return false;
+        ge_apply_lighting(ge, vertex);
+    }
     return true;
 }
 
@@ -824,6 +910,14 @@ void psp_ge_reset(PSP_GE *ge)
     ge->index_address = 0;
     ge->vertex_type = (2u << 7) | (1u << 23);
     ge->draw_color = 0xFFFFFFFFu;
+    ge->lighting_enabled = false;
+    ge->light0_enabled = false;
+    ge->light0_type = 0;
+    ge->light0_direction[0] = 0.0f;
+    ge->light0_direction[1] = 0.0f;
+    ge->light0_direction[2] = -1.0f;
+    ge->light0_diffuse = 0x00FFFFFFu;
+    ge->ambient_color = 0;
     ge->texture_address = 0;
     ge->texture_address_low = 0;
     ge->texture_buffer_width_register = 0;
@@ -969,6 +1063,30 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_ZTESTENABLE:
                 ge->depth_test_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_LIGHTINGENABLE:
+                ge->lighting_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_LIGHTENABLE0:
+                ge->light0_enabled = (value & 1u) != 0;
+                break;
+            case GE_CMD_LIGHTTYPE0:
+                ge->light0_type = value & 3u;
+                break;
+            case GE_CMD_LDX0:
+                ge->light0_direction[0] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDY0:
+                ge->light0_direction[1] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDZ0:
+                ge->light0_direction[2] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDC0:
+                ge->light0_diffuse = value & 0x00FFFFFFu;
+                break;
+            case GE_CMD_AMBIENTCOLOR:
+                ge->ambient_color = value & 0x00FFFFFFu;
                 break;
             case GE_CMD_CULLFACEENABLE:
                 ge->cull_enabled = (value & 1u) != 0;
