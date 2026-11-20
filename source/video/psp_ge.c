@@ -771,8 +771,10 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
             uint8_t updated = ge_apply_stencil_operation(
                 ge->stencil_fail_operation, stencil_current,
                 (uint8_t)ge->stencil_reference);
-            psp_video_put_pixel(ge->video, x, y,
-                ge_merge_alpha(destination, updated, ge->alpha_write_mask));
+            uint32_t result = ge_merge_alpha(destination, updated,
+                                             ge->alpha_write_mask);
+            psp_video_put_pixel(ge->video, x, y, result);
+            ge_store_framebuffer_pixel(ge, x, y, result);
             return;
         }
     }
@@ -783,8 +785,10 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
                 uint8_t updated = ge_apply_stencil_operation(
                     ge->stencil_depth_fail_operation, stencil_current,
                     (uint8_t)ge->stencil_reference);
-                psp_video_put_pixel(ge->video, x, y,
-                    ge_merge_alpha(destination, updated, ge->alpha_write_mask));
+                uint32_t result = ge_merge_alpha(destination, updated,
+                                                 ge->alpha_write_mask);
+                psp_video_put_pixel(ge->video, x, y, result);
+                ge_store_framebuffer_pixel(ge, x, y, result);
             }
             return;
         }
