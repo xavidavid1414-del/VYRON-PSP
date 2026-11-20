@@ -236,6 +236,42 @@ int main(void)
     assert(!cpu.branch_pending);
 
 
+    /* BLTZAL must not write the link register when not taken. */
+    const uint32_t bltzal_not_taken =
+        (0x01u << 26) | (1u << 21) | (16u << 16) | 2u;
+    memcpy(ram, &bltzal_not_taken, sizeof(bltzal_not_taken));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 1u;
+    cpu.gpr[31] = 0x12345678u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(!cpu.branch_pending);
+    assert(cpu.gpr[31] == 0x12345678u);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 8u);
+
+    /* BGEZAL writes the link register when its branch is taken. */
+    const uint32_t bgezal_taken =
+        (0x01u << 26) | (1u << 21) | (17u << 16) | 2u;
+    memcpy(ram, &bgezal_taken, sizeof(bgezal_taken));
+    memcpy(ram + 4, &nop, sizeof(nop));
+
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 1u;
+
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 4u);
+    assert(cpu.branch_pending);
+    assert(cpu.gpr[31] == PSP_RAM_BASE + 8u);
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.pc == PSP_RAM_BASE + 12u);
+    assert(!cpu.branch_pending);
+
     /* JAL writes the return address and executes its delay slot. */
     const uint32_t jal = (0x03u << 26) |
         (((PSP_RAM_BASE + 16u) >> 2) & 0x03FFFFFFu);
