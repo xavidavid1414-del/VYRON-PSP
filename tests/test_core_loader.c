@@ -64,10 +64,63 @@ static void make_test_elf(uint8_t *elf)
     write_le32(elf + 0xA4, 0x12345678);
 }
 
+
+static void make_test_prx(uint8_t *elf, size_t size)
+{
+    memset(elf, 0, size);
+
+    elf[0] = 0x7F;
+    elf[1] = 'E';
+    elf[2] = 'L';
+    elf[3] = 'F';
+    elf[4] = 1;
+    elf[5] = 1;
+    elf[6] = 1;
+
+    write_le16(elf + 16, 0xFFA0); /* PSP ET_PRX */
+    write_le16(elf + 18, 8);      /* MIPS */
+    write_le32(elf + 20, 1);
+    write_le32(elf + 24, 0x1000);
+    write_le32(elf + 28, 52);
+    write_le16(elf + 40, 52);
+    write_le16(elf + 42, 32);
+    write_le16(elf + 44, 3);
+
+    /* Executable PRX segment, virtual address 0x1000. */
+    write_le32(elf + 52, 1);
+    write_le32(elf + 56, 0x100);
+    write_le32(elf + 60, 0x1000);
+    write_le32(elf + 68, 8);
+    write_le32(elf + 72, 8);
+    write_le32(elf + 76, 5);
+    write_le32(elf + 80, 4);
+    write_le32(elf + 0x100, 0x2408002A);
+    write_le32(elf + 0x104, 0x00002004);
+
+    /* Data PRX segment, virtual address 0x2000. */
+    write_le32(elf + 84, 1);
+    write_le32(elf + 88, 0x108);
+    write_le32(elf + 92, 0x2000);
+    write_le32(elf + 100, 8);
+    write_le32(elf + 104, 8);
+    write_le32(elf + 108, 6);
+    write_le32(elf + 112, 4);
+    write_le32(elf + 0x108, 0xAABBCCDD);
+    write_le32(elf + 0x10C, 0);
+
+    /* PSP relocation table: R_MIPS_32, patch seg 0, base seg 1. */
+    write_le32(elf + 116, 0x700000A0);
+    write_le32(elf + 120, 0x110);
+    write_le32(elf + 132, 8);
+    write_le32(elf + 0x110, 4);
+    write_le32(elf + 0x114, (1u << 16) | (2u << 0));
+}
+
 int main(void)
 {
     PSP_Core core;
     uint8_t elf[TEST_ELF_SIZE];
+    uint8_t prx[0x118];
 
     memset(&core, 0, sizeof(core));
     assert(psp_memory_init(&core.memory));
@@ -93,6 +146,17 @@ int main(void)
     assert(psp_core_run(&core, 1));
     assert(core.cpu.gpr[8] == 42);
     assert(core.cpu.pc == TEST_ENTRY + 4);
+
+    /* Load a PRX with two segments and apply an R_MIPS_32 relocation. */
+    make_test_prx(prx, sizeof(prx));
+    assert(psp_core_load_executable_data(
+        &core, prx, sizeof(prx)));
+    assert(core.image_loaded);
+    assert(core.cpu.pc == PSP_RAM_BASE);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 4) ==
+           PSP_RAM_BASE + 0x104);
+    assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 0x100) ==
+           0xAABBCCDD);
 
     /* An entry point outside executable memory must be rejected. */
     write_le32(elf + 24, TEST_DATA_ENTRY);
