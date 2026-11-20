@@ -36,7 +36,9 @@ int main(void)
     cpu.gpr[5] = 0;
     cpu.gpr[6] = 0xFFFFFFFFu;
     cpu.gpr[7] = 0;
-    assert(psp_nid_resolve(0xAB49E76Au) == 10u);
+    uint32_t syscall_code = 0;
+    assert(psp_nid_resolve(0xAB49E76Au, &syscall_code));
+    assert(syscall_code == 10u);
     assert(psp_syscall_dispatch(&cpu, &memory, 10u));
     uint32_t id = cpu.gpr[2];
     assert(id == 0x35000000u);
