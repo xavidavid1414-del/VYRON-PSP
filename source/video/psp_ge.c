@@ -25,6 +25,12 @@
 #define GE_CMD_CULL 0x9Bu
 #define GE_CMD_LIGHTINGENABLE 0x17u
 #define GE_CMD_LIGHTENABLE0 0x18u
+#define GE_CMD_LIGHTENABLE1 0x19u
+#define GE_CMD_LIGHTTYPE1 0x60u
+#define GE_CMD_LDX1 0x72u
+#define GE_CMD_LDY1 0x73u
+#define GE_CMD_LDZ1 0x74u
+#define GE_CMD_LDC1 0x91u
 #define GE_CMD_AMBIENTCOLOR 0x5Cu
 #define GE_CMD_LIGHTTYPE0 0x5Fu
 #define GE_CMD_LDX0 0x6Fu
@@ -181,22 +187,31 @@ static void ge_apply_lighting(const PSP_GE *ge, GE_Vertex *vertex)
     if (!ge->lighting_enabled || ge->clear_mode)
         return;
 
-    float diffuse_amount = 0.0f;
-    if (ge->light0_enabled && ge->light0_type == 0u) {
-        diffuse_amount = -(vertex->nx * ge->light0_direction[0] +
-                           vertex->ny * ge->light0_direction[1] +
-                           vertex->nz * ge->light0_direction[2]);
-        if (diffuse_amount < 0.0f) diffuse_amount = 0.0f;
-        if (diffuse_amount > 1.0f) diffuse_amount = 1.0f;
+    float diffuse_amount[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    for (unsigned int light = 0; light < 4u; light++) {
+        bool enabled = light == 0u ? ge->light0_enabled :
+            ge->light_enabled[light];
+        uint32_t type = light == 0u ? ge->light0_type :
+            ge->light_type[light];
+        const float *direction = light == 0u ? ge->light0_direction :
+            ge->light_direction[light];
+        if (enabled && type == 0u) {
+            diffuse_amount[light] = -(vertex->nx * direction[0] +
+                vertex->ny * direction[1] + vertex->nz * direction[2]);
+            if (diffuse_amount[light] < 0.0f) diffuse_amount[light] = 0.0f;
+            if (diffuse_amount[light] > 1.0f) diffuse_amount[light] = 1.0f;
+        }
     }
 
     uint32_t result = vertex->color & 0xFF000000u;
     for (unsigned int shift = 0; shift <= 16; shift += 8) {
-        float ambient = (float)((ge->ambient_color >> shift) & 0xFFu) /
-            255.0f;
-        float diffuse = (float)((ge->light0_diffuse >> shift) & 0xFFu) /
-            255.0f;
-        float factor = ambient + diffuse * diffuse_amount;
+        float factor = (float)((ge->ambient_color >> shift) & 0xFFu) / 255.0f;
+        for (unsigned int light = 0; light < 4u; light++) {
+            uint32_t diffuse_color = light == 0u ? ge->light0_diffuse :
+                ge->light_diffuse[light];
+            float diffuse = (float)((diffuse_color >> shift) & 0xFFu) / 255.0f;
+            factor += diffuse * diffuse_amount[light];
+        }
         if (factor > 1.0f) factor = 1.0f;
         float channel = (float)((vertex->color >> shift) & 0xFFu) * factor;
         result |= (uint32_t)(channel + 0.5f) << shift;
@@ -1332,6 +1347,14 @@ void psp_ge_reset(PSP_GE *ge)
     ge->light0_direction[2] = -1.0f;
     ge->light0_diffuse = 0x00FFFFFFu;
     ge->ambient_color = 0;
+    memset(ge->light_enabled, 0, sizeof(ge->light_enabled));
+    memset(ge->light_type, 0, sizeof(ge->light_type));
+    memset(ge->light_direction, 0, sizeof(ge->light_direction));
+    memset(ge->light_diffuse, 0, sizeof(ge->light_diffuse));
+    for (unsigned int light = 0; light < 4u; light++) {
+        ge->light_direction[light][2] = -1.0f;
+        ge->light_diffuse[light] = 0x00FFFFFFu;
+    }
     ge->texture_address = 0;
     memset(ge->texture_level_address, 0, sizeof(ge->texture_level_address));
     memset(ge->texture_level_buffer_width, 0, sizeof(ge->texture_level_buffer_width));
@@ -1500,9 +1523,17 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_LIGHTENABLE0:
                 ge->light0_enabled = (value & 1u) != 0;
+                ge->light_enabled[0] = ge->light0_enabled;
+                break;
+            case GE_CMD_LIGHTENABLE1:
+                ge->light_enabled[1] = (value & 1u) != 0;
                 break;
             case GE_CMD_LIGHTTYPE0:
                 ge->light0_type = value & 3u;
+                ge->light_type[0] = ge->light0_type;
+                break;
+            case GE_CMD_LIGHTTYPE1:
+                ge->light_type[1] = value & 3u;
                 break;
             case GE_CMD_LDX0:
                 ge->light0_direction[0] = ge_decode_float24(value);
@@ -1512,9 +1543,23 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                 break;
             case GE_CMD_LDZ0:
                 ge->light0_direction[2] = ge_decode_float24(value);
+                ge->light_direction[0][2] = ge->light0_direction[2];
+                break;
+            case GE_CMD_LDX1:
+                ge->light_direction[1][0] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDY1:
+                ge->light_direction[1][1] = ge_decode_float24(value);
+                break;
+            case GE_CMD_LDZ1:
+                ge->light_direction[1][2] = ge_decode_float24(value);
                 break;
             case GE_CMD_LDC0:
                 ge->light0_diffuse = value & 0x00FFFFFFu;
+                ge->light_diffuse[0] = ge->light0_diffuse;
+                break;
+            case GE_CMD_LDC1:
+                ge->light_diffuse[1] = value & 0x00FFFFFFu;
                 break;
             case GE_CMD_AMBIENTCOLOR:
                 ge->ambient_color = value & 0x00FFFFFFu;
