@@ -11,6 +11,9 @@ typedef struct {
     PSP_Memory *memory;
     PSP_Video *video;
     uint32_t base_address;
+    uint32_t framebuffer_address;
+    uint32_t framebuffer_stride;
+    uint32_t framebuffer_format;
     uint32_t vertex_address;
     uint32_t index_address;
     float world_matrix[12];
