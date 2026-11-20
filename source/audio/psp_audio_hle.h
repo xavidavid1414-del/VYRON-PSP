@@ -16,14 +16,15 @@ typedef struct {
     uint32_t frequency;
     uint32_t left_volume;
     uint32_t right_volume;
+    int16_t samples[PSP_AUDIO_MIX_BUFFER_FRAMES * 2u];
+    uint32_t read_frame;
+    uint32_t write_frame;
+    uint32_t queued_frames;
+    uint32_t resample_phase;
 } PSP_Audio_Channel;
 
 typedef struct {
     PSP_Audio_Channel channels[PSP_AUDIO_CHANNEL_COUNT];
-    int16_t mix_buffer[PSP_AUDIO_MIX_BUFFER_FRAMES * 2u];
-    uint32_t read_frame;
-    uint32_t write_frame;
-    uint32_t queued_frames;
     uint32_t dropped_frames;
     uint32_t mixed_frames;
 } PSP_Audio_HLE;
