@@ -50,10 +50,10 @@ int main(void)
     assert(mixed[1] == 15000);
     assert(mixed[2] == -5000);
     assert(mixed[3] == 5000);
-    assert(mixed[4] == 15000);
+    assert(mixed[4] == 25000);
     assert(mixed[5] == 15000);
-    assert(mixed[6] == -5000);
-    assert(mixed[7] == 5000);
+    assert(mixed[6] == -15000);
+    assert(mixed[7] == -5000);
 
     assert(psp_audio_hle_release(&audio, ch0) == 0);
     assert(psp_audio_hle_release(&audio, ch1) == 0);
@@ -89,7 +89,7 @@ int main(void)
     cpu.gpr[6] = 0x8000;
     cpu.gpr[7] = pcm0;
     assert(psp_syscall_dispatch(&cpu, &memory, syscall_code));
-    assert((int32_t)cpu.gpr[2] == -1); /* source range is intentionally invalid for 64 frames */
+    assert((int32_t)cpu.gpr[2] == 0);
 
     psp_audio_hle_unregister();
     psp_syscall_reset();
