@@ -9,6 +9,21 @@ void psp_controller_reset(PSP_Controller *controller)
     controller->previous_buttons = 0;
     controller->pressed = 0;
     controller->released = 0;
+    controller->analog_x = 128u;
+    controller->analog_y = 128u;
+}
+
+void psp_controller_set_analog(
+    PSP_Controller *controller,
+    uint8_t x,
+    uint8_t y
+)
+{
+    if (controller == 0)
+        return;
+
+    controller->analog_x = x;
+    controller->analog_y = y;
 }
 
 void psp_controller_update(
