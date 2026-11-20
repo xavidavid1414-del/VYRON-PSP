@@ -1025,7 +1025,7 @@ int main(void)
         {0xB4u, (overlap_base + 4u) & 0x00FFFFFFu},
         {0xB5u, (((overlap_base + 4u) >> 8) & 0x000F0000u) | 1u},
         {0xEBu, 0u}, {0xECu, 0u}, {0xEEu, (2u << 10) | 0u},
-        {0xEAu, 1u}
+        {0xEAu, 1u}, {0x0Cu, 0u}
     };
     for (uint32_t i = 0u; i < sizeof(overlap_commands) /
          sizeof(overlap_commands[0]); i++)
