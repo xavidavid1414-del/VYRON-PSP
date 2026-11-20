@@ -1189,7 +1189,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             ge_put_pixel(ge, (int)lroundf(vertices[0].x),
                          (int)lroundf(vertices[0].y),
                          ge_shade_fragment(ge, vertices[0].color,
-                                           vertices[0].u, vertices[0].v),
+                                           vertices[0].u, vertices[0].v, 0.0f),
                          vertices[0].z);
             drawn++;
         }
