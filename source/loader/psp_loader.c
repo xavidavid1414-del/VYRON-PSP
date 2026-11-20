@@ -38,8 +38,15 @@ bool psp_loader_is_elf(
     if (data[4] != 1)
         return false;
 
-    /* Little endian */
-    if (data[5] != 1)
+    /* Little endian ELF with current identification version. */
+    if (data[5] != 1 || data[6] != 1)
+        return false;
+
+    /* ELF32 header size must cover the complete standard header. */
+    uint16_t header_size =
+        (uint16_t)data[40] | ((uint16_t)data[41] << 8);
+
+    if (header_size < ELF_HEADER_SIZE || header_size > size)
         return false;
 
     return true;
