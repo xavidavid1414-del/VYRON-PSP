@@ -3,6 +3,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+static bool translate_vram_address(PSP_Memory *memory, uint32_t address,
+                                  uint32_t *offset)
+{
+    if (memory == NULL || memory->vram == NULL || offset == NULL ||
+        address < PSP_VRAM_BASE)
+        return false;
+    uint32_t relative = address - PSP_VRAM_BASE;
+    if (relative >= memory->vram_size)
+        return false;
+    *offset = relative;
+    return true;
+}
+
 static bool translate_address(
     PSP_Memory *memory,
     uint32_t address,
@@ -39,10 +52,12 @@ bool psp_memory_is_valid(
 {
     uint32_t offset;
 
-    if (length == 0 ||
-        !translate_address(memory, address, &offset))
+    if (length == 0)
         return false;
-
+    if (translate_vram_address(memory, address, &offset))
+        return length <= memory->vram_size - offset;
+    if (!translate_address(memory, address, &offset))
+        return false;
     return length <= memory->size - offset;
 }
 
@@ -54,14 +69,20 @@ bool psp_memory_init(PSP_Memory *memory)
     /* Leave a predictable empty state if allocation fails. */
     memory->ram = NULL;
     memory->size = 0;
+    memory->vram = NULL;
+    memory->vram_size = 0;
 
     memory->ram = calloc(1, PSP_RAM_SIZE);
-
     if (memory->ram == NULL)
         return false;
-
+    memory->vram = calloc(1, PSP_VRAM_SIZE);
+    if (memory->vram == NULL) {
+        free(memory->ram);
+        memory->ram = NULL;
+        return false;
+    }
     memory->size = PSP_RAM_SIZE;
-
+    memory->vram_size = PSP_VRAM_SIZE;
     return true;
 }
 
@@ -71,9 +92,11 @@ void psp_memory_destroy(PSP_Memory *memory)
         return;
 
     free(memory->ram);
-
+    free(memory->vram);
     memory->ram = NULL;
     memory->size = 0;
+    memory->vram = NULL;
+    memory->vram_size = 0;
 }
 
 uint8_t psp_memory_read8(
@@ -83,9 +106,10 @@ uint8_t psp_memory_read8(
 {
     uint32_t offset;
 
+    if (translate_vram_address(memory, address, &offset))
+        return memory->vram[offset];
     if (!translate_address(memory, address, &offset))
         return 0;
-
     return memory->ram[offset];
 }
 
@@ -96,16 +120,17 @@ uint32_t psp_memory_read32(
 {
     uint32_t offset;
 
-    if (!translate_address(memory, address, &offset))
-        return 0;
-
-    if (memory->size - offset < 4)
-        return 0;
-
-    return (uint32_t)memory->ram[offset]
-         | ((uint32_t)memory->ram[offset + 1] << 8)
-         | ((uint32_t)memory->ram[offset + 2] << 16)
-         | ((uint32_t)memory->ram[offset + 3] << 24);
+    uint8_t *bytes;
+    if (translate_vram_address(memory, address, &offset)) {
+        if (memory->vram_size - offset < 4) return 0;
+        bytes = memory->vram + offset;
+    } else {
+        if (!translate_address(memory, address, &offset) ||
+            memory->size - offset < 4) return 0;
+        bytes = memory->ram + offset;
+    }
+    return (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8) |
+           ((uint32_t)bytes[2] << 16) | ((uint32_t)bytes[3] << 24);
 }
 
 void psp_memory_write8(
@@ -116,9 +141,12 @@ void psp_memory_write8(
 {
     uint32_t offset;
 
+    if (translate_vram_address(memory, address, &offset)) {
+        memory->vram[offset] = value;
+        return;
+    }
     if (!translate_address(memory, address, &offset))
         return;
-
     memory->ram[offset] = value;
 }
 
@@ -130,14 +158,17 @@ void psp_memory_write32(
 {
     uint32_t offset;
 
-    if (!translate_address(memory, address, &offset))
-        return;
-
-    if (memory->size - offset < 4)
-        return;
-
-    memory->ram[offset] = (uint8_t)value;
-    memory->ram[offset + 1] = (uint8_t)(value >> 8);
-    memory->ram[offset + 2] = (uint8_t)(value >> 16);
-    memory->ram[offset + 3] = (uint8_t)(value >> 24);
+    uint8_t *bytes;
+    if (translate_vram_address(memory, address, &offset)) {
+        if (memory->vram_size - offset < 4) return;
+        bytes = memory->vram + offset;
+    } else {
+        if (!translate_address(memory, address, &offset) ||
+            memory->size - offset < 4) return;
+        bytes = memory->ram + offset;
+    }
+    bytes[0] = (uint8_t)value;
+    bytes[1] = (uint8_t)(value >> 8);
+    bytes[2] = (uint8_t)(value >> 16);
+    bytes[3] = (uint8_t)(value >> 24);
 }
