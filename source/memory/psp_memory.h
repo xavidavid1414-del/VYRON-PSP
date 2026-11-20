@@ -6,10 +6,14 @@
 
 #define PSP_RAM_SIZE (32 * 1024 * 1024)
 #define PSP_RAM_BASE 0x08000000u
+#define PSP_VRAM_SIZE (2 * 1024 * 1024)
+#define PSP_VRAM_BASE 0x04000000u
 
 typedef struct {
     uint8_t *ram;
     uint32_t size;
+    uint8_t *vram;
+    uint32_t vram_size;
 } PSP_Memory;
 
 bool psp_memory_is_valid(PSP_Memory *memory, uint32_t address, uint32_t length);
