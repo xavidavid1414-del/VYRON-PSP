@@ -17,7 +17,7 @@ int main(void) {
     w32(elf+32,128);w16(elf+46,40);w16(elf+48,3);w16(elf+50,2);
     memcpy(elf+300,"\\0.lib.stub\\0.shstrtab\\0",23);
     unsigned char *s1=elf+168;w32(s1,1);w32(s1+4,1);w32(s1+16,240);w32(s1+20,20);
-    unsigned char *s2=elf+208;w32(s2,11);w32(s2+4,3);w32(s2+16,300);w32(s2+20,23);
+    unsigned char *s2=elf+208;w32(s2,11);w32(s2+4,3);w32(s2+16,300);w32(s2+20,21);
     /* Import descriptor: len=5 words, one function, NID/stub virtual addresses. */
     elf[240+8]=5;w16(elf+240+10,1);w32(elf+240+12,0x08800020);w32(elf+240+16,0x08800030);
     /* Runtime RAM contains the NID at mapped +0x20. */
