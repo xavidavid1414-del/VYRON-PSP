@@ -845,6 +845,13 @@ int main(void)
     command(&memory, list + 1932u, 0x04, (3u << 16) | 3u);
     command(&memory, list + 1936u, 0x0Cu, 0u);
     assert(psp_ge_execute_list(&ge, list + 1880u, 15u));
+    assert(ge.lighting_enabled);
+    assert(ge.light0_enabled);
+    assert(ge.material_specular == 0x00FFFFFFu);
+    assert(ge.light_specular[0] == 0x00FFFFFFu);
+    assert(ge.material_specular_coefficient == 1.0f);
+    assert(ge.light0_direction[2] == -1.0f);
+    assert(ge.primitives_drawn > 0u);
     assert(psp_video_get_pixel(&video, 240, 136) == 0xFFFFFFFFu);
 
     psp_ge_destroy(&ge);
