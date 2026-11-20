@@ -154,6 +154,25 @@ static bool emit_set_less(PSP_ARMv6KEmitter *emitter, bool is_unsigned,
            emit_word(emitter, mov_false);
 }
 
+static bool emit_set_less_imm(PSP_ARMv6KEmitter *emitter,
+                                bool is_unsigned, uint8_t rd, uint8_t rn,
+                                uint32_t immediate)
+{
+    if (rd > 15u || rn > 15u) return false;
+    uint32_t operand;
+    if (!encode_imm8(immediate, &operand)) return false;
+    uint32_t cmp = ARM_COND_AL | (1u << 25) | (10u << 21) |
+                   (1u << 20) | ((uint32_t)rn << 16) | operand;
+    uint8_t true_cond = is_unsigned ? 3u : 11u;
+    uint8_t false_cond = is_unsigned ? 2u : 10u;
+    uint32_t mov_true = ((uint32_t)true_cond << 28) | (13u << 21) |
+                        ((uint32_t)rd << 12) | 1u;
+    uint32_t mov_false = ((uint32_t)false_cond << 28) | (13u << 21) |
+                         ((uint32_t)rd << 12);
+    return emit_word(emitter, cmp) && emit_word(emitter, mov_true) &&
+           emit_word(emitter, mov_false);
+}
+
 PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     PSP_ARMv6KEmitter *emitter, uint32_t instruction)
 {
@@ -166,6 +185,16 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     uint8_t opcode = (uint8_t)(instruction >> 26);
     uint8_t function = (uint8_t)(instruction & 63u);
     uint8_t arm_opcode;
+
+    if (opcode == 0x0Au || opcode == 0x0Bu) { /* SLTI / SLTIU */
+        int32_t signed_imm = (int16_t)(instruction & 0xFFFFu);
+        if (!emit_load_gpr(emitter, 1, rs) ||
+            !emit_set_less_imm(emitter, opcode == 0x0Bu, 3, 1,
+                               (uint32_t)signed_imm) ||
+            !emit_store_gpr(emitter, rt, 3))
+            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
+        return PSP_ARMV6K_TRANSLATE_OK;
+    }
 
     if (opcode == 0u) {
         if (function == 0x00u || function == 0x02u || function == 0x03u) {
