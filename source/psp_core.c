@@ -555,6 +555,57 @@ static bool load_elf_segments(
     return loaded;
 }
 
+static void set_memory_floor_from_elf(
+    PSP_Core *core, const uint8_t *elf, size_t elf_size)
+{
+    if (!core || !elf || elf_size < ELF_HEADER_SIZE)
+        return;
+
+    bool is_prx = read_le16(elf + 16) == ELF_TYPE_PRX;
+    uint32_t phoff = read_le32(elf + 28);
+    uint16_t phentsize = read_le16(elf + 42);
+    uint16_t phnum = read_le16(elf + 44);
+    if (phentsize < ELF_PROGRAM_HEADER_SIZE || phoff > elf_size ||
+        (size_t)phnum > (elf_size - phoff) / phentsize)
+        return;
+
+    uint32_t lowest = UINT32_MAX;
+    for (uint16_t i = 0; i < phnum; i++) {
+        const uint8_t *ph = elf + phoff + (size_t)i * phentsize;
+        if (read_le32(ph) == ELF_PT_LOAD && read_le32(ph + 20) != 0 &&
+            read_le32(ph + 8) < lowest)
+            lowest = read_le32(ph + 8);
+    }
+    if (lowest == UINT32_MAX)
+        return;
+
+    uint64_t highest_end = PSP_RAM_BASE;
+    for (uint16_t i = 0; i < phnum; i++) {
+        const uint8_t *ph = elf + phoff + (size_t)i * phentsize;
+        if (read_le32(ph) != ELF_PT_LOAD)
+            continue;
+        uint32_t vaddr = read_le32(ph + 8);
+        uint32_t memsz = read_le32(ph + 20);
+        if (!memsz)
+            continue;
+
+        uint64_t mapped = is_prx
+            ? (uint64_t)PSP_RAM_BASE + ((uint64_t)vaddr - lowest)
+            : (uint64_t)vaddr;
+        uint64_t end = mapped + memsz;
+        if (end > highest_end)
+            highest_end = end;
+    }
+
+    if (highest_end < PSP_RAM_BASE)
+        return;
+    uint64_t used_end = highest_end - PSP_RAM_BASE;
+    if (used_end > core->memory.size)
+        used_end = core->memory.size;
+    psp_memory_blocks_set_floor(
+        &core->memory_blocks, (uint32_t)used_end);
+}
+
     bool psp_core_init(PSP_Core *core)
 {
     if (core == NULL)
@@ -751,8 +802,8 @@ bool psp_core_load_executable(
         return false;
     }
 
+    set_memory_floor_from_elf(core, elf, core->image.executable_size);
     core->image_loaded = true;
-    psp_memory_blocks_reset(&core->memory_blocks);
 
     return true;
 }
@@ -798,7 +849,7 @@ bool psp_core_load_executable_data(
         return false;
     }
 
+    set_memory_floor_from_elf(core, elf, core->image.executable_size);
     core->image_loaded = true;
-    psp_memory_blocks_reset(&core->memory_blocks);
     return true;
 }
