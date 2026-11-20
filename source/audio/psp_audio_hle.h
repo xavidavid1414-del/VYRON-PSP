@@ -13,7 +13,7 @@
 typedef struct {
     bool reserved;
     uint32_t sample_count;
-    uint32_t frequency;
+    uint32_t format;
     uint32_t left_volume;
     uint32_t right_volume;
     int16_t samples[PSP_AUDIO_MIX_BUFFER_FRAMES * 2u];
@@ -44,7 +44,7 @@ void psp_audio_hle_unregister(void);
 
 #define PSP_NID_AUDIO_CH_RESERVE 0x5EC81C55u
 #define PSP_NID_AUDIO_CH_RELEASE 0x6FC46853u
-#define PSP_NID_AUDIO_OUTPUT_BLOCKING 0x8C1009B2u
+#define PSP_NID_AUDIO_OUTPUT_BLOCKING 0x136CAF51u
 #define PSP_NID_AUDIO_OUTPUT_PANNED_BLOCKING 0x13F592BCu
 #define PSP_SYSCALL_AUDIO_CH_RESERVE 0x120u
 #define PSP_SYSCALL_AUDIO_CH_RELEASE 0x121u
