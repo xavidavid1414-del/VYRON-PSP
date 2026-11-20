@@ -4,6 +4,14 @@
 
 int main(void)
 {
+    assert(psp_controller_normalize_axis(0) == 128u);
+    assert(psp_controller_normalize_axis(8) == 128u);
+    assert(psp_controller_normalize_axis(-8) == 128u);
+    assert(psp_controller_normalize_axis(156) == 255u);
+    assert(psp_controller_normalize_axis(-156) == 0u);
+    assert(psp_controller_normalize_axis(200) == 255u);
+    assert(psp_controller_normalize_axis(-200) == 0u);
+
     PSP_Controller controller;
     psp_controller_reset(&controller);
 
