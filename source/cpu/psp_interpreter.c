@@ -701,7 +701,8 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
         case 0x23: {
             uint32_t address = a + sign_extend_16(immediate);
 
-            if ((address & 3u) != 0) {
+            if ((address & 3u) != 0 ||
+                !psp_memory_is_valid(memory, address, 4)) {
                 enter_exception(
                     cpu, pc, had_pending_branch,
                     EXC_ADEL, address, true);
