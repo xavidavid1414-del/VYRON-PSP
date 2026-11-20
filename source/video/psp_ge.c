@@ -1636,6 +1636,10 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
 {
     if (count == 0 || count > 4096)
         return count == 0;
+    /* Reject unknown PSP GE primitive modes instead of silently accepting
+       a display-list command that this software renderer cannot execute. */
+    if (primitive > 6u)
+        return false;
     if (ge->texture_enabled &&
         (ge->texture_width == 0 || ge->texture_height == 0 ||
          ge->texture_buffer_width < ge->texture_width ||
