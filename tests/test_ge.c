@@ -218,6 +218,10 @@ int main(void)
     assert((blended & 0xFFu) >= 126u);
     assert(((blended >> 8) & 0xFFu) == 0u);
 
+    psp_memory_write32(&memory, vertices, 0xFFFF0000u);
+    put16(&memory, vertices + 4, 10);
+    put16(&memory, vertices + 6, 10);
+
     /* Indexed triangles fetch 8-bit indices from IADDR. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
