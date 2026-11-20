@@ -66,7 +66,7 @@ static bool elf_memory_range(
     return true;
 }
 
-static bool load_elf_segments(
+static bool load_elf_segments_in_place(
     PSP_Core *core,
     const uint8_t *elf,
     size_t elf_size
@@ -503,6 +503,45 @@ static bool load_elf_segments(
     core->cpu.gpr[0] = 0;
 
     return true;
+}
+
+
+/*
+ * Load into temporary RAM so malformed ELF/PRX data cannot partially
+ * overwrite the currently mapped memory. Commit only after every
+ * segment and relocation has been validated and applied successfully.
+ */
+static bool load_elf_segments(
+    PSP_Core *core,
+    const uint8_t *elf,
+    size_t elf_size
+)
+{
+    if (core == NULL || core->memory.ram == NULL ||
+        core->memory.size == 0)
+        return false;
+
+    uint8_t *original_ram = core->memory.ram;
+    uint8_t *staging_ram = malloc(core->memory.size);
+
+    if (staging_ram == NULL)
+        return false;
+
+    core->memory.ram = staging_ram;
+
+    bool loaded = load_elf_segments_in_place(
+        core,
+        elf,
+        elf_size
+    );
+
+    core->memory.ram = original_ram;
+
+    if (loaded)
+        memcpy(original_ram, staging_ram, core->memory.size);
+
+    free(staging_ram);
+    return loaded;
 }
 
     bool psp_core_init(PSP_Core *core)
