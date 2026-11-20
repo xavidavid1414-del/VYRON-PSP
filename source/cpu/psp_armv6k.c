@@ -276,7 +276,7 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
             return PSP_ARMV6K_TRANSLATE_ERROR;
         /* ARM MUL Rd, Rm, Rs; low 32 bits match Allegrex MUL. */
         uint32_t mul = ARM_COND_AL | (3u << 16) |
-                       (2u << 8) | (1u << 4) | 1u;
+                       (2u << 8) | 0x90u | 1u;
         if (!emit_word(emitter, mul) || !emit_store_gpr(emitter, rd, 3))
             return PSP_ARMV6K_TRANSLATE_ERROR;
         return PSP_ARMV6K_TRANSLATE_OK;
