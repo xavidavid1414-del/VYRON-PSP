@@ -417,7 +417,7 @@ int main(void)
 
     /* Fixed shifts only allow rs=0; SRL also allows rs=1 for ROTR. */
     const uint32_t invalid_fixed_shifts[] = {
-        (2u << 21) | (3u << 11) | 4u, /* SLL with rs != 0 */
+        (2u << 21) | (3u << 11), /* SLL with rs != 0 */
         (2u << 21) | (3u << 11) | (4u << 6) | 0x03u, /* SRA */
         (2u << 21) | (3u << 11) | (4u << 6) | 0x02u  /* SRL/ROTR */
     };
