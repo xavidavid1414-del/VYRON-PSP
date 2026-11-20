@@ -269,8 +269,8 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
                 !emit_load_gpr(emitter, 1, rt) ||
                 !emit_shift_reg(emitter, 3, 1, shift_type, 2) ||
                 !emit_store_gpr(emitter, rd, 3))
-                return PSP_ARMv6K_TRANSLATE_ERROR;
-            return PSP_ARMv6K_TRANSLATE_OK;
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
         }
         if (function == 0x00u || function == 0x02u || function == 0x03u) {
             uint8_t sa = (uint8_t)((instruction >> 6) & 31u);
