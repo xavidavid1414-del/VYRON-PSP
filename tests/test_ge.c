@@ -103,6 +103,36 @@ int main(void)
     assert(ge.bounding_box_outside);
     assert(ge.scissor_left == 0);
 
+    /* OFFSETADDR is added to BASE-relative vertex and list addresses. */
+    psp_ge_reset(&ge);
+    for (uint32_t i = 0u; i < 8u; i++) {
+        uint32_t address = bbox_vertices + i * 16u;
+        psp_memory_write32(&memory, address, 0xFFFFFFFFu);
+        put_float(&memory, address + 4u, 3.0f);
+        put_float(&memory, address + 8u, (i & 1u) ? 0.5f : -0.5f);
+        put_float(&memory, address + 12u, (i & 2u) ? 0.5f : -0.5f);
+    }
+    const uint32_t offset_list = PSP_RAM_BASE + 0x5000u;
+    command(&memory, offset_list, 0x10u, 0x00080000u);
+    command(&memory, offset_list + 4u, 0x13u, 0x10u); /* +0x1000 */
+    command(&memory, offset_list + 8u, 0x01u, 0x1000u);
+    command(&memory, offset_list + 12u, 0x12u, bbox_vtype);
+    command(&memory, offset_list + 16u, 0x07u, 8u);
+    command(&memory, offset_list + 20u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, offset_list, 6u));
+    assert(ge.bounding_box_outside);
+    assert(ge.vertex_address == bbox_vertices);
+
+    /* ORIGIN makes a position-independent JUMP target relative to its own PC. */
+    psp_ge_reset(&ge);
+    const uint32_t origin_list = PSP_RAM_BASE + 0x6000u;
+    command(&memory, origin_list, 0x14u, 0u);
+    command(&memory, origin_list + 4u, 0x08u, 0x100u);
+    command(&memory, origin_list + 8u, 0xD4u, 77u | (33u << 10));
+    command(&memory, origin_list + 0x104u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, origin_list, 5u));
+    assert(ge.scissor_left == 0);
+
     /* A zero-count BBOX clears the previous result, so BJUMP is not taken. */
     psp_ge_reset(&ge);
     command(&memory, bbox_list + 64u, 0x10u, 0x00080000u);
