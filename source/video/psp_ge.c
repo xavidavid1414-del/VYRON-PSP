@@ -727,9 +727,9 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
     uint8_t stencil_current = (uint8_t)(destination >> 24);
     if (ge->stencil_test_enabled) {
         uint32_t stencil_value = stencil_current & ge->stencil_mask;
-        uint32_t stencil_reference = ge->stencil_reference & ge->stencil_mask;
+        uint32_t stencil_reference = ge->stencil_reference & 0xFFu;
         if (!ge_compare_value(ge->stencil_test_function,
-                              stencil_value, stencil_reference)) {
+                              stencil_reference, stencil_value)) {
             uint8_t updated = ge_apply_stencil_operation(
                 ge->stencil_fail_operation, stencil_current,
                 (uint8_t)ge->stencil_reference);
@@ -751,23 +751,24 @@ static void ge_put_pixel(PSP_GE *ge, int x, int y, uint32_t color,
             return;
         }
     }
+    uint8_t stencil_result = stencil_current;
     if (ge->stencil_test_enabled) {
-        uint8_t updated = ge_apply_stencil_operation(
+        stencil_result = ge_apply_stencil_operation(
             ge->stencil_pass_operation, stencil_current,
             (uint8_t)ge->stencil_reference);
-        destination = ge_merge_alpha(destination, updated,
+        destination = ge_merge_alpha(destination, stencil_result,
                                      ge->alpha_write_mask);
     }
     if (ge->depth_test_enabled && !ge->depth_write_disabled)
         ge->depth_buffer[depth_index] = (uint16_t)depth_value;
     if (ge->alpha_blend_enabled)
         color = ge_blend_color(ge, color, destination);
-    color = ge_merge_alpha(color, (uint8_t)(color >> 24),
-                           ge->alpha_write_mask);
-    /* A masked alpha channel must retain the destination stencil bits. */
-    color = (color & 0x00FFFFFFu) |
-            (destination & (ge->alpha_write_mask << 24)) |
-            (color & ~(ge->alpha_write_mask << 24));
+    /* Stencil replaces the output alpha; otherwise alpha comes from the
+       fragment. The pixel alpha mask preserves masked destination bits. */
+    color = ge_merge_alpha(color,
+        ge->stencil_test_enabled ? stencil_result :
+        (uint8_t)(psp_video_get_pixel(ge->video, x, y) >> 24),
+        ge->alpha_write_mask);
     psp_video_put_pixel(ge->video, x, y, color);
 }
 
