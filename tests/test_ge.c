@@ -912,6 +912,11 @@ int main(void)
     assert(ge.light_spot_exponent[0] == 2.0f);
     assert(ge.light_spot_cutoff[0] == 0.5f);
     uint32_t spot_pixel = psp_video_get_pixel(&video, 240, 136);
+    fprintf(stderr, "spot pixel=%08X type=%u enabled=%u diffuse=%08X pos=(%.3f,%.3f,%.3f) dir=(%.3f,%.3f,%.3f) exponent=%.3f cutoff=%.3f\\n",
+        spot_pixel, ge.light0_type, ge.light0_enabled, ge.light0_diffuse,
+        ge.light_position[0][0], ge.light_position[0][1], ge.light_position[0][2],
+        ge.light0_direction[0], ge.light0_direction[1], ge.light0_direction[2],
+        ge.light_spot_exponent[0], ge.light_spot_cutoff[0]);
     assert((spot_pixel & 0xFF000000u) == 0xFF000000u);
     assert((spot_pixel & 0x00FFFFFFu) >= 0x00A0A0A0u);
 
