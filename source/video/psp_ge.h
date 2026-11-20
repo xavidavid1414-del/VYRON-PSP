@@ -40,6 +40,8 @@ typedef struct {
     bool texture_color_component;
     uint32_t texture_wrap_u;
     uint32_t texture_wrap_v;
+    uint32_t texture_min_filter;
+    uint32_t texture_mag_filter;
     bool texture_enabled;
     bool alpha_blend_enabled;
     bool alpha_test_enabled;
