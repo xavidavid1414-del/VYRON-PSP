@@ -53,6 +53,14 @@ GitHub Actions also builds the application and runs the host-side unit/integrati
 
 At this stage, loading an ISO or ELF does **not** guarantee that the game can boot or run.
 
+### Lower-screen settings menu
+
+- Press **Y** in the file browser to open the lower-screen settings page.
+- Use **UP/DOWN** and **A**, or tap a setting with the stylus, to change an option.
+- Press **B** to return to the game list.
+- Settings are stored in `/PSP/CONFIG/settings.ini`.
+- The current menu stores preferences for the FPS counter, stylus menu, C-Stick, video fit mode, and A/B and X/Y swaps. These are configuration foundations; the corresponding in-game overlay, FPS measurement, video scaling, and remapped PSP input are not yet fully connected to the emulator runtime.
+
 ## Project goal
 
 The long-term goal is to build a usable PSP emulator for the New Nintendo 2DS XL. Reaching that goal requires completing the PSP CPU and memory model, executable/decryption support where legally and technically appropriate, HLE/kernel services, graphics, audio, input, and extensive testing with homebrew software and real hardware.
