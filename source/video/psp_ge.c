@@ -177,7 +177,6 @@ static uint32_t ge_blend_factor(uint32_t factor, unsigned int shift,
                                  uint32_t source, uint32_t destination,
                                  uint32_t fixed)
 {
-    uint32_t src = (source >> shift) & 0xFFu;
     uint32_t dst = (destination >> shift) & 0xFFu;
     uint32_t sa = (source >> 24) & 0xFFu;
     uint32_t da = (destination >> 24) & 0xFFu;
