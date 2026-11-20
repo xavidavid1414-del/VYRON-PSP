@@ -162,7 +162,7 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
             !psp_armv6k_emit_dp_imm(emitter, arm_opcode, false, 3, 1, immediate) ||
             !emit_store_gpr(emitter, rt, 3))
             return PSP_ARMV6K_TRANSLATE_ERROR;
-        return PSP_ARMv6K_TRANSLATE_OK;
+        return PSP_ARMV6K_TRANSLATE_OK;
     }
 
     if (opcode == 9u) { /* ADDIU: immediate must fit ARM's rotated imm8. */
