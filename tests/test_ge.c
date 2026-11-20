@@ -553,10 +553,11 @@ int main(void)
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0);
     psp_memory_write8(&memory, indexed_texture, 0x10u);
+    psp_memory_write32(&memory, clut + 16u * 4u, 0xFF00FF00u);
     put_float(&memory, indexed_vertex, 1.0f);
     command(&memory, list + 1052u, 0x10, 0x00080000u);
     command(&memory, list + 1056u, 0xB0, 0x2600u);
-    command(&memory, list + 1060u, 0xC5, 3u | (0xFFu << 8));
+    command(&memory, list + 1060u, 0xC5, 3u | (0xFFu << 8) | (1u << 16));
     command(&memory, list + 1064u, 0xC4, 32u);
     command(&memory, list + 1068u, 0xA0, 0x2500u);
     command(&memory, list + 1072u, 0xA8, 0x00080002u);
