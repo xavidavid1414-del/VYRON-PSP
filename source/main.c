@@ -529,7 +529,7 @@ int main(void)
             if (down & KEY_TOUCH) {
                 touchPosition touch;
                 hidTouchRead(&touch);
-                if (touch.py >= 40 && touch.py < 136) {
+                if (touch.py >= 40 && touch.py < 168) {
                     unsigned int index = (touch.py - 40) / 16;
                     if (index < SETTINGS_COUNT) {
                         settings_selected = index;
