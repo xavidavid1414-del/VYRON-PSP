@@ -48,7 +48,7 @@ jobs:
 
       - name: Run core ELF integration tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/loader/psp_loader.c source/loader/psp_iso.c source/loader/psp_iso_fs.c tests/test_video_stub.c tests/test_core_loader.c -o /tmp/vyron-core-loader-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource -Isource/cpu -Isource/memory -Isource/loader -Isource/video source/psp_core.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c source/loader/psp_loader.c source/loader/psp_iso.c source/loader/psp_iso_fs.c source/input/psp_controller.c tests/test_video_stub.c tests/test_core_loader.c -o /tmp/vyron-core-loader-tests
           /tmp/vyron-core-loader-tests
 
       - name: Upload Nintendo 3DS build
