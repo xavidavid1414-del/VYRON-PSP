@@ -433,6 +433,38 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 416, 20));
     assert(psp_video_get_pixel(&video, 60, 30) == 0xFF00FF00u);
 
+    /* Directional diffuse lighting uses transformed vertex normals. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const uint32_t lit_vertex = PSP_RAM_BASE + 0x3400u;
+    psp_memory_write32(&memory, lit_vertex, 0xFFFFFFFFu);
+    put_float(&memory, lit_vertex + 4u, 0.0f);
+    put_float(&memory, lit_vertex + 8u, 0.0f);
+    put_float(&memory, lit_vertex + 12u, 1.0f);
+    put_float(&memory, lit_vertex + 16u, 0.0f);
+    put_float(&memory, lit_vertex + 20u, 0.0f);
+    put_float(&memory, lit_vertex + 24u, 0.0f);
+    command(&memory, list + 800, 0x10, 0x00080000u);
+    command(&memory, list + 804, 0x17, 1u);
+    command(&memory, list + 808, 0x18, 1u);
+    command(&memory, list + 812, 0x5F, 0u);
+    command(&memory, list + 816, 0x6F, encode_float24(0.0f));
+    command(&memory, list + 820, 0x70, encode_float24(0.0f));
+    command(&memory, list + 824, 0x71, encode_float24(-1.0f));
+    command(&memory, list + 828, 0x90, 0x00FF0000u);
+    command(&memory, list + 832, 0x5C, 0u);
+    command(&memory, list + 836, 0x42, encode_float24(20.0f));
+    command(&memory, list + 840, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 844, 0x45, encode_float24(40.0f));
+    command(&memory, list + 848, 0x46, encode_float24(40.0f));
+    command(&memory, list + 852, 0x01, 0x3400u);
+    command(&memory, list + 856, 0x12,
+            (7u << 2) | (3u << 5) | (3u << 7));
+    command(&memory, list + 860, 0x04, 1u);
+    command(&memory, list + 864, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 800, 18));
+    assert(psp_video_get_pixel(&video, 40, 40) == 0xFFFF0000u);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
