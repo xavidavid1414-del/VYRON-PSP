@@ -270,6 +270,21 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         return PSP_ARMV6K_TRANSLATE_OK;
     }
 
+    if (opcode == 0x1Cu && (function == 0x20u || function == 0x21u)) {
+        /* Allegrex CLZ/CLO; ARMv6 CLZ operates on a 32-bit register. */
+        if (!emit_load_gpr(emitter, 1, rs))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        if (function == 0x21u &&
+            !psp_armv6k_emit_dp_reg(emitter, 15u, false, 2, 0, 1))
+            return PSP_ARMV6K_TRANSLATE_ERROR; /* MVN r2, r1 */
+        uint8_t source = function == 0x21u ? 2u : 1u;
+        uint32_t clz = ARM_COND_AL | 0x016F0F10u |
+                       (3u << 12) | source;
+        if (!emit_word(emitter, clz) || !emit_store_gpr(emitter, rd, 3))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        return PSP_ARMV6K_TRANSLATE_OK;
+    }
+
     if (opcode == 0x1Cu && function == 0x02u) { /* SPECIAL2 MUL */
         if (!emit_load_gpr(emitter, 1, rs) ||
             !emit_load_gpr(emitter, 2, rt))
