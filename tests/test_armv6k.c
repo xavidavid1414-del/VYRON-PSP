@@ -415,5 +415,19 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 6);
 
+    /* Fixed shifts only allow rs=0; SRL also allows rs=1 for ROTR. */
+    const uint32_t invalid_fixed_shifts[] = {
+        (2u << 21) | (3u << 11) | 4u, /* SLL with rs != 0 */
+        (2u << 21) | (3u << 11) | (4u << 6) | 0x03u, /* SRA */
+        (2u << 21) | (3u << 11) | (4u << 6) | 0x02u  /* SRL/ROTR */
+    };
+    for (size_t i = 0; i < sizeof(invalid_fixed_shifts) /
+                            sizeof(invalid_fixed_shifts[0]); ++i) {
+        psp_armv6k_emitter_init(&out, code, 16);
+        assert(psp_armv6k_translate_allegrex(&out, invalid_fixed_shifts[i]) ==
+               PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+        assert(out.count == 0);
+    }
+
     return 0;
 }
