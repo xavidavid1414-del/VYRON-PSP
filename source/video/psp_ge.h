@@ -14,6 +14,9 @@ typedef struct {
     uint32_t framebuffer_address;
     uint32_t framebuffer_stride;
     uint32_t framebuffer_format;
+    uint32_t display_address;
+    uint32_t display_stride;
+    uint32_t display_format;
     uint32_t vertex_address;
     uint32_t index_address;
     float world_matrix[12];
