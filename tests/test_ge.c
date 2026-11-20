@@ -1037,6 +1037,33 @@ int main(void)
     assert(psp_memory_read32(&memory, overlap_base + 8u) == 0x22222222u);
     assert(psp_memory_read32(&memory, overlap_base + 12u) == 0x33333333u);
 
+    /* Unequal strides can make bottom-up row copying overwrite an
+       unread source row; overlapping transfers must snapshot the rectangle. */
+    for (uint32_t i = 0u; i < 12u; i++)
+        psp_memory_write32(&memory, overlap_base + i * 4u, 0xB0000000u | i);
+    const uint32_t overlap_unequal_strides[][2] = {
+        {0xB2u, overlap_base & 0x00FFFFFFu},
+        {0xB3u, ((overlap_base >> 8) & 0x000F0000u) | 4u},
+        {0xB4u, (overlap_base + 4u) & 0x00FFFFFFu},
+        {0xB5u, (((overlap_base + 4u) >> 8) & 0x000F0000u) | 2u},
+        {0xEBu, 0u}, {0xECu, 0u}, {0xEEu, (2u << 10) | 1u},
+        {0xEAu, 1u}, {0x0Cu, 0u}
+    };
+    for (uint32_t i = 0u; i < sizeof(overlap_unequal_strides) /
+         sizeof(overlap_unequal_strides[0]); i++)
+        command(&memory, transfer_list + i * 4u,
+            (uint8_t)overlap_unequal_strides[i][0],
+            overlap_unequal_strides[i][1]);
+    assert(psp_ge_execute_list(&ge, transfer_list,
+        (uint32_t)(sizeof(overlap_unequal_strides) /
+                   sizeof(overlap_unequal_strides[0]))));
+    assert(psp_memory_read32(&memory, overlap_base + 4u) == 0xB0000000u);
+    assert(psp_memory_read32(&memory, overlap_base + 8u) == 0xB0000001u);
+    assert(psp_memory_read32(&memory, overlap_base + 12u) == 0xB0000004u);
+    assert(psp_memory_read32(&memory, overlap_base + 16u) == 0xB0000005u);
+    assert(psp_memory_read32(&memory, overlap_base + 20u) == 0xB0000008u);
+    assert(psp_memory_read32(&memory, overlap_base + 24u) == 0xB0000009u);
+
     /* Multi-row overlap toward higher addresses must copy bottom-up. */
     for (uint32_t i = 0u; i < 16u; i++)
         psp_memory_write32(&memory, overlap_base + i * 4u, 0xA0000000u | i);
