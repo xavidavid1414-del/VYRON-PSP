@@ -856,6 +856,11 @@ int main(void)
     assert((specular_pixel & 0xFF000000u) == 0xFF000000u);
     assert((specular_pixel & 0x00FFFFFFu) >= 0x00E0E0E0u);
 
+    /* Diffuse-light tests need a white base material color. */
+    for (uint32_t i = 0u; i < 3u; i++)
+        psp_memory_write32(&memory, specular_vertices + i * 28u,
+            0xFFFFFFFFu);
+
     /* Point lights use view-space position and distance attenuation. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0u);
