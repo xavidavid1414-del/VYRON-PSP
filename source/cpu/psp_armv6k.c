@@ -196,6 +196,17 @@ static bool emit_shift_reg(PSP_ARMv6KEmitter *emitter, uint8_t rd,
     return emit_word(emitter, word);
 }
 
+static bool emit_conditional_mov_reg(PSP_ARMv6KEmitter *emitter,
+                                     uint8_t condition, uint8_t rd,
+                                     uint8_t rm)
+{
+    if (condition > 14u || rd > 15u || rm > 15u)
+        return false;
+    uint32_t word = ((uint32_t)condition << 28) | (13u << 21) |
+                    ((uint32_t)rd << 12) | rm;
+    return emit_word(emitter, word);
+}
+
 static bool emit_set_less(PSP_ARMv6KEmitter *emitter, bool is_unsigned,
                             uint8_t rd, uint8_t rn, uint8_t rm)
 {
@@ -260,6 +271,18 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     }
 
     if (opcode == 0u) {
+        if (function == 0x0Au || function == 0x0Bu) {
+            /* MOVZ/MOVN preserve rd unless rt is zero/nonzero. */
+            uint8_t condition = function == 0x0Au ? 0u : 1u; /* EQ / NE */
+            if (!emit_load_gpr(emitter, 3, rd) ||
+                !emit_load_gpr(emitter, 2, rt) ||
+                !psp_armv6k_emit_dp_imm(emitter, 10u, true, 0, 2, 0u) ||
+                !emit_load_gpr(emitter, 1, rs) ||
+                !emit_conditional_mov_reg(emitter, condition, 3, 1) ||
+                !emit_store_gpr(emitter, rd, 3))
+                return PSP_ARMV6K_TRANSLATE_ERROR;
+            return PSP_ARMV6K_TRANSLATE_OK;
+        }
         if (function == 0x04u || function == 0x06u || function == 0x07u) {
             /* SLLV/SRLV/SRAV: MIPS masks the shift amount to five bits. */
             uint8_t shift_type = function == 0x04u ? 0u :
