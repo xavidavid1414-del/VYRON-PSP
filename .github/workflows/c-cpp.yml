@@ -26,6 +26,11 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/memory source/memory/psp_memory.c tests/test_memory.c -o /tmp/vyron-memory-tests
           /tmp/vyron-memory-tests
 
+      - name: Run interpreter unit tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_interpreter.c -o /tmp/vyron-interpreter-tests
+          /tmp/vyron-interpreter-tests
+
       - name: Upload Nintendo 3DS build
         uses: actions/upload-artifact@v4
         with:
