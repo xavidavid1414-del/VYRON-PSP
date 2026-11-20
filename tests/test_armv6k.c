@@ -53,6 +53,24 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_OK);
     assert(code[1] == 0xE1A031C2u); /* MOV r3, r2, ASR #3 */
 
+    /* SLT r3, r1, r2: signed comparison. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t slt = (1u << 21) | (2u << 16) | (3u << 11) | 0x2Au;
+    assert(psp_armv6k_translate_allegrex(&out, slt) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 6);
+    assert(code[2] == 0xE1510002u); /* CMP r1, r2 */
+    assert(code[3] == 0xB3A03001u); /* MOVLT r3, #1 */
+    assert(code[4] == 0xA3A03000u); /* MOVGE r3, #0 */
+
+    /* SLTU r3, r1, r2: unsigned comparison. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t sltu = (1u << 21) | (2u << 16) | (3u << 11) | 0x2Bu;
+    assert(psp_armv6k_translate_allegrex(&out, sltu) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[3] == 0x33A03001u); /* MOVLO r3, #1 */
+    assert(code[4] == 0x23A03000u); /* MOVHS r3, #0 */
+
     /* ADDIU r2, r1, -4. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t addiu = (9u << 26) | (1u << 21) | (2u << 16) | 0xFFFCu;
