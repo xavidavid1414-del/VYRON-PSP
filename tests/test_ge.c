@@ -1070,6 +1070,27 @@ int main(void)
     psp_ge_present_framebuffer(&ge);
     assert(psp_video_get_pixel(&video, 0, 0) == 0xFFABCDEFu);
 
+    /* GE raster output writes to the draw framebuffer, independently
+       from the display framebuffer selected for presentation. */
+    psp_ge_reset(&ge);
+    const uint32_t ge_draw_target = PSP_VRAM_BASE + 0xA000u;
+    const uint32_t ge_display_target = PSP_VRAM_BASE + 0xB000u;
+    ge.framebuffer_address = ge_draw_target;
+    ge.framebuffer_stride = PSP_VIDEO_STRIDE;
+    ge.framebuffer_format = 3u;
+    ge.display_address = ge_display_target;
+    ge.display_stride = PSP_VIDEO_STRIDE;
+    ge.display_format = 3u;
+    psp_memory_write32(&memory, ge_draw_target +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u, 0u);
+    psp_memory_write32(&memory, ge_display_target +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u, 0xFF123456u);
+    assert(psp_ge_execute_list(&ge, list, 8u));
+    assert(psp_memory_read32(&memory, ge_draw_target +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u) != 0u);
+    assert(psp_memory_read32(&memory, ge_display_target +
+        ((uint32_t)15u * PSP_VIDEO_STRIDE + 15u) * 4u) == 0xFF123456u);
+
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
