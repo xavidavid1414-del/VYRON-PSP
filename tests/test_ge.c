@@ -119,6 +119,37 @@ int main(void)
     assert(ge.primitives_drawn == 8u);
     assert(psp_video_get_pixel(&video, 115, 115) != 0u);
 
+    /* PPRIM 01 selects patch lines; 10 selects patch points. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    command(&memory, patch_list + 96u, 0x10u, 0x00080000u);
+    command(&memory, patch_list + 100u, 0x01u, 0x3000u);
+    command(&memory, patch_list + 104u, 0x12u, vtype);
+    command(&memory, patch_list + 108u, 0x36u, (2u << 8) | 2u);
+    command(&memory, patch_list + 112u, 0x37u, 1u);
+    command(&memory, patch_list + 116u, 0x05u, (4u << 8) | 4u);
+    command(&memory, patch_list + 120u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, patch_list + 96u, 8u));
+    assert(ge.primitives_drawn == 12u);
+
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0u);
+    command(&memory, patch_list + 128u, 0x10u, 0x00080000u);
+    command(&memory, patch_list + 132u, 0x01u, 0x3000u);
+    command(&memory, patch_list + 136u, 0x12u, vtype);
+    command(&memory, patch_list + 140u, 0x36u, (2u << 8) | 2u);
+    command(&memory, patch_list + 144u, 0x37u, 2u);
+    command(&memory, patch_list + 148u, 0x05u, (4u << 8) | 4u);
+    command(&memory, patch_list + 152u, 0x0Cu, 0u);
+    assert(psp_ge_execute_list(&ge, patch_list + 128u, 8u));
+    assert(ge.primitives_drawn == 9u);
+
+    /* PPRIM 11 is reserved and must be rejected. */
+    psp_ge_reset(&ge);
+    command(&memory, patch_list + 160u, 0x37u, 3u);
+    command(&memory, patch_list + 164u, 0x0Cu, 0u);
+    assert(!psp_ge_execute_list(&ge, patch_list + 160u, 2u));
+
     /* Invalid patch dimensions are rejected without reading a partial grid. */
     command(&memory, patch_list + 32u, 0x05u, (5u << 8) | 4u);
     command(&memory, patch_list + 36u, 0x0Cu, 0u);
