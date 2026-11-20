@@ -25,6 +25,13 @@ static void put_float(PSP_Memory *memory, uint32_t address, float value)
     psp_memory_write32(memory, address, bits);
 }
 
+static uint32_t encode_float24(float value)
+{
+    uint32_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    return bits >> 8;
+}
+
 int main(void)
 {
     PSP_Memory memory;
@@ -265,6 +272,39 @@ int main(void)
     assert(ge.primitives_drawn == 1);
     assert(psp_video_get_pixel(&video, 15, 15) != 0);
 
+    /* 3D vertices use world/view/projection and viewport state with depth testing. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const uint32_t vertices_3d = PSP_RAM_BASE + 0x3000;
+    const float depths[3] = {0.5f, -0.5f, 0.8f};
+    const uint32_t colors_3d[3] = {
+        0xFFFF0000u, 0xFF00FF00u, 0xFF0000FFu
+    };
+    for (uint32_t i = 0; i < 3; i++) {
+        uint32_t address = vertices_3d + i * 16u;
+        psp_memory_write32(&memory, address, colors_3d[i]);
+        put_float(&memory, address + 4u, 0.0f);
+        put_float(&memory, address + 8u, 0.0f);
+        put_float(&memory, address + 12u, depths[i]);
+    }
+    command(&memory, list + 416, 0x10, 0x00080000u);
+    command(&memory, list + 420, 0x3A, 3u);
+    command(&memory, list + 424, 0x3B, encode_float24(0.5f));
+    command(&memory, list + 428, 0x42, encode_float24(20.0f));
+    command(&memory, list + 432, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 436, 0x44, encode_float24(100.0f));
+    command(&memory, list + 440, 0x45, encode_float24(40.0f));
+    command(&memory, list + 444, 0x46, encode_float24(40.0f));
+    command(&memory, list + 448, 0x47, encode_float24(100.0f));
+    command(&memory, list + 452, 0x01, 0x3000u);
+    command(&memory, list + 456, 0x12, (4u << 2) | (3u << 7));
+    command(&memory, list + 460, 0x23, 1u);
+    command(&memory, list + 464, 0xDE, 4u);
+    command(&memory, list + 468, 0x04, 3u);
+    command(&memory, list + 472, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 416, 16));
+    assert(psp_video_get_pixel(&video, 50, 40) == 0xFF00FF00u);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
@@ -279,6 +319,7 @@ int main(void)
     command(&memory, list + 32, 0x12, vtype);
     assert(!psp_ge_execute_list(&ge, list + 32, 2));
 
+    psp_ge_destroy(&ge);
     psp_video_destroy(&video);
     psp_memory_destroy(&memory);
     puts("PSP GE tests passed");
