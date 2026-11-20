@@ -787,9 +787,9 @@ int main(void)
     psp_video_clear(&video, 0u);
     const uint32_t fog_vertices = PSP_RAM_BASE + 0x3800u;
     const float fog_positions[3][3] = {
-        {-0.5f, -0.5f, -0.5f},
-        { 0.5f, -0.5f, -0.5f},
-        { 0.0f,  0.5f, -0.5f}
+        {-0.05f, -0.05f, -0.5f},
+        { 0.05f, -0.05f, -0.5f},
+        { 0.0f,   0.05f, -0.5f}
     };
     for (uint32_t i = 0u; i < 3u; i++) {
         uint32_t address = fog_vertices + i * 16u;
@@ -836,13 +836,13 @@ int main(void)
     command(&memory, list + 1908u, 0x90, 0u);
     command(&memory, list + 1912u, 0x98, 0x00FFFFFFu);
     command(&memory, list + 1916u, 0x55, 0x00FFFFFFu);
-    command(&memory, list + 1920u, 0x58, encode_float24(16.0f));
+    command(&memory, list + 1920u, 0x58, encode_float24(1.0f));
     command(&memory, list + 1924u, 0x01, 0x3900u);
     command(&memory, list + 1928u, 0x12, (7u << 2) | (3u << 7));
     command(&memory, list + 1932u, 0x04, (3u << 16) | 3u);
     command(&memory, list + 1936u, 0x0Cu, 0u);
     assert(psp_ge_execute_list(&ge, list + 1880u, 15u));
-    assert(psp_video_get_pixel(&video, 240, 150) == 0xFFFFFFFFu);
+    assert(psp_video_get_pixel(&video, 240, 136) == 0xFFFFFFFFu);
 
     psp_ge_destroy(&ge);
     psp_video_destroy(&video);
