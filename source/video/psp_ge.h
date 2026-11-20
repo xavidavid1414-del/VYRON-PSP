@@ -52,6 +52,8 @@ typedef struct {
     uint32_t texture_mag_filter;
     bool texture_enabled;
     bool alpha_blend_enabled;
+    bool clear_mode;
+    uint32_t clear_mode_mask;
     bool alpha_test_enabled;
     uint32_t alpha_test_function;
     uint32_t alpha_test_reference;
