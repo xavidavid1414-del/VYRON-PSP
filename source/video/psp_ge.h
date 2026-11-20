@@ -35,6 +35,10 @@ typedef struct {
     bool depth_write_disabled;
     uint32_t depth_function;
     uint32_t vertex_type;
+    uint32_t patch_division_u;
+    uint32_t patch_division_v;
+    uint32_t patch_primitive;
+    bool patch_facing;
     uint32_t draw_color;
     bool lighting_enabled;
     bool light0_enabled;
