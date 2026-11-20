@@ -52,10 +52,29 @@ static u64 fps_window_start;
 static unsigned int fps_frame_count;
 static unsigned int displayed_fps;
 
+static uint8_t clamp_analog_axis(int16_t value)
+{
+    if (value < -156)
+        value = -156;
+    if (value > 156)
+        value = 156;
+
+    return (uint8_t)(128 + ((int)value * 127) / 156);
+}
+
 static void update_controller_input(void)
 {
     u32 keys = hidKeysHeld();
     uint32_t host_buttons = 0;
+    circlePosition stick = {0, 0};
+    circlePosition cstick = {0, 0};
+
+    circleRead(&stick);
+    cstickRead(&cstick);
+
+    if (settings.cstick_enabled) {
+        stick = cstick;
+    }
 
     if (keys & KEY_A) host_buttons |= PSP_HOST_A;
     if (keys & KEY_B) host_buttons |= PSP_HOST_B;
@@ -75,6 +94,11 @@ static void update_controller_input(void)
         host_buttons,
         settings.swap_ab != 0,
         settings.swap_xy != 0
+    );
+    psp_controller_set_analog(
+        &core.controller,
+        clamp_analog_axis(stick.dx),
+        clamp_analog_axis(-stick.dy)
     );
 }
 
