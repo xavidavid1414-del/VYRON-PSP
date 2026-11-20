@@ -327,6 +327,9 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
     }
 
     if (opcode == 0u) {
+        if ((function == 0x1Au || function == 0x1Bu) &&
+            (rd != 0u || ((instruction >> 6) & 31u) != 0u))
+            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
         /* MULT/MULTU produce a full 64-bit result in HI:LO. */
         if (function == 0x18u || function == 0x19u) {
             if (!emit_load_gpr(emitter, 1, rs) ||
