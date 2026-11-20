@@ -130,30 +130,12 @@ static bool signed_sub_overflow(
     return false;
 }
 
-bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
+bool psp_interpreter_execute_instruction(PSP_CPU *cpu, PSP_Memory *memory,
+                                         uint32_t instruction)
 {
     if (cpu == NULL || memory == NULL || cpu->halted)
         return false;
-
     const uint32_t pc = cpu->pc;
-
-    /* MIPS instruction fetches must be word-aligned. */
-    if ((pc & 3u) != 0) {
-        enter_exception(
-            cpu, pc, cpu->branch_pending,
-            EXC_ADEL, pc, true);
-        return true;
-    }
-
-    if (!psp_memory_is_valid(memory, pc, 4)) {
-        enter_exception(
-            cpu, pc, cpu->branch_pending,
-            EXC_ADEL, pc, true);
-        return true;
-    }
-
-    const uint32_t instruction =
-        psp_memory_read32(memory, pc);
 
     const uint32_t opcode = instruction >> 26;
     const uint32_t rs = (instruction >> 21) & 31u;
@@ -807,4 +789,17 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
     cpu->gpr[0] = 0;
 
     return true;
+}
+
+bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
+{
+    if (cpu == NULL || memory == NULL || cpu->halted)
+        return false;
+    const uint32_t pc = cpu->pc;
+    if ((pc & 3u) != 0 || !psp_memory_is_valid(memory, pc, 4)) {
+        enter_exception(cpu, pc, cpu->branch_pending, EXC_ADEL, pc, true);
+        return true;
+    }
+    return psp_interpreter_execute_instruction(
+        cpu, memory, psp_memory_read32(memory, pc));
 }
