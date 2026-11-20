@@ -73,6 +73,7 @@ typedef struct {
     float nz;
     float u;
     float v;
+    float reciprocal_w;
     uint32_t color;
 } GE_Vertex;
 
@@ -128,6 +129,7 @@ static bool ge_transform_vertex(PSP_GE *ge, GE_Vertex *vertex)
     if (!isfinite(cw) || fabsf(cw) < 0.000001f)
         return false;
     float inv_w = 1.0f / cw;
+    vertex->reciprocal_w = inv_w;
     float nx = cx * inv_w, ny = cy * inv_w, nz = cz * inv_w;
     if (!isfinite(nx) || !isfinite(ny) || !isfinite(nz) ||
         fabsf(nx) > 128.0f || fabsf(ny) > 128.0f || fabsf(nz) > 128.0f)
@@ -217,6 +219,7 @@ static bool ge_read_vertex(PSP_GE *ge, uint32_t index, GE_Vertex *vertex)
     uint32_t address = (uint32_t)address64;
     vertex->u = 0.0f;
     vertex->v = 0.0f;
+    vertex->reciprocal_w = 1.0f;
     if (texture_type == 1) {
         vertex->u = (float)psp_memory_read8(ge->memory, address);
         vertex->v = (float)psp_memory_read8(ge->memory, address + 1u);
@@ -774,9 +777,18 @@ static void ge_draw_triangle(PSP_GE *ge, const GE_Vertex *a,
                 float wc = w2 / area;
                 uint32_t color = ge_interpolate_color(
                     a->color, b->color, c->color, wa, wb, wc);
-                float u = a->u * wa + b->u * wb + c->u * wc;
-                float v = a->v * wa + b->v * wb + c->v * wc;
                 float depth = a->z * wa + b->z * wb + c->z * wc;
+                float perspective_weight = a->reciprocal_w * wa +
+                    b->reciprocal_w * wb + c->reciprocal_w * wc;
+                if (!isfinite(perspective_weight) ||
+                    fabsf(perspective_weight) < 0.000001f)
+                    continue;
+                float u = (a->u * a->reciprocal_w * wa +
+                    b->u * b->reciprocal_w * wb +
+                    c->u * c->reciprocal_w * wc) / perspective_weight;
+                float v = (a->v * a->reciprocal_w * wa +
+                    b->v * b->reciprocal_w * wb +
+                    c->v * c->reciprocal_w * wc) / perspective_weight;
                 ge_put_pixel(ge, x, y,
                     ge_shade_fragment(ge, color, u, v), depth);
             }
