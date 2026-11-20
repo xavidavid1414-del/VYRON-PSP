@@ -185,13 +185,15 @@ int main(void)
 
     /* A paired LO16 relocation outside its write segment must be rejected. */
     write_le32(prx + 0x158, 28);
+    core.cpu.pc = 0x87654321;
     assert(!psp_core_load_executable_data(
         &core, prx, sizeof(prx)));
-    /* Failed PRX loading must leave the previously loaded RAM intact. */
+    /* Failed PRX loading must preserve RAM and the CPU program counter. */
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 4) ==
            PSP_RAM_BASE + 0x1004);
     assert(psp_memory_read32(&core.memory, PSP_RAM_BASE + 16) ==
            0x3C080800);
+    assert(core.cpu.pc == 0x87654321);
 
     /* An entry point outside executable memory must be rejected. */
     write_le32(elf + 24, TEST_DATA_ENTRY);
