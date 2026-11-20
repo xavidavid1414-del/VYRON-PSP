@@ -1,63 +1,32 @@
 #include "psp_controller_hle.h"
-
-#include <stddef.h>
-
-static uint32_t controller_timestamp;
-
-static int write_samples(
-    const PSP_Controller *controller,
-    PSP_Memory *memory,
-    uint32_t output_address,
-    uint32_t sample_count
-)
-{
-    if (controller == NULL || memory == NULL || sample_count == 0)
-        return 0;
-
-    if (sample_count > PSP_CTRL_MAX_SAMPLES)
-        sample_count = PSP_CTRL_MAX_SAMPLES;
-
-    if (sample_count > UINT32_MAX / PSP_CTRL_DATA_SIZE)
-        return -1;
-
-    uint32_t total_size = sample_count * PSP_CTRL_DATA_SIZE;
-    if (!psp_memory_is_valid(memory, output_address, total_size))
-        return -1;
-
-    for (uint32_t i = 0; i < sample_count; i++) {
-        uint32_t address = output_address + i * PSP_CTRL_DATA_SIZE;
-        controller_timestamp++;
-
-        psp_memory_write32(memory, address, controller_timestamp);
-        psp_memory_write32(memory, address + 4u, controller->buttons);
-        psp_memory_write8(memory, address + 8u, controller->analog_x);
-        psp_memory_write8(memory, address + 9u, controller->analog_y);
-
-        for (uint32_t reserved = 10u; reserved < PSP_CTRL_DATA_SIZE;
-             reserved++) {
-            psp_memory_write8(memory, address + reserved, 0u);
-        }
+#include "../cpu/psp_syscall.h"
+#include "../loader/psp_nid.h"
+static PSP_Controller *active_controller;
+static bool handle_ctrl_read(PSP_CPU *cpu,PSP_Memory *memory,uint32_t code) {
+    if(!cpu || !memory || !active_controller || code!=PSP_SYSCALL_CTRL_READ_BUFFER_POSITIVE) return false;
+    int result=psp_controller_hle_read_buffer_positive(active_controller,memory,cpu->gpr[4],cpu->gpr[5]);
+    cpu->gpr[2]=(uint32_t)result; return true;
+}
+static bool handle_ctrl_peek(PSP_CPU *cpu,PSP_Memory *memory,uint32_t code) {
+    if(!cpu || !memory || !active_controller || code!=PSP_SYSCALL_CTRL_PEEK_BUFFER_POSITIVE) return false;
+    int result=psp_controller_hle_peek_buffer_positive(active_controller,memory,cpu->gpr[4],cpu->gpr[5]);
+    cpu->gpr[2]=(uint32_t)result; return true;
+}
+bool psp_controller_hle_register(PSP_Controller *controller) {
+    if(!controller) return false;
+    active_controller=controller;
+    if(!psp_syscall_register(PSP_SYSCALL_CTRL_READ_BUFFER_POSITIVE,handle_ctrl_read) ||
+       !psp_syscall_register(PSP_SYSCALL_CTRL_PEEK_BUFFER_POSITIVE,handle_ctrl_peek) ||
+       !psp_nid_register(PSP_NID_CTRL_READ_BUFFER_POSITIVE,PSP_SYSCALL_CTRL_READ_BUFFER_POSITIVE) ||
+       !psp_nid_register(PSP_NID_CTRL_PEEK_BUFFER_POSITIVE,PSP_SYSCALL_CTRL_PEEK_BUFFER_POSITIVE)) {
+        psp_controller_hle_unregister(); return false;
     }
-
-    return (int)sample_count;
+    return true;
 }
-
-int psp_controller_hle_read_buffer_positive(
-    const PSP_Controller *controller,
-    PSP_Memory *memory,
-    uint32_t output_address,
-    uint32_t sample_count
-)
-{
-    return write_samples(controller, memory, output_address, sample_count);
-}
-
-int psp_controller_hle_peek_buffer_positive(
-    const PSP_Controller *controller,
-    PSP_Memory *memory,
-    uint32_t output_address,
-    uint32_t sample_count
-)
-{
-    return write_samples(controller, memory, output_address, sample_count);
+void psp_controller_hle_unregister(void) {
+    psp_syscall_unregister(PSP_SYSCALL_CTRL_READ_BUFFER_POSITIVE);
+    psp_syscall_unregister(PSP_SYSCALL_CTRL_PEEK_BUFFER_POSITIVE);
+    psp_nid_unregister(PSP_NID_CTRL_READ_BUFFER_POSITIVE);
+    psp_nid_unregister(PSP_NID_CTRL_PEEK_BUFFER_POSITIVE);
+    active_controller=0;
 }
