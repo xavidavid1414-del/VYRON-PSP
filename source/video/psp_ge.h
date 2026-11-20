@@ -35,6 +35,9 @@ typedef struct {
     uint32_t texture_width;
     uint32_t texture_height;
     uint32_t texture_format;
+    uint32_t texture_function;
+    uint32_t texture_environment_color;
+    bool texture_color_component;
     uint32_t texture_wrap_u;
     uint32_t texture_wrap_v;
     bool texture_enabled;
