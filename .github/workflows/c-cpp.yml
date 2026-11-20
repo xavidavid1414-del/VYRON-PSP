@@ -21,6 +21,11 @@ jobs:
       - name: Build VYRON PSP
         run: make
 
+      - name: Run memory unit tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/memory source/memory/psp_memory.c tests/test_memory.c -o /tmp/vyron-memory-tests
+          /tmp/vyron-memory-tests
+
       - name: Upload Nintendo 3DS build
         uses: actions/upload-artifact@v4
         with:
