@@ -524,6 +524,23 @@ int main(void)
     assert(cpu.lo == 0x01234567u);
     assert(cpu.hi == 0x89ABCDEFu);
 
+    /* Malformed DIV/DIVU reserved fields raise Reserved Instruction. */
+    const uint32_t invalid_divisions[] = {
+        (1u << 21) | (2u << 16) | (3u << 11) | 0x1Au,
+        (1u << 21) | (2u << 16) | (1u << 6) | 0x1Au,
+        (1u << 21) | (2u << 16) | (3u << 11) | 0x1Bu,
+        (1u << 21) | (2u << 16) | (1u << 6) | 0x1Bu
+    };
+    for (size_t i = 0; i < sizeof(invalid_divisions) /
+                            sizeof(invalid_divisions[0]); ++i) {
+        memcpy(ram, &invalid_divisions[i], sizeof(invalid_divisions[i]));
+        psp_cpu_reset(&cpu);
+        cpu.pc = PSP_RAM_BASE;
+        assert(psp_interpreter_step(&cpu, &memory));
+        assert(cpu.pc == EXCEPTION_VECTOR);
+        assert((cpu.cop0[COP0_CAUSE] & 0x7Cu) == (10u << 2));
+    }
+
     /* SPECIAL2 MADD accumulates a signed product into HI:LO. */
     const uint32_t madd = (0x1Cu << 26) | (1u << 21) | (2u << 16) | 0x00u;
     memcpy(ram, &madd, sizeof(madd));
