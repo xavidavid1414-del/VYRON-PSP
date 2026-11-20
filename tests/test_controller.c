@@ -13,6 +13,7 @@ int main(void)
     assert(psp_controller_normalize_axis(-200) == 0u);
 
     PSP_Controller controller;
+    const uint8_t custom_mapping[4] = {1u, 0u, 3u, 2u};
     psp_controller_reset(&controller);
 
     psp_controller_update(
@@ -54,6 +55,13 @@ int main(void)
     assert(controller.released ==
         (PSP_CTRL_CROSS | PSP_CTRL_TRIANGLE | PSP_CTRL_DOWN));
 
+    psp_controller_reset(&controller);
+    psp_controller_update_mapped(
+        &controller, PSP_HOST_A | PSP_HOST_B | PSP_HOST_X | PSP_HOST_Y,
+        custom_mapping
+    );
+    assert(controller.buttons ==
+        (PSP_CTRL_CIRCLE | PSP_CTRL_CROSS | PSP_CTRL_SQUARE | PSP_CTRL_TRIANGLE));
     psp_controller_reset(&controller);
     assert(controller.buttons == 0);
     assert(controller.previous_buttons == 0);
