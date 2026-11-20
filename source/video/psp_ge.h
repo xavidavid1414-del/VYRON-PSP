@@ -26,6 +26,10 @@ typedef struct {
     uint32_t texture_wrap_v;
     bool texture_enabled;
     bool alpha_blend_enabled;
+    bool alpha_test_enabled;
+    uint32_t alpha_test_function;
+    uint32_t alpha_test_reference;
+    uint32_t alpha_test_mask;
     uint32_t blend_operation;
     uint32_t blend_source_factor;
     uint32_t blend_destination_factor;
