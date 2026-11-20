@@ -255,7 +255,10 @@ static bool ge_read_primitive_vertex(PSP_GE *ge, uint32_t index,
             vertex_index = psp_memory_read8(ge->memory, address) |
                 ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
         } else {
-            vertex_index = psp_memory_read32(ge->memory, address);
+            /* GE's 32-bit index format has a 32-bit stride, but only
+               the low 16 bits are used by the hardware. */
+            vertex_index = psp_memory_read8(ge->memory, address) |
+                ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
         }
     }
     return ge_read_vertex(ge, vertex_index, vertex);
