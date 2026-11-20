@@ -48,7 +48,7 @@ jobs:
 
       - name: Run controller HLE dispatch unit tests
         run: |
-          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/cpu -Isource/memory -Isource/loader source/input/psp_controller.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_controller_hle_dispatch.c -o /tmp/vyron-controller-hle-dispatch-tests
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/input -Isource/cpu -Isource/memory -Isource/loader source/input/psp_controller.c source/input/psp_controller_hle.c source/input/psp_controller_hle_syscalls.c source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_syscall.c source/loader/psp_nid.c source/memory/psp_memory.c tests/test_controller_hle_dispatch.c -o /tmp/vyron-controller-hle-dispatch-tests
           /tmp/vyron-controller-hle-dispatch-tests
 
       - name: Run controller unit tests
