@@ -36,6 +36,10 @@ bool psp_memory_init(PSP_Memory *memory)
     if (memory == NULL)
         return false;
 
+    /* Leave a predictable empty state if allocation fails. */
+    memory->ram = NULL;
+    memory->size = 0;
+
     memory->ram = calloc(1, PSP_RAM_SIZE);
 
     if (memory->ram == NULL)
