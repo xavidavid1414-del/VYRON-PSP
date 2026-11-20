@@ -8,7 +8,7 @@ endif
 TOPDIR ?= $(CURDIR)
 include $(DEVKITARM)/3ds_rules
 
-TARGET := vyron_psp
+TARGET := xavrx_psp
 BUILD := build
 
 SOURCES := source source/audio source/cpu source/memory source/loader source/video source/input
@@ -24,9 +24,9 @@ LDFLAGS := -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(TARGET).map
 LIBS := -lctru -lm
 LIBDIRS := $(CTRULIB)
 
-APP_TITLE := VYRON PSP
+APP_TITLE := XAVRX PSP
 APP_DESCRIPTION := Experimental PSP emulator for Nintendo 3DS
-APP_AUTHOR := VYRON PSP Project
+APP_AUTHOR := XAVRX PSP Project
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
@@ -66,7 +66,7 @@ $(BUILD):
 	@mkdir -p $@
 
 clean:
-	@echo "Cleaning VYRON PSP..."
+	@echo "Cleaning XAVRX PSP..."
 	@rm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf $(TARGET).map $(TARGET).cia $(TARGET).icn $(TARGET).bnr
 
 else
