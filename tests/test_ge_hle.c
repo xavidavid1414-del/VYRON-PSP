@@ -58,6 +58,32 @@ int main(void)
     assert(psp_syscall_dispatch(&cpu, &memory, 13u));
     assert(cpu.gpr[2] == 0x80020190u);
 
+    /* Enqueueing a real PSP GE list reaches the software renderer. */
+    const uint32_t draw_list = PSP_RAM_BASE + 0x200u;
+    const uint32_t vertex = PSP_RAM_BASE + 0x400u;
+    psp_video_clear(&video, 0);
+    psp_memory_write32(&memory, vertex, 0xFFFF0000u);
+    psp_memory_write8(&memory, vertex + 4u, 10u);
+    psp_memory_write8(&memory, vertex + 5u, 0u);
+    psp_memory_write8(&memory, vertex + 6u, 10u);
+    psp_memory_write8(&memory, vertex + 7u, 0u);
+    command(&memory, draw_list, 0x10, 0x00080000u);
+    command(&memory, draw_list + 4u, 0x01, 0x400u);
+    command(&memory, draw_list + 8u, 0x12,
+            (7u << 2) | (2u << 7) | (1u << 23));
+    command(&memory, draw_list + 12u, 0x04, 1u);
+    command(&memory, draw_list + 16u, 0x0C, 0);
+    cpu.gpr[4] = draw_list;
+    cpu.gpr[5] = 0;
+    cpu.gpr[6] = 0xFFFFFFFFu;
+    cpu.gpr[7] = 0;
+    assert(psp_syscall_dispatch(&cpu, &memory, 10u));
+    assert(cpu.gpr[2] == 0x35000000u);
+    assert(psp_video_get_pixel(&video, 10, 10) == 0xFFFF0000u);
+    cpu.gpr[4] = cpu.gpr[2];
+    assert(psp_syscall_dispatch(&cpu, &memory, 15u));
+    assert(cpu.gpr[2] == 0);
+
     psp_ge_hle_unregister();
     psp_syscall_reset();
     psp_nid_reset();
