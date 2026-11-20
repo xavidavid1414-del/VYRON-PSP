@@ -195,11 +195,13 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
     if (count == 0 || count > 4096)
         return count == 0;
     GE_Vertex vertices[3];
+    uint32_t drawn = 0;
     if (primitive == 0) {
         for (uint32_t i = 0; i < count; i++) {
             if (!ge_read_vertex(ge, i, &vertices[0])) return false;
             ge_put_pixel(ge, (int)lroundf(vertices[0].x),
                          (int)lroundf(vertices[0].y), vertices[0].color);
+            drawn++;
         }
     } else if (primitive == 1) {
         if (count & 1u) return false;
@@ -207,6 +209,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             if (!ge_read_vertex(ge, i, &vertices[0]) ||
                 !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
             ge_draw_line(ge, &vertices[0], &vertices[1]);
+            drawn++;
         }
     } else if (primitive == 2) {
         if (count < 2) return false;
@@ -214,6 +217,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             if (!ge_read_vertex(ge, i, &vertices[0]) ||
                 !ge_read_vertex(ge, i + 1, &vertices[1])) return false;
             ge_draw_line(ge, &vertices[0], &vertices[1]);
+            drawn++;
         }
     } else if (primitive == 3) {
         if (count % 3u) return false;
@@ -222,6 +226,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                 !ge_read_vertex(ge, i + 1, &vertices[1]) ||
                 !ge_read_vertex(ge, i + 2, &vertices[2])) return false;
             ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
+            drawn++;
         }
     } else if (primitive == 4) {
         if (count < 3) return false;
@@ -235,6 +240,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                 vertices[1] = swap;
             }
             ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
+            drawn++;
         }
     } else if (primitive == 5) {
         if (count < 3 || !ge_read_vertex(ge, 0, &vertices[0]))
@@ -243,6 +249,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
             if (!ge_read_vertex(ge, i, &vertices[1]) ||
                 !ge_read_vertex(ge, i + 1, &vertices[2])) return false;
             ge_draw_triangle(ge, &vertices[0], &vertices[1], &vertices[2]);
+            drawn++;
         }
     } else if (primitive == 6) {
         if (count & 1u) return false;
@@ -266,11 +273,12 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                     for (int x = left; x <= right; x++)
                         ge_put_pixel(ge, x, y, vertices[0].color);
             }
+            drawn++;
         }
     } else {
         return false;
     }
-    ge->primitives_drawn++;
+    ge->primitives_drawn += drawn;
     return true;
 }
 
