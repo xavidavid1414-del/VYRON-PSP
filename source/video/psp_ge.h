@@ -25,6 +25,12 @@ typedef struct {
     uint32_t texture_wrap_u;
     uint32_t texture_wrap_v;
     bool texture_enabled;
+    bool alpha_blend_enabled;
+    uint32_t blend_operation;
+    uint32_t blend_source_factor;
+    uint32_t blend_destination_factor;
+    uint32_t blend_fixed_a;
+    uint32_t blend_fixed_b;
     int scissor_left;
     int scissor_top;
     int scissor_right;
