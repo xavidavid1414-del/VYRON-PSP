@@ -7,7 +7,7 @@
 #include <string.h>
 static void w32(uint8_t*p,uint32_t v){p[0]=(uint8_t)v;p[1]=(uint8_t)(v>>8);p[2]=(uint8_t)(v>>16);p[3]=(uint8_t)(v>>24);}
 int main(void){
- uint8_t iso[21*2048]={0},ram[4096]={0};PSP_Memory mem={ram,sizeof(ram)};PSP_ISO_FS fs={0};PSP_IO_Service io;
+ uint8_t iso[21*2048]={0},ram[4096]={0};PSP_Memory mem={.ram=ram,.size=sizeof(ram)};PSP_ISO_FS fs={0};PSP_IO_Service io;
  uint8_t*p=iso+16*2048;p[0]=1;memcpy(p+1,"CD001",5);p[6]=1;
  uint8_t*root=p+156;root[0]=34;w32(root+2,17);w32(root+10,2048);
  uint8_t*r=iso+17*2048;r[0]=34;w32(r+2,17);w32(r+10,2048);r[25]=2;r[32]=1;r[33]=0;
