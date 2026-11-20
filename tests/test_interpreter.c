@@ -237,7 +237,8 @@ int main(void)
 
 
     /* JAL writes the return address and executes its delay slot. */
-    const uint32_t jal = (0x03u << 26) | 4u;
+    const uint32_t jal = (0x03u << 26) |
+        (((PSP_RAM_BASE + 16u) >> 2) & 0x03FFFFFFu);
     memcpy(ram, &jal, sizeof(jal));
     memcpy(ram + 4, &nop, sizeof(nop));
 
