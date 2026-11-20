@@ -199,6 +199,23 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 96, 4));
     assert(ge.commands_executed == 4);
 
+    /* Indexed triangles fetch 8-bit indices from IADDR. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    const uint32_t indices = PSP_RAM_BASE + 0x1800;
+    psp_memory_write8(&memory, indices, 2);
+    psp_memory_write8(&memory, indices + 1, 0);
+    psp_memory_write8(&memory, indices + 2, 1);
+    command(&memory, list + 320, 0x10, 0x00080000u);
+    command(&memory, list + 324, 0x01, 0x1000u);
+    command(&memory, list + 328, 0x02, 0x1800u);
+    command(&memory, list + 332, 0x12, vtype | (1u << 11));
+    command(&memory, list + 336, 0x04, (3u << 16) | 3u);
+    command(&memory, list + 340, 0x0C, 0);
+    assert(psp_ge_execute_list(&ge, list + 320, 8));
+    assert(ge.primitives_drawn == 1);
+    assert(psp_video_get_pixel(&video, 15, 15) != 0);
+
     /* Invalid vertex memory is rejected instead of reading out of bounds. */
     psp_ge_reset(&ge);
     command(&memory, list + 8, 0x10, 0x00FF0000u);
