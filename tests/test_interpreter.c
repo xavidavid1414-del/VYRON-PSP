@@ -600,5 +600,35 @@ int main(void)
     assert(psp_interpreter_step(&cpu, &memory));
     assert(cpu.gpr[3] == 4u);
 
+    /* Allegrex MAX and MIN use signed 32-bit comparisons. */
+    const uint32_t max_inst = (1u << 21) | (2u << 16) |
+                             (3u << 11) | 0x2Cu;
+    memcpy(ram, &max_inst, sizeof(max_inst));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0xFFFFFFF9u; /* -7 */
+    cpu.gpr[2] = 9u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 9u);
+
+    const uint32_t min_inst = (1u << 21) | (2u << 16) |
+                             (3u << 11) | 0x2Du;
+    memcpy(ram, &min_inst, sizeof(min_inst));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0xFFFFFFF9u; /* -7 */
+    cpu.gpr[2] = 9u;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 0xFFFFFFF9u);
+
+    /* MAX/MIN must treat unsigned-looking high-bit values as negative. */
+    memcpy(ram, &max_inst, sizeof(max_inst));
+    psp_cpu_reset(&cpu);
+    cpu.pc = PSP_RAM_BASE;
+    cpu.gpr[1] = 0x80000000u;
+    cpu.gpr[2] = 0x7FFFFFFFu;
+    assert(psp_interpreter_step(&cpu, &memory));
+    assert(cpu.gpr[3] == 0x7FFFFFFFu);
+
     return 0;
 }
