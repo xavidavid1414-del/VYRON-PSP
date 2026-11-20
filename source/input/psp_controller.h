@@ -42,6 +42,7 @@ typedef struct {
 } PSP_Controller;
 
 void psp_controller_reset(PSP_Controller *controller);
+uint8_t psp_controller_normalize_axis(int16_t value);
 void psp_controller_set_analog(
     PSP_Controller *controller,
     uint8_t x,
