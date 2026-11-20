@@ -26,5 +26,9 @@ int main(void){
  assert(psp_nid_resolve(0x6A638D83u,&code));cpu.gpr[4]=fd;cpu.gpr[5]=PSP_RAM_BASE+0x100;cpu.gpr[6]=5;assert(psp_syscall_dispatch(&cpu,&mem,code));assert(cpu.gpr[2]==5);assert(!memcmp(ram+0x100,"WORLD",5));
  assert(psp_nid_resolve(0x27EB27B8u,&code));cpu.gpr[4]=fd;cpu.gpr[5]=0;cpu.gpr[6]=0;assert(psp_syscall_dispatch(&cpu,&mem,code));assert(cpu.gpr[2]==0);
  assert(psp_nid_resolve(0x810C4BC3u,&code));cpu.gpr[4]=fd;assert(psp_syscall_dispatch(&cpu,&mem,code));assert(cpu.gpr[2]==0);
+ const char nested[]="disc0:/SUBDIR/INNER";memcpy(ram+0x40,nested,sizeof(nested));
+ assert(psp_nid_resolve(0x109F50BCu,&code));cpu.gpr[4]=PSP_RAM_BASE+0x40;cpu.gpr[5]=1;assert(psp_syscall_dispatch(&cpu,&mem,code));fd=cpu.gpr[2];assert(fd>=3);
+ assert(psp_nid_resolve(0x6A638D83u,&code));cpu.gpr[4]=fd;cpu.gpr[5]=PSP_RAM_BASE+0x110;cpu.gpr[6]=5;assert(psp_syscall_dispatch(&cpu,&mem,code));assert(cpu.gpr[2]==5);assert(!memcmp(ram+0x110,"NESTD",5));
+ assert(psp_nid_resolve(0x810C4BC3u,&code));cpu.gpr[4]=fd;assert(psp_syscall_dispatch(&cpu,&mem,code));assert(cpu.gpr[2]==0);
  psp_io_hle_unregister();psp_syscall_reset();psp_nid_reset();return 0;
 }
