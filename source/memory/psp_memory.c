@@ -3,6 +3,28 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void mark_ram_write(PSP_Memory *memory, uint32_t offset, uint32_t length)
+{
+    if (!memory || !memory->page_generation || length == 0) return;
+    uint32_t first = offset / PSP_MEMORY_PAGE_SIZE;
+    uint32_t last = (offset + length - 1u) / PSP_MEMORY_PAGE_SIZE;
+    if (last >= memory->page_count) return;
+    for (uint32_t page = first; page <= last; ++page) {
+        memory->page_generation[page]++;
+        if (memory->page_generation[page] == 0)
+            memory->page_generation[page] = 1;
+    }
+}
+
+uint32_t psp_memory_page_generation(PSP_Memory *memory, uint32_t address)
+{
+    uint32_t offset;
+    if (!memory || !memory->page_generation ||
+        !translate_address(memory, address, &offset))
+        return 0;
+    return memory->page_generation[offset / PSP_MEMORY_PAGE_SIZE];
+}
+
 static bool translate_vram_address(PSP_Memory *memory, uint32_t address,
                                   uint32_t *offset)
 {
@@ -71,6 +93,8 @@ bool psp_memory_init(PSP_Memory *memory)
     memory->size = 0;
     memory->vram = NULL;
     memory->vram_size = 0;
+    memory->page_generation = NULL;
+    memory->page_count = 0;
 
     memory->ram = calloc(1, PSP_RAM_SIZE);
     if (memory->ram == NULL)
@@ -83,6 +107,21 @@ bool psp_memory_init(PSP_Memory *memory)
     }
     memory->size = PSP_RAM_SIZE;
     memory->vram_size = PSP_VRAM_SIZE;
+    memory->page_count = (memory->size + PSP_MEMORY_PAGE_SIZE - 1u) /
+                         PSP_MEMORY_PAGE_SIZE;
+    memory->page_generation = calloc(memory->page_count, sizeof(uint32_t));
+    if (!memory->page_generation) {
+        free(memory->vram);
+        free(memory->ram);
+        memory->ram = NULL;
+        memory->vram = NULL;
+        memory->size = 0;
+        memory->vram_size = 0;
+        memory->page_count = 0;
+        return false;
+    }
+    for (uint32_t i = 0; i < memory->page_count; ++i)
+        memory->page_generation[i] = 1u;
     return true;
 }
 
@@ -93,6 +132,9 @@ void psp_memory_destroy(PSP_Memory *memory)
 
     free(memory->ram);
     free(memory->vram);
+    free(memory->page_generation);
+    memory->page_generation = NULL;
+    memory->page_count = 0;
     memory->ram = NULL;
     memory->size = 0;
     memory->vram = NULL;
@@ -148,6 +190,7 @@ void psp_memory_write8(
     if (!translate_address(memory, address, &offset))
         return;
     memory->ram[offset] = value;
+    mark_ram_write(memory, offset, 1u);
 }
 
 void psp_memory_write32(
@@ -171,4 +214,6 @@ void psp_memory_write32(
     bytes[1] = (uint8_t)(value >> 8);
     bytes[2] = (uint8_t)(value >> 16);
     bytes[3] = (uint8_t)(value >> 24);
+    if (bytes >= memory->ram && bytes < memory->ram + memory->size)
+        mark_ram_write(memory, offset, 4u);
 }
