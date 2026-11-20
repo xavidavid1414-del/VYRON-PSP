@@ -572,6 +572,29 @@ int main(void)
     assert(psp_ge_execute_list(&ge, list + 800, 18));
     assert(psp_video_get_pixel(&video, 40, 40) == 0xFFFF0000u);
 
+    /* A second directional light contributes independently to vertex color. */
+    psp_ge_reset(&ge);
+    psp_video_clear(&video, 0);
+    command(&memory, list + 868, 0x10, 0x00080000u);
+    command(&memory, list + 872, 0x17, 1u);
+    command(&memory, list + 876, 0x19, 1u);
+    command(&memory, list + 880, 0x60, 0u);
+    command(&memory, list + 884, 0x72, encode_float24(0.0f));
+    command(&memory, list + 888, 0x73, encode_float24(0.0f));
+    command(&memory, list + 892, 0x74, encode_float24(-1.0f));
+    command(&memory, list + 896, 0x91, 0x0000FF00u);
+    command(&memory, list + 900, 0x42, encode_float24(20.0f));
+    command(&memory, list + 904, 0x43, encode_float24(-20.0f));
+    command(&memory, list + 908, 0x45, encode_float24(40.0f));
+    command(&memory, list + 912, 0x46, encode_float24(40.0f));
+    command(&memory, list + 916, 0x01, 0x3400u);
+    command(&memory, list + 920, 0x12,
+            (7u << 2) | (3u << 5) | (3u << 7));
+    command(&memory, list + 924, 0x04, 1u);
+    command(&memory, list + 928, 0x0C, 0u);
+    assert(psp_ge_execute_list(&ge, list + 868, 16u));
+    assert(psp_video_get_pixel(&video, 40, 40) == 0xFF00FF00u);
+
     /* GE clear mode bypasses fragment blending and honors color/depth masks. */
     psp_ge_reset(&ge);
     psp_video_clear(&video, 0xFF0000FFu);
