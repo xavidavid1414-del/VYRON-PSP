@@ -14,6 +14,14 @@ typedef struct {
     uint32_t vertex_address;
     uint32_t vertex_type;
     uint32_t draw_color;
+    uint32_t texture_address;
+    uint32_t texture_buffer_width;
+    uint32_t texture_width;
+    uint32_t texture_height;
+    uint32_t texture_format;
+    uint32_t texture_wrap_u;
+    uint32_t texture_wrap_v;
+    bool texture_enabled;
     int scissor_left;
     int scissor_top;
     int scissor_right;
