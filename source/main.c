@@ -40,11 +40,13 @@ typedef struct {
     unsigned int stylus_menu;
     unsigned int cstick_enabled;
     unsigned int video_fit;
-    unsigned int swap_ab;
-    unsigned int swap_xy;
+    unsigned int map_a;
+    unsigned int map_b;
+    unsigned int map_x;
+    unsigned int map_y;
 } VYRON_Settings;
 
-static VYRON_Settings settings = {1, 1, 1, 0, 0, 0};
+static VYRON_Settings settings = {1, 1, 1, 0, 0, 1, 2, 3};
 static bool settings_open;
 static unsigned int settings_selected;
 
@@ -79,12 +81,11 @@ static void update_controller_input(void)
     if (keys & KEY_START) host_buttons |= PSP_HOST_START;
     if (keys & KEY_SELECT) host_buttons |= PSP_HOST_SELECT;
 
-    psp_controller_update(
-        &core.controller,
-        host_buttons,
-        settings.swap_ab != 0,
-        settings.swap_xy != 0
-    );
+    const uint8_t face_mapping[4] = {
+        (uint8_t)settings.map_a, (uint8_t)settings.map_b,
+        (uint8_t)settings.map_x, (uint8_t)settings.map_y
+    };
+    psp_controller_update_mapped(&core.controller, host_buttons, face_mapping);
     psp_controller_set_analog(
         &core.controller,
         psp_controller_normalize_axis(stick.dx),
@@ -119,7 +120,7 @@ static void update_fps_display(void)
 }
 
 #define SETTINGS_FILE PSP_ROOT_DIRECTORY "/CONFIG/settings.ini"
-#define SETTINGS_COUNT 6
+#define SETTINGS_COUNT 8
 
 static bool ensure_storage_layout(void)
 {
@@ -156,26 +157,28 @@ static void load_settings(void)
     if (file == NULL)
         return;
 
-    unsigned int values[SETTINGS_COUNT];
-    int count = fscanf(file, "%u %u %u %u %u %u",
-                       &values[0], &values[1], &values[2],
-                       &values[3], &values[4], &values[5]);
+    unsigned int values[SETTINGS_COUNT] = {0, 0, 0, 0, 0, 1, 2, 3};
+    int count = fscanf(file, "%u %u %u %u %u %u %u %u",
+                       &values[0], &values[1], &values[2], &values[3],
+                       &values[4], &values[5], &values[6], &values[7]);
     fclose(file);
-
-    if (count != SETTINGS_COUNT)
-        return;
-
-    for (unsigned int i = 0; i < SETTINGS_COUNT; i++) {
-        if (values[i] > 1)
-            return;
+    if (count < 4) return;
+    for (int i = 0; i < 4; i++) if (values[i] > 1) return;
+    if (count >= 8) {
+        for (int i = 4; i < 8; i++) if (values[i] > 3) return;
+    } else if (count >= 6) {
+        if (values[4] > 1 || values[5] > 1) return;
+        if (values[4]) { values[4] = 1; values[5] = 0; }
+        if (values[5]) { values[6] = 3; values[7] = 2; }
     }
-
     settings.show_fps = values[0];
     settings.stylus_menu = values[1];
     settings.cstick_enabled = values[2];
     settings.video_fit = values[3];
-    settings.swap_ab = values[4];
-    settings.swap_xy = values[5];
+    settings.map_a = values[4];
+    settings.map_b = values[5];
+    settings.map_x = values[6];
+    settings.map_y = values[7];
 }
 
 static void save_settings(void)
@@ -188,13 +191,10 @@ static void save_settings(void)
         return;
     }
 
-    fprintf(file, "%u %u %u %u %u %u\n",
-            settings.show_fps,
-            settings.stylus_menu,
-            settings.cstick_enabled,
-            settings.video_fit,
-            settings.swap_ab,
-            settings.swap_xy);
+    fprintf(file, "%u %u %u %u %u %u %u %u\n",
+            settings.show_fps, settings.stylus_menu,
+            settings.cstick_enabled, settings.video_fit,
+            settings.map_a, settings.map_b, settings.map_x, settings.map_y);
     fclose(file);
 }
 
@@ -216,16 +216,18 @@ static void print_settings_menu(void)
     printf("\x1b[12;1H%s Video fit: %s",
            settings_selected == 3 ? ">" : " ",
            settings.video_fit ? "STRETCH" : "FIT");
-    printf("\x1b[14;1H%s Swap A/B: %s",
-           settings_selected == 4 ? ">" : " ",
-           settings.swap_ab ? "ON" : "OFF");
-    printf("\x1b[16;1H%s Swap X/Y: %s",
-           settings_selected == 5 ? ">" : " ",
-           settings.swap_xy ? "ON" : "OFF");
-    printf("\x1b[19;1HSaved in /PSP/CONFIG/settings.ini");
-    printf("\x1b[21;1HNote: game input/video options");
-    printf("\x1b[22;1Hare stored; runtime support is");
-    printf("\x1b[23;1Hbeing implemented.");
+    static const char *map_names[4] = {
+        "CROSS", "CIRCLE", "TRIANGLE", "SQUARE"
+    };
+    printf("\\x1b[14;1H%s 3DS A -> PSP %s",
+           settings_selected == 4 ? ">" : " ", map_names[settings.map_a]);
+    printf("\\x1b[16;1H%s 3DS B -> PSP %s",
+           settings_selected == 5 ? ">" : " ", map_names[settings.map_b]);
+    printf("\\x1b[18;1H%s 3DS X -> PSP %s",
+           settings_selected == 6 ? ">" : " ", map_names[settings.map_x]);
+    printf("\\x1b[20;1H%s 3DS Y -> PSP %s",
+           settings_selected == 7 ? ">" : " ", map_names[settings.map_y]);
+    printf("\\x1b[23;1HSaved in /PSP/CONFIG/settings.ini");
 }
 
 static void change_selected_setting(void)
@@ -235,8 +237,10 @@ static void change_selected_setting(void)
         case 1: settings.stylus_menu = !settings.stylus_menu; break;
         case 2: settings.cstick_enabled = !settings.cstick_enabled; break;
         case 3: settings.video_fit = !settings.video_fit; break;
-        case 4: settings.swap_ab = !settings.swap_ab; break;
-        case 5: settings.swap_xy = !settings.swap_xy; break;
+        case 4: settings.map_a = (settings.map_a + 1u) % 4u; break;
+        case 5: settings.map_b = (settings.map_b + 1u) % 4u; break;
+        case 6: settings.map_x = (settings.map_x + 1u) % 4u; break;
+        case 7: settings.map_y = (settings.map_y + 1u) % 4u; break;
         default: return;
     }
 
