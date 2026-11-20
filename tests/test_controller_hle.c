@@ -28,6 +28,14 @@ int main(void)
     assert(psp_memory_read8(&memory, output + 8u) == 128u);
     assert(psp_memory_read8(&memory, output + 9u) == 128u);
 
+    psp_controller_set_analog(&controller, 200u, 64u);
+    assert(psp_controller_hle_peek_buffer_positive(
+        &controller, &memory, output + PSP_CTRL_DATA_SIZE, 1u) == 1);
+    assert(psp_memory_read8(&memory,
+        output + PSP_CTRL_DATA_SIZE + 8u) == 200u);
+    assert(psp_memory_read8(&memory,
+        output + PSP_CTRL_DATA_SIZE + 9u) == 64u);
+
     assert(psp_controller_hle_peek_buffer_positive(
         &controller, &memory, output + PSP_CTRL_DATA_SIZE, 2u) == 2);
 
