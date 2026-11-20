@@ -63,6 +63,10 @@
 #define GE_CMD_TEXFUNC 0xC9u
 #define GE_CMD_TEXENV 0xCAu
 #define GE_CMD_TEXWRAP 0xC7u
+#define GE_CMD_CLUTADDR 0xB0u
+#define GE_CMD_CLUTADDRUPPER 0xB1u
+#define GE_CMD_CLUTLOAD 0xC4u
+#define GE_CMD_CLUTFORMAT 0xC5u
 
 typedef struct {
     float x;
@@ -546,6 +550,24 @@ static uint32_t ge_modulate_color(uint32_t a, uint32_t b)
     return result;
 }
 
+static uint32_t ge_decode_texture_color(uint32_t format, uint32_t packed)
+{
+    if (format == 0u)
+        return PSP_VIDEO_COLOR(((packed >> 11) & 31u) * 255u / 31u,
+            ((packed >> 5) & 63u) * 255u / 63u,
+            (packed & 31u) * 255u / 31u, 255u);
+    if (format == 1u)
+        return PSP_VIDEO_COLOR(((packed >> 10) & 31u) * 255u / 31u,
+            ((packed >> 5) & 31u) * 255u / 31u,
+            (packed & 31u) * 255u / 31u,
+            (packed & 0x8000u) ? 255u : 0u);
+    if (format == 2u)
+        return PSP_VIDEO_COLOR(((packed >> 8) & 15u) * 17u,
+            ((packed >> 4) & 15u) * 17u, (packed & 15u) * 17u,
+            ((packed >> 12) & 15u) * 17u);
+    return packed;
+}
+
 static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
                                          uint32_t *color)
 {
@@ -564,6 +586,28 @@ static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
         if (y >= (int)ge->texture_height) y = (int)ge->texture_height - 1;
     }
 
+    if (ge->texture_format == 4u || ge->texture_format == 5u) {
+        uint64_t row_bytes = ge->texture_format == 4u ?
+            ((uint64_t)ge->texture_buffer_width + 1u) / 2u :
+            ge->texture_buffer_width;
+        uint64_t offset = (uint64_t)(uint32_t)y * row_bytes;
+        offset += ge->texture_format == 4u ? (uint32_t)x / 2u :
+            (uint32_t)x;
+        uint64_t address = (uint64_t)ge->texture_address + offset;
+        if (address > UINT32_MAX ||
+            !psp_memory_is_valid(ge->memory, (uint32_t)address, 1u))
+            return false;
+        uint32_t packed = psp_memory_read8(ge->memory, (uint32_t)address);
+        uint32_t index = ge->texture_format == 4u ?
+            ((packed >> (((uint32_t)x & 1u) * 4u)) & 0xFu) : packed;
+        index = ((index >> ge->clut_shift) & ge->clut_mask) +
+            (ge->clut_start << 4);
+        if (index >= ge->clut_entries_loaded || index >= 256u)
+            return false;
+        *color = ge->clut[index];
+        return true;
+    }
+
     uint32_t bytes_per_pixel = ge->texture_format == 3u ? 4u : 2u;
     uint64_t offset = ((uint64_t)(uint32_t)y *
         ge->texture_buffer_width + (uint32_t)x) * bytes_per_pixel;
@@ -572,30 +616,12 @@ static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
         !psp_memory_is_valid(ge->memory, (uint32_t)address,
                              bytes_per_pixel))
         return false;
-
     uint32_t packed = psp_memory_read8(ge->memory, (uint32_t)address) |
         ((uint32_t)psp_memory_read8(ge->memory,
                                     (uint32_t)address + 1u) << 8);
-    if (ge->texture_format == 3u) {
-        *color = psp_memory_read32(ge->memory, (uint32_t)address);
-    } else if (ge->texture_format == 0u) {
-        *color = PSP_VIDEO_COLOR(
-            ((packed >> 11) & 31u) * 255u / 31u,
-            ((packed >> 5) & 63u) * 255u / 63u,
-            (packed & 31u) * 255u / 31u, 255u);
-    } else if (ge->texture_format == 1u) {
-        *color = PSP_VIDEO_COLOR(
-            ((packed >> 10) & 31u) * 255u / 31u,
-            ((packed >> 5) & 31u) * 255u / 31u,
-            (packed & 31u) * 255u / 31u,
-            (packed & 0x8000u) ? 255u : 0u);
-    } else {
-        *color = PSP_VIDEO_COLOR(
-            ((packed >> 8) & 15u) * 17u,
-            ((packed >> 4) & 15u) * 17u,
-            (packed & 15u) * 17u,
-            ((packed >> 12) & 15u) * 17u);
-    }
+    *color = ge->texture_format == 3u ?
+        psp_memory_read32(ge->memory, (uint32_t)address) :
+        ge_decode_texture_color(ge->texture_format, packed);
     return true;
 }
 
@@ -623,7 +649,9 @@ static bool ge_texture_sample(PSP_GE *ge, float u, float v,
     if (!ge->texture_enabled || color == NULL ||
         ge->texture_width == 0 || ge->texture_height == 0 ||
         ge->texture_buffer_width < ge->texture_width ||
-        ge->texture_format > 3u)
+        ge->texture_format > 5u ||
+        ((ge->texture_format == 4u || ge->texture_format == 5u) &&
+         ge->clut_entries_loaded == 0u))
         return false;
 
     if (ge->texture_mag_filter == 0u) {
@@ -804,7 +832,9 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
     if (ge->texture_enabled &&
         (ge->texture_width == 0 || ge->texture_height == 0 ||
          ge->texture_buffer_width < ge->texture_width ||
-         ge->texture_format > 3u))
+         ge->texture_format > 5u ||
+         ((ge->texture_format == 4u || ge->texture_format == 5u) &&
+          ge->clut_entries_loaded == 0u)))
         return false;
     GE_Vertex vertices[3];
     uint32_t drawn = 0;
@@ -964,6 +994,13 @@ void psp_ge_reset(PSP_GE *ge)
     ge->texture_width = 0;
     ge->texture_height = 0;
     ge->texture_format = 3;
+    ge->clut_address = 0;
+    ge->clut_format = 3;
+    ge->clut_shift = 0;
+    ge->clut_mask = 0xFFu;
+    ge->clut_start = 0;
+    ge->clut_entries_loaded = 0;
+    memset(ge->clut, 0, sizeof(ge->clut));
     ge->texture_function = 0;
     ge->texture_environment_color = 0xFFFFFFFFu;
     ge->texture_color_component = true;
@@ -1192,6 +1229,39 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
             case GE_CMD_BLENDFIXEDB:
                 ge->blend_fixed_b = value;
                 break;
+            case GE_CMD_CLUTADDR:
+                ge->clut_address = (ge->clut_address & 0xFF000000u) |
+                    (value & 0x00FFFFFFu);
+                break;
+            case GE_CMD_CLUTADDRUPPER:
+                ge->clut_address = ((value & 0x000F0000u) << 8) |
+                    (ge->clut_address & 0x00FFFFFFu);
+                break;
+            case GE_CMD_CLUTFORMAT:
+                ge->clut_format = value & 3u;
+                ge->clut_shift = (value >> 2) & 0x1Fu;
+                ge->clut_mask = (value >> 8) & 0xFFu;
+                ge->clut_start = (value >> 16) & 0x1Fu;
+                break;
+            case GE_CMD_CLUTLOAD: {
+                uint32_t entries = (value & 0x3Fu) * 8u;
+                if (entries > 256u) entries = 256u;
+                uint32_t bytes_per_entry = ge->clut_format == 3u ? 4u : 2u;
+                if (entries && (ge->clut_address > UINT32_MAX -
+                    entries * bytes_per_entry ||
+                    !psp_memory_is_valid(ge->memory, ge->clut_address,
+                        entries * bytes_per_entry))) return false;
+                for (uint32_t i = 0; i < entries; i++) {
+                    uint32_t address = ge->clut_address + i * bytes_per_entry;
+                    uint32_t packed = bytes_per_entry == 4u ?
+                        psp_memory_read32(ge->memory, address) :
+                        (uint32_t)psp_memory_read8(ge->memory, address) |
+                        ((uint32_t)psp_memory_read8(ge->memory, address + 1u) << 8);
+                    ge->clut[i] = ge_decode_texture_color(ge->clut_format, packed);
+                }
+                ge->clut_entries_loaded = entries;
+                break;
+            }
             case GE_CMD_TEXADDR0:
                 ge->texture_address_low = value & 0x00FFFFFFu;
                 ge->texture_address =
