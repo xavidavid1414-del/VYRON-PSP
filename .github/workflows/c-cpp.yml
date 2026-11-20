@@ -49,6 +49,11 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_cpu.c source/cpu/psp_interpreter.c source/cpu/psp_dynarec.c source/cpu/psp_syscall.c source/memory/psp_memory.c tests/test_dynarec.c -o /tmp/vyron-dynarec-tests
           /tmp/vyron-dynarec-tests
 
+      - name: Run ARMv6K code emitter tests
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu source/cpu/psp_armv6k.c tests/test_armv6k.c -o /tmp/vyron-armv6k-tests
+          /tmp/vyron-armv6k-tests
+
       - name: Run syscall registry unit tests
         run: |
           gcc -std=c11 -Wall -Wextra -Werror -Isource/cpu -Isource/memory source/cpu/psp_syscall.c tests/test_syscall.c -o /tmp/vyron-syscall-tests
