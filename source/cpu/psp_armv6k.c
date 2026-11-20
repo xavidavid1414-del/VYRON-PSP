@@ -152,6 +152,19 @@ PSP_ARMv6KTranslateResult psp_armv6k_translate_allegrex(
         return PSP_ARMV6K_TRANSLATE_OK;
     }
 
+    if (opcode == 12u || opcode == 13u || opcode == 14u) {
+        /* ANDI/ORI/XORI use a zero-extended 16-bit immediate. */
+        uint32_t immediate = instruction & 0xFFFFu;
+        arm_opcode = opcode == 12u ? 0u : (opcode == 13u ? 12u : 1u);
+        if (!encode_imm8(immediate, &(uint32_t){0}))
+            return PSP_ARMV6K_TRANSLATE_UNSUPPORTED;
+        if (!emit_load_gpr(emitter, 1, rs) ||
+            !psp_armv6k_emit_dp_imm(emitter, arm_opcode, false, 3, 1, immediate) ||
+            !emit_store_gpr(emitter, rt, 3))
+            return PSP_ARMV6K_TRANSLATE_ERROR;
+        return PSP_ARMv6K_TRANSLATE_OK;
+    }
+
     if (opcode == 9u) { /* ADDIU: immediate must fit ARM's rotated imm8. */
         int32_t immediate = (int16_t)(instruction & 0xFFFFu);
         uint8_t arm_op = immediate < 0 ? 2u : 4u;
