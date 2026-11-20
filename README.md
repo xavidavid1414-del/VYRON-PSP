@@ -8,6 +8,12 @@ Experimental PSP emulator for the Nintendo 3DS family, targeting the New Nintend
 
 The project builds a Nintendo 3DS `.3dsx` application and an installable homebrew `.cia` package with devkitPro/devkitARM. The current application provides a basic file browser for PSP ISO, PBP, PRX, and ELF files, plus an experimental MIPS execution core.
 
+### Phase 5 — PSP graphics renderer
+
+**Implementation milestone: complete for the documented software-renderer subset.** The renderer decodes the implemented GE display-list commands, transforms and clips primitives, rasterizes supported primitive types, handles textures/CLUT/mipmaps, depth and alpha/color/stencil tests, blending, lighting/fog, patch tessellation, block transfers, and PSP EDRAM framebuffer presentation. GE address control (BASE/OFFSET/ORIGIN), bounded JUMP/BJUMP/CALL/RET flow, and separate draw/display framebuffers are covered by automated tests.
+
+The full PSP GE is not claimed to be cycle-accurate or fully compatible. Unsupported GE commands, hardware timing, asynchronous list scheduling/callbacks, and broad real-game graphics compatibility remain outside this milestone and are tracked as later compatibility work. The latest GitHub Actions run builds the 3DSX and CIA and passes all configured unit/integration tests.
+
 ### Current capabilities
 
 - Nintendo 3DS homebrew application build.
