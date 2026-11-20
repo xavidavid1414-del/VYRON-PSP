@@ -77,6 +77,26 @@ int main(void)
            PSP_ARMv6K_TRANSLATE_OK);
     assert(code[3] == 0xE1A03251u); /* MOV r3, r1, ASR r2 */
 
+    /* MOVZ rd, rs, rt: update rd only when rt equals zero. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t movz = (1u << 21) | (2u << 16) | (3u << 11) | 0x0Au;
+    assert(psp_armv6k_translate_allegrex(&out, movz) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 6);
+    assert(code[0] == 0xE5903010u); /* LDR old rd */
+    assert(code[1] == 0xE5902008u); /* LDR condition register */
+    assert(code[2] == 0xE3520000u); /* CMP rt, #0 */
+    assert(code[3] == 0xE5901004u); /* LDR source */
+    assert(code[4] == 0x01A03001u); /* MOVEQ rd, rs */
+    assert(code[5] == 0xE5803010u); /* STR rd */
+
+    /* MOVN rd, rs, rt: update rd only when rt is nonzero. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t movn = (1u << 21) | (2u << 16) | (3u << 11) | 0x0Bu;
+    assert(psp_armv6k_translate_allegrex(&out, movn) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[4] == 0x11A03001u); /* MOVNE rd, rs */
+
     /* A zero shift amount is a MIPS no-op for SRL/SRA. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t srl_zero = (2u << 16) | (3u << 11) | 0x02u;
