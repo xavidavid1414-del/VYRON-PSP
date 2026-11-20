@@ -39,26 +39,26 @@ int main(void)
     assert(psp_armv6k_translate_allegrex(&out, sll) ==
            PSP_ARMV6K_TRANSLATE_OK);
     assert(out.count == 3);
-    assert(code[1] == 0xE1A03202u); /* MOV r3, r2, LSL #4 */
+    assert(code[1] == 0xE1A03201u); /* MOV r3, r1, LSL #4 */
 
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t srl = (2u << 16) | (3u << 11) | (2u << 6) | 0x02u;
     assert(psp_armv6k_translate_allegrex(&out, srl) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(code[1] == 0xE1A03122u); /* MOV r3, r2, LSR #2 */
+    assert(code[1] == 0xE1A03121u); /* MOV r3, r1, LSR #2 */
 
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t sra = (2u << 16) | (3u << 11) | (3u << 6) | 0x03u;
     assert(psp_armv6k_translate_allegrex(&out, sra) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(code[1] == 0xE1A031C2u); /* MOV r3, r2, ASR #3 */
+    assert(code[1] == 0xE1A031C1u); /* MOV r3, r1, ASR #3 */
 
     /* A zero shift amount is a MIPS no-op for SRL/SRA. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t srl_zero = (2u << 16) | (3u << 11) | 0x02u;
     assert(psp_armv6k_translate_allegrex(&out, srl_zero) ==
            PSP_ARMV6K_TRANSLATE_OK);
-    assert(code[1] == 0xE1A03002u); /* MOV r3, r2 */
+    assert(code[1] == 0xE1A03001u); /* MOV r3, r1 */
 
     /* SLT r3, r1, r2: signed comparison. */
     psp_armv6k_emitter_init(&out, code, 16);
