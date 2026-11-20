@@ -1746,7 +1746,7 @@ static bool ge_draw_spline_surface(PSP_GE *ge, uint32_t value)
         ge->patch_division_u == 0u || ge->patch_division_v == 0u ||
         ge->patch_division_u > 64u || ge->patch_division_v > 64u ||
         (ge->patch_primitive != 0u && ge->patch_primitive != 1u &&
-         ge->patch_primitive != 4u))
+         ge->patch_primitive != 2u))
         return false;
 
     uint32_t emitted = 0u;
@@ -1763,7 +1763,7 @@ static bool ge_draw_spline_surface(PSP_GE *ge, uint32_t value)
             }
             uint32_t du = ge->patch_division_u;
             uint32_t dv = ge->patch_division_v;
-            if (ge->patch_primitive == 0u) {
+            if (ge->patch_primitive == 2u) {
                 for (uint32_t y = 0u; y <= dv; y++) {
                     uint32_t tv = ge_patch_parameter(y, dv);
                     for (uint32_t x = 0u; x <= du; x++) {
@@ -1825,7 +1825,7 @@ static bool ge_draw_bezier_surface(PSP_GE *ge, uint32_t value)
         ge->patch_division_u > 64u || ge->patch_division_v > 64u ||
         (uint64_t)points_u * points_v > 4096u ||
         (ge->patch_primitive != 0u && ge->patch_primitive != 1u &&
-         ge->patch_primitive != 4u))
+         ge->patch_primitive != 2u))
         return false;
 
     patches_u = (points_u - 1u) / 3u;
@@ -1846,7 +1846,7 @@ static bool ge_draw_bezier_surface(PSP_GE *ge, uint32_t value)
 
             uint32_t du = ge->patch_division_u;
             uint32_t dv = ge->patch_division_v;
-            if (ge->patch_primitive == 0u) {
+            if (ge->patch_primitive == 2u) {
                 for (uint32_t y = 0u; y <= dv; y++) {
                     uint32_t tv = ge_patch_parameter(y, dv);
                     for (uint32_t x = 0u; x <= du; x++) {
@@ -2166,7 +2166,7 @@ void psp_ge_reset(PSP_GE *ge)
     ge->vertex_type = (2u << 7) | (1u << 23);
     ge->patch_division_u = 1u;
     ge->patch_division_v = 1u;
-    ge->patch_primitive = 4u;
+    ge->patch_primitive = 0u;
     ge->patch_facing = false;
     ge->patch_type_u = 0u;
     ge->patch_type_v = 0u;
@@ -2349,10 +2349,10 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                     return false;
                 break;
             case GE_CMD_PATCHPRIMITIVE:
-                ge->patch_primitive = value & 7u;
+                ge->patch_primitive = value & 3u;
                 if (ge->patch_primitive != 0u &&
                     ge->patch_primitive != 1u &&
-                    ge->patch_primitive != 4u)
+                    ge->patch_primitive != 2u)
                     return false;
                 break;
             case GE_CMD_PATCHFACING:
