@@ -26,6 +26,19 @@ void psp_armv6k_emitter_init(PSP_ARMv6KEmitter *emitter,
     emitter->failed = storage == NULL && capacity != 0;
 }
 
+bool psp_armv6k_emit_function_prologue(PSP_ARMv6KEmitter *emitter)
+{
+    /* Preserve AAPCS callee-saved r4-r6 and save the return address.
+       r0 remains the PSP_CPU* argument used as the generated code base. */
+    return emit_word(emitter, 0xE92D4070u); /* PUSH {r4-r6, lr} */
+}
+
+bool psp_armv6k_emit_function_epilogue(PSP_ARMv6KEmitter *emitter)
+{
+    /* Restore callee-saved registers and return through the saved PC. */
+    return emit_word(emitter, 0xE8BD8070u); /* POP {r4-r6, pc} */
+}
+
 static uint32_t ror32(uint32_t value, unsigned amount)
 {
     amount &= 31u;
