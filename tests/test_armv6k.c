@@ -33,6 +33,26 @@ int main(void)
     assert(code[2] == 0xE0813002u); /* ADD r3, r1, r2 */
     assert(code[3] == 0xE580300Cu); /* STR r3, [r0, #12] */
 
+    /* SLL r3, r2, 4; SRL and SRA share ARM shift encoding. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t sll = (2u << 16) | (3u << 11) | (4u << 6);
+    assert(psp_armv6k_translate_allegrex(&out, sll) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 3);
+    assert(code[1] == 0xE1A03202u); /* MOV r3, r2, LSL #4 */
+
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t srl = (2u << 16) | (3u << 11) | (2u << 6) | 0x02u;
+    assert(psp_armv6k_translate_allegrex(&out, srl) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[1] == 0xE1A03122u); /* MOV r3, r2, LSR #2 */
+
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t sra = (2u << 16) | (3u << 11) | (3u << 6) | 0x03u;
+    assert(psp_armv6k_translate_allegrex(&out, sra) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(code[1] == 0xE1A031C2u); /* MOV r3, r2, ASR #3 */
+
     /* ADDIU r2, r1, -4. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t addiu = (9u << 26) | (1u << 21) | (2u << 16) | 0xFFFCu;
