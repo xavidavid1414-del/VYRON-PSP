@@ -274,9 +274,11 @@ bool psp_interpreter_step(PSP_CPU *cpu, PSP_Memory *memory)
                         enter_exception(
                             cpu, pc, had_pending_branch,
                             EXC_SYS, 0, false);
+                        return true;
                     }
 
-                    return true;
+                    /* A handled syscall completes like a normal instruction. */
+                    break;
                 }
 
                 case 0x0D:
