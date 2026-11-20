@@ -61,6 +61,18 @@ int main(void)
            PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
     assert(out.count == 0);
 
+    /* Reserved shamt bits must be zero for SLLV/SRAV and SRLV. */
+    for (uint32_t fn = 0x04u; fn <= 0x07u; ++fn) {
+        if (fn == 0x05u) continue;
+        uint32_t bad_shift = (1u << 21) | (2u << 16) |
+                             (3u << 11) | (fn == 0x06u ? 2u : 1u) << 6 |
+                             fn;
+        psp_armv6k_emitter_init(&out, code, 16);
+        assert(psp_armv6k_translate_allegrex(&out, bad_shift) ==
+               PSP_ARMV6K_TRANSLATE_UNSUPPORTED);
+        assert(out.count == 0);
+    }
+
     /* Variable shifts mask the guest shift amount to five bits. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t sllv = (1u << 21) | (2u << 16) | (3u << 11) | 0x04u;
