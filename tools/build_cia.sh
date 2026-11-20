@@ -50,8 +50,10 @@ with open(path, "w", encoding="utf-8") as handle:
     handle.write(content)
 PY
   fi
-  make -C build/cia-tools/Project_CTR/makerom deps CC=gcc AR=ar
-  make -C build/cia-tools/Project_CTR/makerom CC=gcc AR=ar
+    export CC=/usr/bin/gcc CXX=/usr/bin/g++ LD=/usr/bin/gcc AR=/usr/bin/ar
+  make -C build/cia-tools/Project_CTR/makerom clean
+  make -C build/cia-tools/Project_CTR/makerom deps
+  make -C build/cia-tools/Project_CTR/makerom
   MAKEROM_BIN="$(find build/cia-tools/Project_CTR/makerom -type f -name makerom -perm -111 -print -quit)"
   if [[ -z "$MAKEROM_BIN" ]]; then
     echo "makerom build did not produce an executable." >&2
