@@ -289,6 +289,26 @@ int main(void)
     assert(code[1] == 0xE383370Du); /* ORR r3, r3, #0x00340000 */
     assert(code[2] == 0xE5803010u); /* STR r3, [r0, #16] */
 
+    /* SPECIAL2 MADD accumulates signed product into HI:LO. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t madd = (0x1Cu << 26) | (1u << 21) |
+                    (2u << 16) | 0x00u;
+    assert(psp_armv6k_translate_allegrex(&out, madd) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 7);
+    assert(code[4] == 0xE0933005u); /* ADDS r3, r3, r5 */
+    assert(code[5] == 0xE0A44006u); /* ADC r4, r4, r6 */
+
+    /* SPECIAL2 MSUB subtracts signed product from HI:LO. */
+    psp_armv6k_emitter_init(&out, code, 16);
+    uint32_t msub = (0x1Cu << 26) | (1u << 21) |
+                    (2u << 16) | 0x04u;
+    assert(psp_armv6k_translate_allegrex(&out, msub) ==
+           PSP_ARMV6K_TRANSLATE_OK);
+    assert(out.count == 7);
+    assert(code[4] == 0xE0533005u); /* SUBS r3, r3, r5 */
+    assert(code[5] == 0xE0C44006u); /* SBC r4, r4, r6 */
+
     /* SPECIAL2 MUL writes the low 32 bits of rs * rt to rd. */
     psp_armv6k_emitter_init(&out, code, 16);
     uint32_t mul = (0x1Cu << 26) | (1u << 21) |
