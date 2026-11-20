@@ -586,7 +586,7 @@ static void ge_draw_line(PSP_GE *ge, const GE_Vertex *a,
         float u = clipped_a.u + (clipped_b.u - clipped_a.u) * t;
         float v = clipped_a.v + (clipped_b.v - clipped_a.v) * t;
         float depth = clipped_a.z + (clipped_b.z - clipped_a.z) * t;
-        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v), depth);
+        ge_put_pixel(ge, x0, y0, ge_shade_fragment(ge, color, u, v, 0.0f), depth);
         if (x0 == x1 && y0 == y1) break;
         int twice = 2 * error;
         if (twice >= dy_i) { error += dy_i; x0 += sx; }
@@ -645,32 +645,37 @@ static uint32_t ge_decode_texture_color(uint32_t format, uint32_t packed)
     return packed;
 }
 
-static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
-                                         uint32_t *color)
+static bool ge_texture_sample_nearest(PSP_GE *ge, unsigned int level,
+                                         int x, int y, uint32_t *color)
 {
+    uint32_t width = ge->texture_level_width[level];
+    uint32_t height = ge->texture_level_height[level];
+    uint32_t buffer_width = ge->texture_level_buffer_width[level];
+    uint32_t texture_address = ge->texture_level_address[level];
+    if (width == 0u || height == 0u || buffer_width < width)
+        return false;
     if (ge->texture_wrap_u == 0u) {
-        x %= (int)ge->texture_width;
-        if (x < 0) x += (int)ge->texture_width;
+        x %= (int)width;
+        if (x < 0) x += (int)width;
     } else {
         if (x < 0) x = 0;
-        if (x >= (int)ge->texture_width) x = (int)ge->texture_width - 1;
+        if (x >= (int)width) x = (int)width - 1;
     }
     if (ge->texture_wrap_v == 0u) {
-        y %= (int)ge->texture_height;
-        if (y < 0) y += (int)ge->texture_height;
+        y %= (int)height;
+        if (y < 0) y += (int)height;
     } else {
         if (y < 0) y = 0;
-        if (y >= (int)ge->texture_height) y = (int)ge->texture_height - 1;
+        if (y >= (int)height) y = (int)height - 1;
     }
 
     if (ge->texture_format == 4u || ge->texture_format == 5u) {
         uint64_t row_bytes = ge->texture_format == 4u ?
-            ((uint64_t)ge->texture_buffer_width + 1u) / 2u :
-            ge->texture_buffer_width;
+            ((uint64_t)buffer_width + 1u) / 2u : buffer_width;
         uint64_t offset = (uint64_t)(uint32_t)y * row_bytes;
         offset += ge->texture_format == 4u ? (uint32_t)x / 2u :
             (uint32_t)x;
-        uint64_t address = (uint64_t)ge->texture_address + offset;
+        uint64_t address = (uint64_t)texture_address + offset;
         if (address > UINT32_MAX ||
             !psp_memory_is_valid(ge->memory, (uint32_t)address, 1u))
             return false;
@@ -686,9 +691,9 @@ static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
     }
 
     uint32_t bytes_per_pixel = ge->texture_format == 3u ? 4u : 2u;
-    uint64_t offset = ((uint64_t)(uint32_t)y *
-        ge->texture_buffer_width + (uint32_t)x) * bytes_per_pixel;
-    uint64_t address = (uint64_t)ge->texture_address + offset;
+    uint64_t offset = ((uint64_t)(uint32_t)y * buffer_width +
+        (uint32_t)x) * bytes_per_pixel;
+    uint64_t address = (uint64_t)texture_address + offset;
     if (address > UINT32_MAX ||
         !psp_memory_is_valid(ge->memory, (uint32_t)address,
                              bytes_per_pixel))
@@ -702,67 +707,100 @@ static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
     return true;
 }
 
-static uint32_t ge_interpolate_texels(uint32_t a, uint32_t b,
-                                      uint32_t c, uint32_t d,
-                                      float tx, float ty)
+static bool ge_texture_sample_level(PSP_GE *ge, unsigned int level,
+                                    float u, float v, bool linear,
+                                    uint32_t *color)
 {
-    uint32_t result = 0;
-    for (unsigned int shift = 0; shift <= 24; shift += 8) {
-        float top = (float)((a >> shift) & 0xFFu) * (1.0f - tx) +
-            (float)((b >> shift) & 0xFFu) * tx;
-        float bottom = (float)((c >> shift) & 0xFFu) * (1.0f - tx) +
-            (float)((d >> shift) & 0xFFu) * tx;
-        float value = top * (1.0f - ty) + bottom * ty;
-        if (value < 0.0f) value = 0.0f;
-        if (value > 255.0f) value = 255.0f;
-        result |= (uint32_t)(value + 0.5f) << shift;
+    uint32_t width = ge->texture_level_width[level];
+    uint32_t height = ge->texture_level_height[level];
+    if (width == 0u || height == 0u ||
+        ge->texture_level_buffer_width[level] < width)
+        return false;
+    float scale_u = (float)width / (float)ge->texture_width;
+    float scale_v = (float)height / (float)ge->texture_height;
+    u *= scale_u;
+    v *= scale_v;
+    if (!linear) {
+        if (ge->texture_wrap_u == 1u) {
+            if (u < 0.0f) u = 0.0f;
+            if (u > (float)(width - 1u)) u = (float)(width - 1u);
+        }
+        if (ge->texture_wrap_v == 1u) {
+            if (v < 0.0f) v = 0.0f;
+            if (v > (float)(height - 1u)) v = (float)(height - 1u);
+        }
+        if (!isfinite(u) || !isfinite(v) ||
+            u < (float)INT32_MIN || u > (float)INT32_MAX ||
+            v < (float)INT32_MIN || v > (float)INT32_MAX)
+            return false;
+        return ge_texture_sample_nearest(ge, level, (int)floorf(u),
+                                         (int)floorf(v), color);
     }
-    return result;
+    float fx = u - 0.5f, fy = v - 0.5f;
+    int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+    float tx = fx - (float)x0, ty = fy - (float)y0;
+    uint32_t c00, c10, c01, c11;
+    if (!ge_texture_sample_nearest(ge, level, x0, y0, &c00) ||
+        !ge_texture_sample_nearest(ge, level, x0 + 1, y0, &c10) ||
+        !ge_texture_sample_nearest(ge, level, x0, y0 + 1, &c01) ||
+        !ge_texture_sample_nearest(ge, level, x0 + 1, y0 + 1, &c11))
+        return false;
+    *color = ge_interpolate_texels(c00, c10, c01, c11, tx, ty);
+    return true;
 }
 
-static bool ge_texture_sample(PSP_GE *ge, float u, float v,
+static bool ge_texture_sample(PSP_GE *ge, float u, float v, float lod,
                               uint32_t *color)
 {
     if (!ge->texture_enabled || color == NULL ||
-        ge->texture_width == 0 || ge->texture_height == 0 ||
-        ge->texture_buffer_width < ge->texture_width ||
+        ge->texture_width == 0u || ge->texture_height == 0u ||
         ge->texture_format > 5u ||
         ((ge->texture_format == 4u || ge->texture_format == 5u) &&
          ge->clut_entries_loaded == 0u))
         return false;
 
-    if (ge->texture_mag_filter == 0u) {
-        if (ge->texture_wrap_u == 0u) {
-            u = fmodf(u, (float)ge->texture_width);
-            if (u < 0.0f) u += (float)ge->texture_width;
-        } else {
-            if (u < 0.0f) u = 0.0f;
-            if (u > (float)(ge->texture_width - 1u))
-                u = (float)(ge->texture_width - 1u);
-        }
-        if (ge->texture_wrap_v == 0u) {
-            v = fmodf(v, (float)ge->texture_height);
-            if (v < 0.0f) v += (float)ge->texture_height;
-        } else {
-            if (v < 0.0f) v = 0.0f;
-            if (v > (float)(ge->texture_height - 1u))
-                v = (float)(ge->texture_height - 1u);
-        }
-        return ge_texture_sample_nearest(ge, (int)floorf(u),
-                                         (int)floorf(v), color);
+    if (!isfinite(lod) || lod < 0.0f) lod = 0.0f;
+    bool minifying = lod > 0.0f;
+    if (!minifying)
+        return ge_texture_sample_level(ge, 0u, u, v,
+                                       ge->texture_mag_filter != 0u, color);
+
+    uint32_t filter = ge->texture_min_filter;
+    if (filter <= 1u)
+        return ge_texture_sample_level(ge, 0u, u, v, filter == 1u, color);
+
+    float max_lod = 0.0f;
+    for (unsigned int i = 1u; i < 8u; i++) {
+        if (ge->texture_level_width[i] == 0u ||
+            ge->texture_level_height[i] == 0u ||
+            ge->texture_level_buffer_width[i] <
+                ge->texture_level_width[i])
+            break;
+        max_lod = (float)i;
+    }
+    if (lod > max_lod) lod = max_lod;
+    bool linear_texel = (filter == 3u || filter == 5u);
+    bool linear_level = (filter == 4u || filter == 5u);
+    if (!linear_level) {
+        unsigned int level = (unsigned int)floorf(lod + 0.5f);
+        if (level > (unsigned int)max_lod) level = (unsigned int)max_lod;
+        return ge_texture_sample_level(ge, level, u, v,
+                                       linear_texel, color);
     }
 
-    float fx = u - 0.5f;
-    float fy = v - 0.5f;
-    int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
-    float tx = fx - (float)x0, ty = fy - (float)y0;
-    uint32_t c00, c10, c01, c11;
-    if (!ge_texture_sample_nearest(ge, x0, y0, &c00) ||
-        !ge_texture_sample_nearest(ge, x0 + 1, y0, &c10) ||
-        !ge_texture_sample_nearest(ge, x0, y0 + 1, &c01) ||
-        !ge_texture_sample_nearest(ge, x0 + 1, y0 + 1, &c11))
+    unsigned int low = (unsigned int)floorf(lod);
+    unsigned int high = low < (unsigned int)max_lod ? low + 1u : low;
+    float blend = lod - (float)low;
+    uint32_t a, b;
+    if (!ge_texture_sample_level(ge, low, u, v, linear_texel, &a))
         return false;
-    *color = ge_interpolate_texels(c00, c10, c01, c11, tx, ty);
+    if (high == low) {
+        *color = a;
+        return true;
+    }
+    if (!ge_texture_sample_level(ge, high, u, v, linear_texel, &b))
+        return false;
+    *color = ge_interpolate_texels(a, b, a, b, blend, 0.0f);
     return true;
 }
 
@@ -821,7 +859,7 @@ static uint32_t ge_shade_fragment(PSP_GE *ge, uint32_t color,
     uint32_t texel;
     if (ge->clear_mode || !ge->texture_enabled)
         return color;
-    if (!ge_texture_sample(ge, u, v, &texel))
+    if (!ge_texture_sample(ge, u, v, lod, &texel))
         return 0;
 
     switch (ge->texture_function) {
@@ -1212,7 +1250,7 @@ static bool ge_draw_primitive(PSP_GE *ge, uint32_t primitive,
                         float v = vertices[0].v +
                             (vertices[1].v - vertices[0].v) * ty;
                         ge_put_pixel(ge, x, y,
-                            ge_shade_fragment(ge, vertices[0].color, u, v),
+                            ge_shade_fragment(ge, vertices[0].color, u, v, 0.0f),
                             vertices[0].z + (vertices[1].z - vertices[0].z) *
                             ((tx + ty) * 0.5f));
                     }
