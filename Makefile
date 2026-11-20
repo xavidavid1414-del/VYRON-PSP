@@ -8,7 +8,7 @@ endif
 TOPDIR ?= $(CURDIR)
 include $(DEVKITARM)/3ds_rules
 
-TARGET := xavrx_psp
+TARGET := vyron_psp
 BUILD := build
 
 SOURCES := source source/audio source/cpu source/memory source/loader source/video source/input
