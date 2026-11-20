@@ -28,7 +28,8 @@ void psp_audio_hle_reset(PSP_Audio_HLE *audio)
 int32_t psp_audio_hle_reserve(PSP_Audio_HLE *audio, int32_t channel,
                                uint32_t sample_count, uint32_t format)
 {
-    if (!audio || sample_count == 0 || sample_count > PSP_AUDIO_MAX_SAMPLES ||
+    if (!audio || sample_count < PSP_AUDIO_MIN_SAMPLES ||
+        sample_count > PSP_AUDIO_MAX_SAMPLES || (sample_count & 63u) != 0u ||
         (format != 0u && format != 0x10u))
         return -1;
 
@@ -65,6 +66,49 @@ int32_t psp_audio_hle_release(PSP_Audio_HLE *audio, int32_t channel)
     return 0;
 }
 
+int32_t psp_audio_hle_set_length(PSP_Audio_HLE *audio, int32_t channel,
+                                  uint32_t sample_count)
+{
+    if (!audio || channel < 0 || (uint32_t)channel >= PSP_AUDIO_CHANNEL_COUNT ||
+        !audio->channels[channel].reserved ||
+        sample_count < PSP_AUDIO_MIN_SAMPLES ||
+        sample_count > PSP_AUDIO_MAX_SAMPLES || (sample_count & 63u) != 0u)
+        return -1;
+    audio->channels[channel].sample_count = sample_count;
+    return 0;
+}
+
+int32_t psp_audio_hle_set_format(PSP_Audio_HLE *audio, int32_t channel,
+                                  uint32_t format)
+{
+    if (!audio || channel < 0 || (uint32_t)channel >= PSP_AUDIO_CHANNEL_COUNT ||
+        !audio->channels[channel].reserved ||
+        (format != 0u && format != 0x10u))
+        return -1;
+    audio->channels[channel].format = format;
+    return 0;
+}
+
+int32_t psp_audio_hle_set_volume(PSP_Audio_HLE *audio, int32_t channel,
+                                  uint32_t left, uint32_t right)
+{
+    if (!audio || channel < 0 || (uint32_t)channel >= PSP_AUDIO_CHANNEL_COUNT ||
+        !audio->channels[channel].reserved ||
+        left > PSP_AUDIO_MAX_VOLUME || right > PSP_AUDIO_MAX_VOLUME)
+        return -1;
+    audio->channels[channel].left_volume = left;
+    audio->channels[channel].right_volume = right;
+    return 0;
+}
+
+int32_t psp_audio_hle_get_rest(PSP_Audio_HLE *audio, int32_t channel)
+{
+    if (!audio || channel < 0 || (uint32_t)channel >= PSP_AUDIO_CHANNEL_COUNT ||
+        !audio->channels[channel].reserved)
+        return -1;
+    return (int32_t)audio->channels[channel].queued_frames;
+}
+
 int32_t psp_audio_hle_output(PSP_Audio_HLE *audio, PSP_Memory *memory,
                               int32_t channel, uint32_t left_volume,
                               uint32_t right_volume, uint32_t address)
@@ -83,9 +127,11 @@ int32_t psp_audio_hle_output(PSP_Audio_HLE *audio, PSP_Memory *memory,
 
     if (left_volume > PSP_AUDIO_MAX_VOLUME) left_volume = PSP_AUDIO_MAX_VOLUME;
     if (right_volume > PSP_AUDIO_MAX_VOLUME) right_volume = PSP_AUDIO_MAX_VOLUME;
+    left_volume = (left_volume * entry->left_volume) / PSP_AUDIO_MAX_VOLUME;
+    right_volume = (right_volume * entry->right_volume) / PSP_AUDIO_MAX_VOLUME;
 
     for (uint32_t i = 0; i < frames; ++i) {
-        uint32_t offset = address + i * 2u;
+        uint32_t offset = address + i * bytes_per_frame;
         int16_t sample_left = (int16_t)((uint16_t)psp_memory_read8(memory, offset) |
                               ((uint16_t)psp_memory_read8(memory, offset + 1u) << 8));
         int16_t sample_right = sample_left;
@@ -132,10 +178,8 @@ uint32_t psp_audio_hle_read(PSP_Audio_HLE *audio, int16_t *stereo,
             right += entry->samples[slot * 2u + 1u];
             any = true;
 
-            entry->resample_phase += 44100u;
-            while (entry->resample_phase >= 44100u &&
-                   entry->queued_frames > 0) {
-                entry->resample_phase -= 44100u;
+            entry->resample_phase = 0;
+            while (entry->queued_frames > 0) {
                 entry->read_frame = (entry->read_frame + 1u) % PSP_AUDIO_MIX_BUFFER_FRAMES;
                 entry->queued_frames--;
             }
@@ -176,16 +220,55 @@ static bool handle_release(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
 static bool handle_output(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
 {
     if (!cpu || !memory || !active_audio || code != PSP_SYSCALL_AUDIO_OUTPUT_BLOCKING) return false;
-    cpu->gpr[2] = (uint32_t)psp_audio_hle_output(active_audio, memory,
+    int32_t result = psp_audio_hle_output(active_audio, memory,
         (int32_t)cpu->gpr[4], cpu->gpr[5], cpu->gpr[5], cpu->gpr[6]);
+    cpu->gpr[2] = result < 0 ? (uint32_t)result :
+        active_audio->channels[cpu->gpr[4]].sample_count;
     return true;
 }
 
 static bool handle_panned_output(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
 {
     if (!cpu || !memory || !active_audio || code != PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING) return false;
-    cpu->gpr[2] = (uint32_t)psp_audio_hle_output(active_audio, memory,
+    int32_t result = psp_audio_hle_output(active_audio, memory,
         (int32_t)cpu->gpr[4], cpu->gpr[5], cpu->gpr[6], cpu->gpr[7]);
+    cpu->gpr[2] = result < 0 ? (uint32_t)result :
+        active_audio->channels[cpu->gpr[4]].sample_count;
+    return true;
+}
+
+static bool handle_get_rest(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
+{
+    (void)memory;
+    if (!cpu || !active_audio || code != PSP_SYSCALL_AUDIO_GET_REST_LENGTH) return false;
+    cpu->gpr[2] = (uint32_t)psp_audio_hle_get_rest(active_audio, (int32_t)cpu->gpr[4]);
+    return true;
+}
+
+static bool handle_set_length(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
+{
+    (void)memory;
+    if (!cpu || !active_audio || code != PSP_SYSCALL_AUDIO_SET_DATA_LENGTH) return false;
+    cpu->gpr[2] = (uint32_t)psp_audio_hle_set_length(active_audio,
+        (int32_t)cpu->gpr[4], cpu->gpr[5]);
+    return true;
+}
+
+static bool handle_set_format(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
+{
+    (void)memory;
+    if (!cpu || !active_audio || code != PSP_SYSCALL_AUDIO_CHANGE_CONFIG) return false;
+    cpu->gpr[2] = (uint32_t)psp_audio_hle_set_format(active_audio,
+        (int32_t)cpu->gpr[4], cpu->gpr[5]);
+    return true;
+}
+
+static bool handle_set_volume(PSP_CPU *cpu, PSP_Memory *memory, uint32_t code)
+{
+    (void)memory;
+    if (!cpu || !active_audio || code != PSP_SYSCALL_AUDIO_CHANGE_VOLUME) return false;
+    cpu->gpr[2] = (uint32_t)psp_audio_hle_set_volume(active_audio,
+        (int32_t)cpu->gpr[4], cpu->gpr[5], cpu->gpr[6]);
     return true;
 }
 
@@ -197,10 +280,18 @@ bool psp_audio_hle_register(PSP_Audio_HLE *audio)
         !psp_syscall_register(PSP_SYSCALL_AUDIO_CH_RELEASE, handle_release) ||
         !psp_syscall_register(PSP_SYSCALL_AUDIO_OUTPUT_BLOCKING, handle_output) ||
         !psp_syscall_register(PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING, handle_panned_output) ||
+        !psp_syscall_register(PSP_SYSCALL_AUDIO_GET_REST_LENGTH, handle_get_rest) ||
+        !psp_syscall_register(PSP_SYSCALL_AUDIO_SET_DATA_LENGTH, handle_set_length) ||
+        !psp_syscall_register(PSP_SYSCALL_AUDIO_CHANGE_CONFIG, handle_set_format) ||
+        !psp_syscall_register(PSP_SYSCALL_AUDIO_CHANGE_VOLUME, handle_set_volume) ||
         !psp_nid_register(PSP_NID_AUDIO_CH_RESERVE, PSP_SYSCALL_AUDIO_CH_RESERVE) ||
         !psp_nid_register(PSP_NID_AUDIO_CH_RELEASE, PSP_SYSCALL_AUDIO_CH_RELEASE) ||
         !psp_nid_register(PSP_NID_AUDIO_OUTPUT_BLOCKING, PSP_SYSCALL_AUDIO_OUTPUT_BLOCKING) ||
-        !psp_nid_register(PSP_NID_AUDIO_OUTPUT_PANNED_BLOCKING, PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING)) {
+        !psp_nid_register(PSP_NID_AUDIO_OUTPUT_PANNED_BLOCKING, PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING) ||
+        !psp_nid_register(PSP_NID_AUDIO_GET_REST_LENGTH, PSP_SYSCALL_AUDIO_GET_REST_LENGTH) ||
+        !psp_nid_register(PSP_NID_AUDIO_SET_DATA_LENGTH, PSP_SYSCALL_AUDIO_SET_DATA_LENGTH) ||
+        !psp_nid_register(PSP_NID_AUDIO_CHANGE_CONFIG, PSP_SYSCALL_AUDIO_CHANGE_CONFIG) ||
+        !psp_nid_register(PSP_NID_AUDIO_CHANGE_VOLUME, PSP_SYSCALL_AUDIO_CHANGE_VOLUME)) {
         psp_audio_hle_unregister();
         return false;
     }
@@ -213,9 +304,17 @@ void psp_audio_hle_unregister(void)
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_CH_RELEASE);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT_BLOCKING);
     psp_syscall_unregister(PSP_SYSCALL_AUDIO_OUTPUT_PANNED_BLOCKING);
+    psp_syscall_unregister(PSP_SYSCALL_AUDIO_GET_REST_LENGTH);
+    psp_syscall_unregister(PSP_SYSCALL_AUDIO_SET_DATA_LENGTH);
+    psp_syscall_unregister(PSP_SYSCALL_AUDIO_CHANGE_CONFIG);
+    psp_syscall_unregister(PSP_SYSCALL_AUDIO_CHANGE_VOLUME);
     psp_nid_unregister(PSP_NID_AUDIO_CH_RESERVE);
     psp_nid_unregister(PSP_NID_AUDIO_CH_RELEASE);
     psp_nid_unregister(PSP_NID_AUDIO_OUTPUT_BLOCKING);
     psp_nid_unregister(PSP_NID_AUDIO_OUTPUT_PANNED_BLOCKING);
+    psp_nid_unregister(PSP_NID_AUDIO_GET_REST_LENGTH);
+    psp_nid_unregister(PSP_NID_AUDIO_SET_DATA_LENGTH);
+    psp_nid_unregister(PSP_NID_AUDIO_CHANGE_CONFIG);
+    psp_nid_unregister(PSP_NID_AUDIO_CHANGE_VOLUME);
     active_audio = NULL;
 }
