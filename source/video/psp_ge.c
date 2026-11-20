@@ -44,6 +44,7 @@
 #define GE_CMD_TEXBUFWIDTH0 0xA8u
 #define GE_CMD_TEXSIZE0 0xB8u
 #define GE_CMD_TEXFORMAT 0xC3u
+#define GE_CMD_TEXFILTER 0xC6u
 #define GE_CMD_TEXFUNC 0xC9u
 #define GE_CMD_TEXENV 0xCAu
 #define GE_CMD_TEXWRAP 0xC7u
@@ -423,37 +424,27 @@ static uint32_t ge_modulate_color(uint32_t a, uint32_t b)
     return result;
 }
 
-static bool ge_texture_sample(PSP_GE *ge, float u, float v,
-                              uint32_t *color)
+static bool ge_texture_sample_nearest(PSP_GE *ge, int x, int y,
+                                         uint32_t *color)
 {
-    if (!ge->texture_enabled || color == NULL ||
-        ge->texture_width == 0 || ge->texture_height == 0 ||
-        ge->texture_buffer_width < ge->texture_width ||
-        ge->texture_format > 3u)
-        return false;
-
     if (ge->texture_wrap_u == 0u) {
-        u = fmodf(u, (float)ge->texture_width);
-        if (u < 0.0f) u += (float)ge->texture_width;
+        x %= (int)ge->texture_width;
+        if (x < 0) x += (int)ge->texture_width;
     } else {
-        if (u < 0.0f) u = 0.0f;
-        if (u > (float)(ge->texture_width - 1u))
-            u = (float)(ge->texture_width - 1u);
+        if (x < 0) x = 0;
+        if (x >= (int)ge->texture_width) x = (int)ge->texture_width - 1;
     }
     if (ge->texture_wrap_v == 0u) {
-        v = fmodf(v, (float)ge->texture_height);
-        if (v < 0.0f) v += (float)ge->texture_height;
+        y %= (int)ge->texture_height;
+        if (y < 0) y += (int)ge->texture_height;
     } else {
-        if (v < 0.0f) v = 0.0f;
-        if (v > (float)(ge->texture_height - 1u))
-            v = (float)(ge->texture_height - 1u);
+        if (y < 0) y = 0;
+        if (y >= (int)ge->texture_height) y = (int)ge->texture_height - 1;
     }
 
-    uint32_t x = (uint32_t)floorf(u);
-    uint32_t y = (uint32_t)floorf(v);
     uint32_t bytes_per_pixel = ge->texture_format == 3u ? 4u : 2u;
-    uint64_t offset = ((uint64_t)y * ge->texture_buffer_width + x) *
-        bytes_per_pixel;
+    uint64_t offset = ((uint64_t)(uint32_t)y *
+        ge->texture_buffer_width + (uint32_t)x) * bytes_per_pixel;
     uint64_t address = (uint64_t)ge->texture_address + offset;
     if (address > UINT32_MAX ||
         !psp_memory_is_valid(ge->memory, (uint32_t)address,
@@ -483,6 +474,68 @@ static bool ge_texture_sample(PSP_GE *ge, float u, float v,
             (packed & 15u) * 17u,
             ((packed >> 12) & 15u) * 17u);
     }
+    return true;
+}
+
+static uint32_t ge_interpolate_texels(uint32_t a, uint32_t b,
+                                      uint32_t c, uint32_t d,
+                                      float tx, float ty)
+{
+    uint32_t result = 0;
+    for (unsigned int shift = 0; shift <= 24; shift += 8) {
+        float top = (float)((a >> shift) & 0xFFu) * (1.0f - tx) +
+            (float)((b >> shift) & 0xFFu) * tx;
+        float bottom = (float)((c >> shift) & 0xFFu) * (1.0f - tx) +
+            (float)((d >> shift) & 0xFFu) * tx;
+        float value = top * (1.0f - ty) + bottom * ty;
+        if (value < 0.0f) value = 0.0f;
+        if (value > 255.0f) value = 255.0f;
+        result |= (uint32_t)(value + 0.5f) << shift;
+    }
+    return result;
+}
+
+static bool ge_texture_sample(PSP_GE *ge, float u, float v,
+                              uint32_t *color)
+{
+    if (!ge->texture_enabled || color == NULL ||
+        ge->texture_width == 0 || ge->texture_height == 0 ||
+        ge->texture_buffer_width < ge->texture_width ||
+        ge->texture_format > 3u)
+        return false;
+
+    if (ge->texture_mag_filter == 0u) {
+        if (ge->texture_wrap_u == 0u) {
+            u = fmodf(u, (float)ge->texture_width);
+            if (u < 0.0f) u += (float)ge->texture_width;
+        } else {
+            if (u < 0.0f) u = 0.0f;
+            if (u > (float)(ge->texture_width - 1u))
+                u = (float)(ge->texture_width - 1u);
+        }
+        if (ge->texture_wrap_v == 0u) {
+            v = fmodf(v, (float)ge->texture_height);
+            if (v < 0.0f) v += (float)ge->texture_height;
+        } else {
+            if (v < 0.0f) v = 0.0f;
+            if (v > (float)(ge->texture_height - 1u))
+                v = (float)(ge->texture_height - 1u);
+        }
+        return ge_texture_sample_nearest(ge, (int)floorf(u),
+                                         (int)floorf(v), color);
+    }
+
+    float fx = u - 0.5f;
+    float fy = v - 0.5f;
+    int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+    float tx = fx - (float)x0, ty = fy - (float)y0;
+    uint32_t c00, c10, c01, c11;
+    if (!ge_texture_sample_nearest(ge, x0, y0, &c00) ||
+        !ge_texture_sample_nearest(ge, x0 + 1, y0, &c10) ||
+        !ge_texture_sample_nearest(ge, x0, y0 + 1, &c01) ||
+        !ge_texture_sample_nearest(ge, x0 + 1, y0 + 1, &c11))
+        return false;
+    *color = ge_interpolate_texels(c00, c10, c01, c11, tx, ty);
     return true;
 }
 
@@ -773,6 +826,8 @@ void psp_ge_reset(PSP_GE *ge)
     ge->texture_color_component = true;
     ge->texture_wrap_u = 1;
     ge->texture_wrap_v = 1;
+    ge->texture_min_filter = 0;
+    ge->texture_mag_filter = 0;
     ge->texture_enabled = false;
     ge->alpha_blend_enabled = false;
     ge->alpha_test_enabled = false;
@@ -974,6 +1029,13 @@ bool psp_ge_execute_list(PSP_GE *ge, uint32_t list_address,
                     (value >> 16) & 0xFFu,
                     (value >> 8) & 0xFFu,
                     value & 0xFFu, 255u);
+                break;
+            case GE_CMD_TEXFILTER:
+                ge->texture_min_filter = value & 0xFu;
+                ge->texture_mag_filter = (value >> 8) & 0xFu;
+                if (ge->texture_min_filter > 1u ||
+                    ge->texture_mag_filter > 1u)
+                    return false;
                 break;
             case GE_CMD_TEXWRAP:
                 ge->texture_wrap_u = value & 3u;
