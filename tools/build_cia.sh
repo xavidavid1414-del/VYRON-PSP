@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [[ ! -f vyron_psp.elf || ! -f vyron_psp.3dsx ]]; then
+if [[ ! -f xavrx_psp.elf || ! -f xavrx_psp.3dsx ]]; then
   echo "Run 'make' before packaging the CIA." >&2
   exit 1
 fi
@@ -67,24 +67,24 @@ command -v bannertool >/dev/null
 command -v makerom >/dev/null
 
 bannertool makesmdh \
-  -s "VYRON PSP" \
+  -s "XAVRX PSP" \
   -l "Experimental PSP emulator for Nintendo 3DS" \
-  -p "VYRON PSP Project" \
-  -i assets/vyron_icon.png \
-  -o vyron_psp.icn
+  -p "XAVRX PSP Project" \
+  -i assets/xavrx_icon.png \
+  -o xavrx_psp.icn
 
 bannertool makebanner \
-  -i assets/vyron_banner.png \
+  -i assets/xavrx_banner.png \
   -a assets/silence.wav \
-  -o vyron_psp.bnr
+  -o xavrx_psp.bnr
 
-makerom -f cia -o vyron_psp.cia \
+makerom -f cia -o xavrx_psp.cia \
   -DAPP_ENCRYPTED=false \
-  -rsf config/vyron_psp.rsf \
+  -rsf config/xavrx_psp.rsf \
   -target t -exefslogo -desc app:4 \
-  -elf vyron_psp.elf \
-  -icon vyron_psp.icn \
-  -banner vyron_psp.bnr
+  -elf xavrx_psp.elf \
+  -icon xavrx_psp.icn \
+  -banner xavrx_psp.bnr
 
-test -s vyron_psp.cia
-echo "CIA package created: vyron_psp.cia"
+test -s xavrx_psp.cia
+echo "CIA package created: xavrx_psp.cia"
