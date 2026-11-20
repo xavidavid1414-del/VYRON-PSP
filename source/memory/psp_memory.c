@@ -214,6 +214,7 @@ void psp_memory_write32(
     bytes[1] = (uint8_t)(value >> 8);
     bytes[2] = (uint8_t)(value >> 16);
     bytes[3] = (uint8_t)(value >> 24);
-    if (bytes >= memory->ram && bytes < memory->ram + memory->size)
+    uint32_t vram_offset;
+    if (!translate_vram_address(memory, address, &vram_offset))
         mark_ram_write(memory, offset, 4u);
 }
