@@ -127,6 +127,8 @@ static bool emit_shift_imm(PSP_ARMv6KEmitter *emitter, uint8_t rd,
 {
     if (rd > 15u || rm > 15u || shift_type > 3u || amount > 31u)
         return false;
+    /* MIPS shift amount zero is a no-op; ARM LSR/ASR #0 means #32. */
+    if (amount == 0u) shift_type = 0u;
     uint32_t word = ARM_COND_AL | (13u << 21) |
                     ((uint32_t)rd << 12) |
                     ((uint32_t)amount << 7) |
