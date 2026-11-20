@@ -123,11 +123,11 @@ int main(void)
     command(&memory, list + 1404u, 0xA0, 0x2800u);
     command(&memory, list + 1408u, 0xA8, 0x00080004u);
     command(&memory, list + 1412u, 0xB8, 0x00000202u);
-    command(&memory, list + 1416u, 0xA9, 0x2840u);
-    command(&memory, list + 1420u, 0xB0, 0x00080002u);
+    command(&memory, list + 1416u, 0xA1, 0x2840u);
+    command(&memory, list + 1420u, 0xA9, 0x00080002u);
     command(&memory, list + 1424u, 0xB9, 0x00000101u);
-    command(&memory, list + 1428u, 0xAA, 0x2850u);
-    command(&memory, list + 1432u, 0xB1, 0x00080001u);
+    command(&memory, list + 1428u, 0xA2, 0x2850u);
+    command(&memory, list + 1432u, 0xAA, 0x00080001u);
     command(&memory, list + 1436u, 0xBA, 0u);
     command(&memory, list + 1440u, 0xC3, 3u);
     command(&memory, list + 1444u, 0xC6, 2u);
